@@ -1,18 +1,24 @@
 # Fluxos de integração — ms-sdui-composer
 
-**ms-sdui-composer** = o serviço que, a cada request, compõe a árvore de UI da surface a partir de uma spec versionada, do contexto do cliente e das capabilities, devolvendo um envelope pronto e seguro para o app.
+**ms-sdui-composer** = o serviço que, a cada request, compõe a árvore de UI da surface a partir de uma spec versionada,
+do contexto do cliente e das capabilities, devolvendo um envelope pronto e seguro para o app.
 
 > **Status:** proposta de arquitetura para alinhamento técnico.
 >
-> **Escopo:** `ms-sdui-composer` atendendo iOS e Android por meio de um **serviço consumidor/BFF Mobile** (com a Home como primeira surface). O `ms-sdui-composer` não é chamado diretamente pelo app neste desenho e não consulta domínios de negócio.
+> **Escopo:** `ms-sdui-composer` atendendo iOS e Android por meio de um **serviço consumidor/BFF Mobile** (com a Home
+> como primeira surface). O `ms-sdui-composer` não é chamado diretamente pelo app neste desenho e não consulta domínios de
+> negócio.
 
 ---
 
 ## 1. Visão geral
 
-O Mobile chama o **Serviço Consumidor**, que autentica/orquestra a request e chama o **ms-sdui-composer**. O ms-sdui-composer compõe somente a estrutura e o conteúdo de apresentação permitidos no contrato; o Serviço Consumidor devolve o envelope ao Mobile.
+O Mobile chama o **Serviço Consumidor**, que autentica/orquestra a request e chama o **ms-sdui-composer**. O
+ms-sdui-composer compõe somente a estrutura e o conteúdo de apresentação permitidos no contrato; o Serviço Consumidor
+devolve o envelope ao Mobile.
 
-O ms-sdui-composer é **stateless**. MongoDB é a fonte da verdade de catálogo, skeleton, specs, pointers, revisões, diffs e auditoria. Redis é cache de spec, árvore, projeções, singleflight e última árvore boa.
+O ms-sdui-composer é **stateless**. MongoDB é a fonte da verdade de catálogo, skeleton, specs, pointers, revisões, diffs
+e auditoria. Redis é cache de spec, árvore, projeções, singleflight e última árvore boa.
 
 ```mermaid
 flowchart LR
@@ -22,7 +28,6 @@ flowchart LR
     SDUI[ms-sdui-composer]
     REDIS[(Redis - mesma AZ)]
     MONGO[(MongoDB 8.3+)]
-
     IOS -->|REST JSON + contexto do cliente| BFF
     AND -->|REST JSON + contexto do cliente| BFF
     BFF -->|GET /v1/surfaces/home + headers negociados| SDUI
@@ -35,19 +40,20 @@ flowchart LR
 
 ### Responsabilidades
 
-| Camada | Responsabilidade | Não faz |
-|---|---|---|
-| Mobile iOS/Android | Envia identidade/capabilities, mantém cache local, renderiza sections conhecidas e despacha actions | Escolher spec, definir composição ou interpretar dados de domínio para a Home SDUI |
-| Serviço Consumidor / BFF Mobile | Autentica, propaga contexto de negociação, chama o ms-sdui-composer e devolve a resposta ao app | Alterar, montar ou injetar sections no payload do SDUI sem contrato explícito |
-| ms-sdui-composer | Negocia, seleciona, filtra, hidrata projeções de apresentação, envelopa, faz fallback e controla cache | Consultar contrato, cliente, apólice, sinistro ou outro domínio de negócio |
-| MongoDB | Fonte da verdade de specs, catálogo, skeleton, pointers, revisão, diff, publish e auditoria | Servir árvore hidratada por usuário como cache |
-| Redis | Cache e proteção de P99 | Guardar PII, dados regulados ou mídia binária |
+| Camada                          | Responsabilidade                                                                                       | Não faz                                                                            |
+|---------------------------------|--------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------|
+| Mobile iOS/Android              | Envia identidade/capabilities, mantém cache local, renderiza sections conhecidas e despacha actions    | Escolher spec, definir composição ou interpretar dados de domínio para a Home SDUI |
+| Serviço Consumidor / BFF Mobile | Autentica, propaga contexto de negociação, chama o ms-sdui-composer e devolve a resposta ao app        | Alterar, montar ou injetar sections no payload do SDUI sem contrato explícito      |
+| ms-sdui-composer                | Negocia, seleciona, filtra, hidrata projeções de apresentação, envelopa, faz fallback e controla cache | Consultar contrato, cliente, apólice, sinistro ou outro domínio de negócio         |
+| MongoDB                         | Fonte da verdade de specs, catálogo, skeleton, pointers, revisão, diff, publish e auditoria            | Servir árvore hidratada por usuário como cache                                     |
+| Redis                           | Cache e proteção de P99                                                                                | Guardar PII, dados regulados ou mídia binária                                      |
 
 ---
 
 ## 2. Fluxo de request
 
-O Serviço Consumidor deve propagar os headers de negociação sem criar nomes com prefixo `X-`. O contrato HTTP usa `API-Version` para a API do MS e `UI-Schema-Version` como eixo independente do contrato de UI.
+O Serviço Consumidor deve propagar os headers de negociação sem criar nomes com prefixo `X-`. O contrato HTTP usa
+`API-Version` para a API do MS e `UI-Schema-Version` como eixo independente do contrato de UI.
 
 ```mermaid
 sequenceDiagram
@@ -57,81 +63,83 @@ sequenceDiagram
     participant S as ms-sdui-composer
     participant R as Redis
     participant D as MongoDB
-
-    M->>C: GET Home + contexto do app
-    Note over M,C: platform, app version, build, SO,<br/>schema, locale, capabilities
-    C->>S: GET /v1/surfaces/home
-    Note over C,S: API-Version, UI-Schema-Version,<br/>Client-Platform, Client-Version,<br/>Client-Build, Accept-Language,<br/>OS-Version, Component-Capabilities
-
-    S->>S: 1. Negotiate
-    S->>R: Buscar árvore por treeKey
+    M ->> C: GET Home + contexto do app
+    Note over M, C: platform, app version, build, SO,<br/>schema, locale, capabilities
+    C ->> S: GET /v1/surfaces/home
+    Note over C, S: API-Version, UI-Schema-Version,<br/>Client-Platform, Client-Version,<br/>Client-Build, Accept-Language,<br/>OS-Version, Component-Capabilities
+    S ->> S: 1. Negotiate
+    S ->> R: Buscar árvore por treeKey
 
     alt Cache hit
-        R-->>S: Árvore cacheada
-        S->>S: 6. Envelope + ETag
+        R -->> S: Árvore cacheada
+        S ->> S: 6. Envelope + ETag
     else Cache miss
-        S->>S: 2. Select
-        S->>R: Buscar spec cacheada
+        S ->> S: 2. Select
+        S ->> R: Buscar spec cacheada
         alt Spec cache miss
-            S->>D: Buscar pointer + candidatas PUBLISHED
-            D-->>S: Pointer e specs
-            S->>R: Cache write-through da spec
+            S ->> D: Buscar pointer + candidatas PUBLISHED
+            D -->> S: Pointer e specs
+            S ->> R: Cache write-through da spec
         else Spec cache hit
-            R-->>S: Spec materializada
+            R -->> S: Spec materializada
         end
-        S->>S: 3. Resolve spec monoplataforma
-        S->>S: 4. Filter por capabilities efetivas
-        S->>S: 5. Hydrate projeções permitidas
-        S->>R: Gravar árvore e lastgood quando 200
-        S->>S: 6. Envelope + ETag
+        S ->> S: 3. Resolve spec monoplataforma
+        S ->> S: 4. Filter por capabilities efetivas
+        S ->> S: 5. Hydrate projeções permitidas
+        S ->> R: Gravar árvore e lastgood quando 200
+        S ->> S: 6. Envelope + ETag
     end
 
-    S-->>C: 200 JSON ou 304
-    C-->>M: 200 JSON ou 304
-    M->>M: Registry + renderer nativo + dispatcher de actions
+    S -->> C: 200 JSON ou 304
+    C -->> M: 200 JSON ou 304
+    M ->> M: Registry + renderer nativo + dispatcher de actions
 ```
 
 ### Headers propagados pelo Serviço Consumidor
 
-| Header | Obrigatório | Uso no SDUI |
-|---|---:|---|
-| `API-Version` | Sim | Versão HTTP do MS; no MVP é `1` |
-| `UI-Schema-Version` | Sim | Versão do envelope/contrato UI |
-| `Client-Platform` | Sim | `ios` ou `android`; escolhe a família de spec/pointer |
-| `Client-Version` | Sim | Seleção por faixa semver da plataforma |
-| `Client-Build` | Sim | Desempate e elegibilidade de canary |
-| `Accept-Language` | Sim | Locale da copy já resolvida |
-| `OS-Version` | Recomendado | Targeting fino por SO |
+| Header                   | Obrigatório | Uso no SDUI                                               |
+|--------------------------|------------:|-----------------------------------------------------------|
+| `API-Version`            |         Sim | Versão HTTP do MS; no MVP é `1`                           |
+| `UI-Schema-Version`      |         Sim | Versão do envelope/contrato UI                            |
+| `Client-Platform`        |         Sim | `ios` ou `android`; escolhe a família de spec/pointer     |
+| `Client-Version`         |         Sim | Seleção por faixa semver da plataforma                    |
+| `Client-Build`           |         Sim | Desempate e elegibilidade de canary                       |
+| `Accept-Language`        |         Sim | Locale da copy já resolvida                               |
+| `OS-Version`             | Recomendado | Targeting fino por SO                                     |
 | `Component-Capabilities` | Recomendado | Delta de capabilities; não substitui a matriz do servidor |
-| `If-None-Match` | Opcional | Revalidação da representação e retorno 304 |
+| `If-None-Match`          |    Opcional | Revalidação da representação e retorno 304                |
 
-> O Serviço Consumidor não deve alterar os valores de platform, versão, build, schema ou capabilities recebidos do Mobile. Se precisar validar autenticidade desses dados, essa validação pertence à sua borda de segurança antes da chamada ao SDUI.
+> O Serviço Consumidor não deve alterar os valores de platform, versão, build, schema ou capabilities recebidos do
+> Mobile. Se precisar validar autenticidade desses dados, essa validação pertence à sua borda de segurança antes da
+> chamada ao SDUI.
 
 ---
 
 ## 3. Montagem da Home
 
-A composição no MS segue sempre esta sequência. O composer não monta a tela a partir de dados de domínio no request quente; ele seleciona uma árvore previamente validada, remove sections não compatíveis e hidrata apenas projeções permitidas.
+A composição no MS segue sempre esta sequência. O composer não monta a tela a partir de dados de domínio no request
+quente; ele seleciona uma árvore previamente validada, remove sections não compatíveis e hidrata apenas projeções
+permitidas.
 
 ```mermaid
 flowchart TD
-    A[Request do Serviço Consumidor] --> B[Negotiate]
-    B --> B1[Validar headers e normalizar contexto]
-    B1 --> C[Select]
-    C --> C1[Ler pointer: surface + platform + channel]
-    C1 --> C2[Buscar specs PUBLISHED da mesma plataforma]
-    C2 --> C3[Filtrar schema, app version, OS e capabilities]
-    C3 --> C4[Ordenar priority DESC + publishedAt DESC]
-    C4 --> D[Resolve]
-    D --> D1[Carregar spec monoplataforma selecionada]
-    D1 --> E[Filter]
-    E --> E1[Omitir type@version não suportado]
-    E1 --> E2[Registrar omitted com reason fechado]
-    E2 --> F[Hydrate]
-    F --> F1[Projeções de apresentação com timeout por section]
-    F1 --> G[Envelope]
-    G --> G1[Envelope + skeleton + sections + analytics]
-    G1 --> H[Resposta 200 ou 304]
+   A[Request do Serviço Consumidor] --> B[Negotiate]
+   B --> B1[Validar headers e normalizar contexto]
+   B1 --> C[Select]
+   C --> C1[Ler pointer: surface + platform + channel]
+   C1 --> C2[Buscar specs PUBLISHED da mesma plataforma]
+   C2 --> C3[Filtrar schema, app version, OS e capabilities]
+   C3 --> C4[Ordenar priority DESC + publishedAt DESC]
+   C4 --> D[Resolve]
+   D --> D1[Carregar spec monoplataforma selecionada]
+   D1 --> E[Filter]
+   E --> E1["Omitir type@version não suportado"]
+   E1 --> E2[Registrar omitted com reason fechado]
+   E2 --> F[Hydrate]
+   F --> F1[Projeções de apresentação com timeout por section]
+   F1 --> G[Envelope]
+   G --> G1[Envelope + skeleton + sections + analytics]
+   G1 --> H[Resposta 200 ou 304]
 ```
 
 ### Regras de sections
@@ -148,7 +156,9 @@ coverage_card@1
 decision_card@1
 ```
 
-O skeleton ordena os slots: `header`, `shortcuts`, `accounts`, `cards`, `offers`, `coverage` e `foryou`. Cada slot define `allowedTypes` e máximo de instâncias. Uma placement inválida é bloqueada no publish; uma section não suportada pelo cliente é omitida no compose.
+O skeleton ordena os slots: `header`, `shortcuts`, `accounts`, `cards`, `offers`, `coverage` e `foryou`. Cada slot
+define `allowedTypes` e máximo de instâncias. Uma placement inválida é bloqueada no publish; uma section não suportada
+pelo cliente é omitida no compose.
 
 ```mermaid
 flowchart LR
@@ -159,7 +169,6 @@ flowchart LR
     SKEL --> OF[offers<br/>credit_offer]
     SKEL --> CO[coverage<br/>coverage_card]
     SKEL --> FY[foryou<br/>decision_card]
-
     CAP[Capabilities efetivas do cliente] --> FILTER[Filter]
     H --> FILTER
     SH --> FILTER
@@ -176,15 +185,18 @@ flowchart LR
 Uma section pode não aparecer na Home por dois motivos distintos:
 
 1. **A spec não a posiciona:** não existe placement para aquele slot/type na revisão selecionada.
-2. **O cliente não sabe renderizá-la:** `type@version` não pertence às capabilities efetivas; o MS a omite e preenche `envelope.omitted`.
+2. **O cliente não sabe renderizá-la:** `type@version` não pertence às capabilities efetivas; o MS a omite e preenche
+   `envelope.omitted`.
 
-Não é responsabilidade do Mobile escolher sections. O Mobile recebe o que é compatível com seu binário e renderiza apenas renderers compilados no app.
+Não é responsabilidade do Mobile escolher sections. O Mobile recebe o que é compatível com seu binário e renderiza
+apenas renderers compilados no app.
 
 ---
 
 ## 4. Versionamento e compatibilidade
 
-Há três eixos independentes. Eles não devem ser reduzidos a um único inteiro, nem ligados por uma matriz combinatória de flags.
+Há três eixos independentes. Eles não devem ser reduzidos a um único inteiro, nem ligados por uma matriz combinatória de
+flags.
 
 ```mermaid
 flowchart TB
@@ -192,7 +204,6 @@ flowchart TB
     COMPONENT[Component type + typeVersion<br/>Renderer conhecido]
     APP[Client-Version + OS-Version + Build<br/>Faixa do app]
     FLAG[Feature flag<br/>Existência de surface/experimento]
-
     SCHEMA --> SELECT[Seleção e compatibilidade]
     COMPONENT --> SELECT
     APP --> SELECT
@@ -200,14 +211,15 @@ flowchart TB
     POINTER --> SELECT
 ```
 
-| Eixo | Exemplo | Regra |
-|---|---|---|
-| Schema | `UI-Schema-Version: 3` | Muda quando o envelope muda de forma incompatível |
-| Component | `account_card@1` | Muda quando o renderer exige prop incompatível nova |
-| App/OS | App `8.14.2`, Android `35` | Seleciona spec compatível por faixa da própria plataforma |
-| Channel | `stable`, `canary`, `internal` | Seleciona pointer; não é feature flag nem versão de schema |
+| Eixo      | Exemplo                        | Regra                                                      |
+|-----------|--------------------------------|------------------------------------------------------------|
+| Schema    | `UI-Schema-Version: 3`         | Muda quando o envelope muda de forma incompatível          |
+| Component | `account_card@1`               | Muda quando o renderer exige prop incompatível nova        |
+| App/OS    | App `8.14.2`, Android `35`     | Seleciona spec compatível por faixa da própria plataforma  |
+| Channel   | `stable`, `canary`, `internal` | Seleciona pointer; não é feature flag nem versão de schema |
 
-Form factor, breakpoint, densidade e rotação **não** são eixos. Não entram na seleção, não entram na chave de cache e não viram header. São decisão do cliente no momento do render.
+Form factor, breakpoint, densidade e rotação **não** são eixos. Não entram na seleção, não entram na chave de cache e
+não viram header. São decisão do cliente no momento do render.
 
 ### Seleção por plataforma
 
@@ -250,13 +262,13 @@ flowchart TD
     LG -->|Não| POLICY[Aplicar escada de fallback definida]
 ```
 
-| Chave | Conteúdo | Regra principal |
-|---|---|---|
-| `sdui:spec:{specRevisionId}:{platform}` | Spec publicada/materializada | Write-through no approve; invalida por revisão |
-| `sdui:tree:{surface}:{platform}:{schema}:{appMajorMinor}:{capsHash}:{channel}` | Árvore pronta para resposta | TTL curto, 30–90 s |
-| `sdui:section:{proj}:{id}` | Projeção de section | TTL curto |
-| `sdui:lastgood:{surface}:{platform}:{channel}` | Última árvore 200 válida | Usada em fallback |
-| `sdui:sf:{treeKey}` | Coordenação de miss | Evita tempestade de composições |
+| Chave                                                                          | Conteúdo                     | Regra principal                                |
+|--------------------------------------------------------------------------------|------------------------------|------------------------------------------------|
+| `sdui:spec:{specRevisionId}:{platform}`                                        | Spec publicada/materializada | Write-through no approve; invalida por revisão |
+| `sdui:tree:{surface}:{platform}:{schema}:{appMajorMinor}:{capsHash}:{channel}` | Árvore pronta para resposta  | TTL curto, 30–90 s                             |
+| `sdui:section:{proj}:{id}`                                                     | Projeção de section          | TTL curto                                      |
+| `sdui:lastgood:{surface}:{platform}:{channel}`                                 | Última árvore 200 válida     | Usada em fallback                              |
+| `sdui:sf:{treeKey}`                                                            | Coordenação de miss          | Evita tempestade de composições                |
 
 ### Regras de degradação
 
@@ -264,7 +276,8 @@ flowchart TD
 - Timeout de hidratação: aplicar timeout por section, sem bloquear toda a Home.
 - Miss lento ou Redis indisponível: usar `lastgood` quando disponível, com `fallback: true`.
 - Targeting sem spec vigente: retornar 200 com última árvore boa e fallback; nunca 404 para `home`.
-- Aprovação ou rollback: invalidar somente as chaves do `surface + platform + channel` e revisões afetadas; nunca executar flush global.
+- Aprovação ou rollback: invalidar somente as chaves do `surface + platform + channel` e revisões afetadas; nunca
+  executar flush global.
 
 ---
 
@@ -286,16 +299,16 @@ flowchart LR
     RB --> CACHE
 ```
 
-| Coleção | Papel |
-|---|---|
-| `component_catalog` | Contrato de cada `type + typeVersion` |
-| `skeletons` | Estrutura e slots da Home |
-| `specs` | Snapshot de placements, targeting e revisão |
-| `pointers` | Revisão vigente por `surface + platform + channel` |
-| `publish_requests` | Fluxo maker-checker |
-| `diffs` | Diff estrutural entre revisões |
-| `audit_log` | Trilha append-only de ações administrativas |
-| `idempotency` | Protege approve e rollback contra repetição |
+| Coleção             | Papel                                              |
+|---------------------|----------------------------------------------------|
+| `component_catalog` | Contrato de cada `type + typeVersion`              |
+| `skeletons`         | Estrutura e slots da Home                          |
+| `specs`             | Snapshot de placements, targeting e revisão        |
+| `pointers`          | Revisão vigente por `surface + platform + channel` |
+| `publish_requests`  | Fluxo maker-checker                                |
+| `diffs`             | Diff estrutural entre revisões                     |
+| `audit_log`         | Trilha append-only de ações administrativas        |
+| `idempotency`       | Protege approve e rollback contra repetição        |
 
 ### Publish e rollback
 
@@ -306,21 +319,20 @@ sequenceDiagram
     participant K as Checker
     participant DB as MongoDB
     participant R as Redis
-
-    M->>A: Criar rascunho / abrir publish request
-    A->>DB: Validar skeleton, allowedTypes, props e actions
-    A->>DB: Persistir diff N-1 -> N
-    K->>A: Aprovar ou rejeitar
+    M ->> A: Criar rascunho / abrir publish request
+    A ->> DB: Validar skeleton, allowedTypes, props e actions
+    A ->> DB: Persistir diff N-1 -> N
+    K ->> A: Aprovar ou rejeitar
     alt Aprovação
-        A->>DB: Transação: publicar revisão + mover pointer + audit + idempotência
-        A->>R: Write-through spec + invalidar árvores afetadas
+        A ->> DB: Transação: publicar revisão + mover pointer + audit + idempotência
+        A ->> R: Write-through spec + invalidar árvores afetadas
     else Rejeição
-        A->>DB: Registrar decisão no audit
+        A ->> DB: Registrar decisão no audit
     end
 
-    K->>A: Rollback com Idempotency-Key
-    A->>DB: Transação: mover pointer para revisão anterior + audit
-    A->>R: Invalidar cache do escopo afetado
+    K ->> A: Rollback com Idempotency-Key
+    A ->> DB: Transação: mover pointer para revisão anterior + audit
+    A ->> R: Invalidar cache do escopo afetado
 ```
 
 #### Invariantes
@@ -364,7 +376,8 @@ flowchart TD
 
 ## 8. Observabilidade
 
-A observabilidade deve permitir identificar uma regressão por plataforma, canal, revisão, app e section sem registrar PII ou props completas.
+A observabilidade deve permitir identificar uma regressão por plataforma, canal, revisão, app e section sem registrar
+PII ou props completas.
 
 ```mermaid
 flowchart LR
@@ -374,7 +387,6 @@ flowchart LR
     MET --> DASH[Dashboard/alertas]
     LOG --> DASH
     TRACE --> DASH
-
     DASH --> OPS[On-call / time Tech]
     OPS --> RB[Rollback por pointer]
 ```
@@ -402,7 +414,8 @@ appVersion
 specRevisionId
 ```
 
-Não usar em métrica/log: nome, identificadores pessoais, valores financeiros individuais, payload integral ou dados regulados.
+Não usar em métrica/log: nome, identificadores pessoais, valores financeiros individuais, payload integral ou dados
+regulados.
 
 ---
 
@@ -425,11 +438,11 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    S[Section credit_offer@2] --> C{Capability efetiva contém credit_offer@2?}
-    C -->|Sim| R[Manter section]
-    C -->|Não| O[Omitir section]
-    O --> E[Adicionar item em envelope.omitted]
-    R --> OUT[Payload final]
+    S["Section credit_offer@2"] --> C{"Capability efetiva contém credit_offer@2?"}
+    C -->|Sim| R["Manter section"]
+    C -->|Não| O["Omitir section"]
+    O --> E["Adicionar item em envelope.omitted"]
+    R --> OUT["Payload final"]
     E --> OUT
 ```
 
@@ -446,14 +459,18 @@ flowchart LR
 
 ## 10. Decisões para o time
 
-1. O Serviço Consumidor é a borda Mobile neste desenho; o ms-sdui-composer mantém contrato REST/JSON interno e não conversa com domínios.
+1. O Serviço Consumidor é a borda Mobile neste desenho; o ms-sdui-composer mantém contrato REST/JSON interno e não
+   conversa com domínios.
 2. O Serviço Consumidor **propaga** o contexto do app; não escolhe spec e não recompõe payload.
 3. iOS e Android usam o mesmo endpoint e catálogo, mas têm specs, pointers, caches e rollbacks isolados.
 4. O Mobile precisa implementar omit-unknown e manter renderers nativos compilados para o catálogo suportado.
-5. Uma alteração de campo incompatível exige novo schema ou `typeVersion`, conforme o que mudou; não deve ser resolvida por flag.
-6. Flags escolhem existência de superfície/experimento ou channel/pointer; não geram matriz `schema × componente × flag × plataforma`.
+5. Uma alteração de campo incompatível exige novo schema ou `typeVersion`, conforme o que mudou; não deve ser resolvida
+   por flag.
+6. Flags escolhem existência de superfície/experimento ou channel/pointer; não geram matriz
+   `schema × componente × flag × plataforma`.
 7. O payload é de apresentação: nenhum dado bruto regulado ou entidade de domínio deve atravessar o contrato SDUI.
-8. Antes de produção, o contrato Android deve ser homologado pelo time Mobile Android; o contrato iOS existente é referência estrutural, não uma garantia de campos Android.
+8. Antes de produção, o contrato Android deve ser homologado pelo time Mobile Android; o contrato iOS existente é
+   referência estrutural, não uma garantia de campos Android.
 
 ---
 
