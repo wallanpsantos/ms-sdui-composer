@@ -12,11 +12,7 @@ telas, fragments estáticos, hidratação dinâmica por squads e testes com nív
 primeira surface).
 
 
-> **Atualização tecnológica — 16/09/2026.** Esta revisão eleva o baseline para Java 25 LTS, Spring Boot 4.1.1 e Spring
-> Framework 7.0.9+. Gradle 9.7.1 é o release estável adotado. O parent do Spring Boot passa a gerir as versões do
-> ecossistema; não fixar manualmente versões de starters, Testcontainers, JUnit, Mockito, AssertJ ou drivers já
-> gerenciados. ArchUnit foi corrigido para 1.5.0.
->
+> **Atualização tecnológica — 18/09/2026.** Esta revisão consolida o baseline em Java 25 LTS, Spring Boot 4.1.1, Spring Framework 7.0.9+ e Gradle 9.7.1. O gerenciamento de dependências passa a ser centralizado pelo plugin/BOM do Spring Boot; não fixe manualmente no build as versões de starters, Testcontainers (2.0.5), JUnit 5, Mockito (5.23.0), AssertJ (3.27.7) ou drivers já gerenciados pelo ecossistema. ArchUnit permanece padronizado na versão 1.5.0 (com archunit-junit5:1.5.0 quando necessário).
 > O projeto permanece sem Kafka e sem Spring Cloud por padrão. Kafka exige fluxo assíncrono real com contrato,
 > consumidores, idempotência, retry, DLQ, retenção e owner operacional. Spring Cloud só entra com caso concreto de
 > Config
