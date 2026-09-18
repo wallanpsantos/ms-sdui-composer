@@ -6,7 +6,8 @@ do contexto do cliente e das capabilities, devolvendo um envelope pronto e segur
 > **Status:** proposta de arquitetura para alinhamento técnico.
 >
 > **Escopo:** `ms-sdui-composer` atendendo iOS e Android por meio de um **serviço consumidor/BFF Mobile** (com a Home
-> como primeira surface). O `ms-sdui-composer` não é chamado diretamente pelo app neste desenho e não consulta domínios de
+> como primeira surface). O `ms-sdui-composer` não é chamado diretamente pelo app neste desenho e não consulta domínios
+> de
 > negócio.
 
 ---
