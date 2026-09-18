@@ -1,6 +1,6 @@
 # Prompt único — Inicialização do repositório `ms-sdui-composer`
 
-> **Como usar:** salve este arquivo na raiz de um repositório novo. Abra-o na sua IA CLI e peça: **“Execute integralmente o arquivo `PROMPT-INICIAR-MS-SDUI-COMPOSER-COM-AGENTES.md`.”**
+> **Como usar:** salve este arquivo na raiz de um repositório novo. Abra-o na sua IA CLI e peça: **“Execute integralmente o arquivo `iniciar-prompt.md`.”**
 >
 > Este prompt cria o bootstrap do repositório e os papéis especializados em `.agents/agents/`. Depois da execução, `AGENTS.md` será a memória operacional curta do repositório.
 
@@ -21,10 +21,9 @@ Precedência:
 3. `docs/pre-arquitetura-sdui-home.md`.
 4. `docs/fluxos-integracao-ms-sdui-home.md`.
 5. `docs/historias/H*.md`.
-6. `docs/documentacao-contrato-sdui-home-v3.docx`.
-7. `artifacts/*.json`.
-8. `docs/resumos-server-driven-ui.md`.
-9. `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`, se existir.
+6. `artifacts/*.json`.
+7. `docs/resumos-server-driven-ui.md`.
+8. `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`, se existir.
 
 Se um documento citado não existir, informe o caminho exato, não reconstrua o conteúdo por inferência e registre a lacuna no relatório final e no `AGENTS.md`. Se houver divergência sem ADR resolvendo-a, pare antes de codar a parte afetada.
 
@@ -50,11 +49,11 @@ Não criar CMS genérico, Design System, micro-frontend, backend que envia CSS, 
 
 `Fragment`, `FragmentStore`, `FragmentResolver`, endpoint de fragment e chave Redis de fragmento estão fora do MVP.
 
-## Stack travada
+## Stack travada (minimo)
 
 - Java 25 LTS.
-- Spring Framework 7.0.x.
-- Spring Boot 4.1.x, nunca 3.x.
+- Spring Framework 7.0.9+.
+- Spring Boot 4.1.1+, nunca 3.x.
 - Gradle 9.7.1 com Kotlin DSL (`build.gradle.kts` / `settings.gradle.kts`), multi-módulo.
 - MongoDB 8.3+ como fonte de verdade das specs.
 - Redis na mesma AZ para cache.
@@ -112,10 +111,17 @@ ms-sdui-composer/
 ├── AGENTS.md
 ├── README.md
 ├── iniciar-prompt.md
-├── pom.xml
+├── build.gradle.kts
+├── settings.gradle.kts
+├── gradlew
+├── gradlew.bat
+├── gradle/
+│   └── wrapper/
+│       ├── gradle-wrapper.jar
+│       └── gradle-wrapper.properties
 ├── docs/
 │   ├── plano-servico-sdui.md
-│   ├── pre-arquitetura-ms-sdui-composer..md
+│   ├── pre-arquitetura-ms-sdui-composer.md
 │   ├── fluxos-integracao-ms-sdui-composer.md
 │   ├── resumos-server-driven-ui.md
 │   ├── documentacao-contrato-sdui-home-v3.docx
