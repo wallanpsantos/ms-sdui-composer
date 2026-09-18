@@ -56,32 +56,36 @@ Ele também proíbe N+1 por widget e exige que uma section degradada possa ser o
 
 ```text
 ms-sdui-composer/
-├── pom.xml
+├── build.gradle.kts
+├── settings.gradle.kts
 ├── README.md
-├── .mvn/wrapper/
-├── mvnw
-├── mvnw.cmd
+├── gradlew
+├── gradlew.bat
+├── gradle/
+│   └── wrapper/
+│       ├── gradle-wrapper.jar
+│       └── gradle-wrapper.properties
 │
 ├── sdui-contract/
-│   ├── pom.xml
+│   ├── build.gradle.kts
 │   └── src/
 │       ├── main/java/br/com/empresa/sdui/contract/
 │       └── test/java/br/com/empresa/sdui/contract/
 │
 ├── sdui-core/
-│   ├── pom.xml
+│   ├── build.gradle.kts
 │   └── src/
 │       ├── main/java/br/com/empresa/sdui/core/
 │       └── test/java/br/com/empresa/sdui/core/
 │
 ├── sdui-orchestrator/
-│   ├── pom.xml
+│   ├── build.gradle.kts
 │   └── src/
 │       ├── main/java/br/com/empresa/sdui/orchestrator/
 │       └── test/java/br/com/empresa/sdui/orchestrator/
 │
 ├── sdui-adapters/
-│   ├── pom.xml
+│   ├── build.gradle.kts
 │   └── src/
 │       ├── main/java/br/com/empresa/sdui/adapters/
 │       │   ├── mongo/
@@ -90,13 +94,13 @@ ms-sdui-composer/
 │       └── test/java/br/com/empresa/sdui/adapters/
 │
 ├── sdui-api/
-│   ├── pom.xml
+│   ├── build.gradle.kts
 │   └── src/
 │       ├── main/java/br/com/empresa/sdui/api/
 │       └── test/java/br/com/empresa/sdui/api/
 │
 ├── sdui-bootstrap/
-│   ├── pom.xml
+│   ├── build.gradle.kts
 │   └── src/
 │       ├── main/java/br/com/empresa/sdui/bootstrap/
 │       ├── main/resources/
@@ -106,7 +110,7 @@ ms-sdui-composer/
 │       └── test/java/br/com/empresa/sdui/bootstrap/
 │
 └── sdui-integration-test/
-    ├── pom.xml
+    ├── build.gradle.kts
     └── src/test/java/br/com/empresa/sdui/it/
 ```
 
