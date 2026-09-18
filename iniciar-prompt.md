@@ -8,7 +8,7 @@
 
 Atue como Engenheiro de Software Staff/Principal Java responsável por criar o bootstrap verificável do `ms-sdui-composer`.
 
-O projeto é greenfield. Prepare a fundação Maven, a documentação operacional, a estrutura de módulos, os papéis especializados e os testes mínimos para iniciar H00. Não implemente H01–H18.
+O projeto é greenfield. Prepare a fundação Gradle, a documentação operacional, a estrutura de módulos, os papéis especializados e os testes mínimos para iniciar H00. Não implemente H01–H18.
 
 ## Regra de verdade
 
@@ -55,7 +55,7 @@ Não criar CMS genérico, Design System, micro-frontend, backend que envia CSS, 
 - Java 25 LTS.
 - Spring Framework 7.0.x.
 - Spring Boot 4.1.x, nunca 3.x.
-- Maven 3.9.x, multi-módulo.
+- Gradle 9.7.1 com Kotlin DSL (`build.gradle.kts` / `settings.gradle.kts`), multi-módulo.
 - MongoDB 8.3+ como fonte de verdade das specs.
 - Redis na mesma AZ para cache.
 - Jackson gerenciado pelo Spring Boot.
@@ -144,7 +144,7 @@ ms-sdui-composer/
 
 Se os documentos de origem não estiverem disponíveis, não os invente. Crie os diretórios permitidos e registre os arquivos ausentes.
 
-## Grafo Maven
+## Grafo de Dependências
 
 ```text
 sdui-bootstrap
@@ -167,8 +167,8 @@ Somente `sdui-bootstrap` é executável e contém `@SpringBootApplication`.
 
 Criar:
 
-1. POM raiz e POMs dos sete módulos.
-2. Maven Wrapper, se possível.
+1. `build.gradle.kts` raiz e `build.gradle.kts` dos subprojetos (quando houver módulos).
+2. Gradle Wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`).
 3. Diretórios dos módulos.
 4. `SduiApplication`.
 5. Configurações YAML sem credenciais ou URLs reais.
@@ -536,14 +536,9 @@ No Windows PowerShell, executar e reportar:
 
 ```powershell
 java -version
-mvn -version
-mvn -B -ntp clean verify
-```
-
-Se o Maven Wrapper for criado:
-
-```powershell
-.\mvnw.cmd -B -ntp clean verify
+.\gradlew.bat --version
+.\gradlew.bat clean test
+.\gradlew.bat build
 ```
 
 Se algum comando falhar, informar a falha exata e não declarar o projeto validado.
@@ -552,14 +547,14 @@ Se algum comando falhar, informar a falha exata e não declarar o projeto valida
 
 Somente considerar concluído quando:
 
-- os sete módulos existirem e estiverem no POM raiz;
+- os sete módulos existirem e estiverem no `settings.gradle.kts` (quando multi-módulo);
 - a aplicação compilar;
 - o contexto iniciar sem Mongo/Redis externos;
 - ArchUnit estiver verde;
 - os cinco arquivos em `.agents/agents/` existirem;
 - o marcador da skill existir sem conteúdo inventado;
 - `AGENTS.md` apontar para os papéis;
-- `mvn clean verify` tiver sido executado;
+- `.\gradlew.bat build` tiver sido executado com sucesso;
 - nenhuma funcionalidade H01–H18 tiver sido antecipada.
 
 ## Relatório final
