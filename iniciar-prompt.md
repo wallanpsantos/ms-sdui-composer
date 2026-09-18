@@ -59,7 +59,7 @@ Não criar CMS genérico, Design System, micro-frontend, backend que envia CSS, 
 - MongoDB 8.3+ como fonte de verdade das specs.
 - Redis na mesma AZ para cache.
 - Jackson gerenciado pelo Spring Boot.
-- JUnit 5, AssertJ, Mockito, Testcontainers e ArchUnit quando necessários.
+- JUnit 5, AssertJ testImplementation("org.assertj:assertj-core:3.27.7"), Mockito testImplementation("org.mockito:mockito-core:5.23.0"), testImplementation("org.testcontainers:testcontainers:2.0.5"),testImplementation("org.testcontainers:testcontainers-mongodb:2.0.5"), testImplementation("org.testcontainers:testcontainers-junit-jupiter:2.0.5"), ArchUnit (1.5.0) e archunit-junit5:1.5.0 quando necessários.
 - Virtual Threads para I/O bound.
 - Kafka somente para auditoria assíncrona real; não adicionar no bootstrap.
 - Spring Cloud fora por padrão.
