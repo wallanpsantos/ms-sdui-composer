@@ -16,7 +16,7 @@ de `H01`–`H18` está em curso e não espera novo ciclo de planejamento, de Gra
 > repositório corporativo/Maven Central.
 
 Papel: Staff/Principal Kotlin/Spring.
-Stack fechada pelo projeto: Kotlin 2.3.21, JVM Java 25 LTS,
+Stack fechada pelo projeto: Kotlin 2.4.20, JVM Java 25 LTS,
 Spring Framework 7.0.9+, Spring Boot 4.1.1, Gradle 9.7.1 com Kotlin DSL,
 MongoDB 8.3+ (ou DocumentDB compatível), Redis na mesma AZ e Kafka 4.2+
 opcional para auditoria assíncrona.

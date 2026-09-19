@@ -40,7 +40,7 @@ para clientes iOS e Android.
 
 ## 2. Stack Tecnológica e Baseline
 
-- **Linguagem:** Kotlin 2.3.21 (`allWarningsAsErrors = true`, `-Xannotation-default-target=param-property`).
+- **Linguagem:** Kotlin 2.4.20 (`allWarningsAsErrors = true`, `-Xannotation-default-target=param-property`).
 - **Plataforma:** JVM com Java 25 LTS via Gradle toolchain (`jvmToolchain(25)`). Foojay resolver `1.0.0` (latest estável
   verificada no Plugin Portal).
 - **Framework:** Spring Boot 4.1.1 (Spring Framework 7.0.9 gerenciado pelo BOM).

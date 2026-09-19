@@ -8,7 +8,7 @@ Este documento é a pré-arquitetura canônica. O bootstrap e a H00 já estão c
 
 ## Kotlin, Gradle, Clean Architecture pragmática e estratégia de testes
 
-**Baseline:** Kotlin 2.3.21 sobre JVM Java 25 LTS, Spring Boot 4.1.1 (que gerencia Spring Framework 7.0.x), Gradle 9.7.1
+**Baseline:** Kotlin 2.4.20 sobre JVM Java 25 LTS, Spring Boot 4.1.1 (que gerencia Spring Framework 7.0.x), Gradle 9.7.1
 com Kotlin DSL, multi-projeto.
 
 **Objetivo:** estruturar o **ms-sdui-composer** para suportar composição de surfaces por múltiplos times, evolução de
@@ -1069,7 +1069,7 @@ Gradle 9.6 deprecou lookups na hierarquia de projetos, e toda configuração com
 
 ```toml
 [versions]
-kotlin = "2.3.21"
+kotlin = "2.4.20"
 spring-boot = "4.1.1"
 archunit = "1.5.0"
 # mockk = "<verificar>"                                  # entra quando uma história exigir

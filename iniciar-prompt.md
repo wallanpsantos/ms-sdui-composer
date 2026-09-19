@@ -16,7 +16,7 @@
 Atue como Engenheiro de Software Staff/Principal Kotlin/Spring responsável por criar o bootstrap verificável do
 `ms-sdui-composer`.
 
-A implementação usa Kotlin 2.3.21 sobre JVM com Java 25 LTS e Spring Boot 4.1.1.
+A implementação usa Kotlin 2.4.20 sobre JVM com Java 25 LTS e Spring Boot 4.1.1.
 O projeto é multi-módulo, usa Gradle Kotlin DSL e todo código de produção fica em `src/main/kotlin`;
 testes ficam em `src/test/kotlin`.
 Não criar fontes Java, exceto quando estritamente exigido por uma integração externa.
@@ -81,7 +81,7 @@ gRPC/Protobuf entra no projeto sem ADR.
 
 Versões exatas vivem em `gradle/libs.versions.toml`. Este bloco define pisos e regras.
 
-- Kotlin 2.3.21. Deve coincidir com a versão de Kotlin gerenciada pelo Spring Boot; não divergir. Ao subir o Kotlin,
+- Kotlin 2.4.20. Deve coincidir com a versão de Kotlin gerenciada pelo Spring Boot; não divergir. Ao subir o Kotlin,
   subir o Boot junto ou justificar.
 - Java 25 LTS via toolchain (`kotlin { jvmToolchain(25) }`), com o plugin
   `org.gradle.toolchains.foojay-resolver-convention` no `settings.gradle.kts` (versão estável mais recente, registrada
@@ -453,7 +453,7 @@ depender de conteúdo ausente, declarar a limitação e bloquear a parte afetada
 
 ## Papel
 
-Implementar mudanças aprovadas em Kotlin 2.3, sobre JVM Java 25 e Spring Boot 4.1.x.
+Implementar mudanças aprovadas em Kotlin 2.4.20, sobre JVM Java 25 e Spring Boot 4.1.x.
 
 ## Pré-condições
 

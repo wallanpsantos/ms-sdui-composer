@@ -12,7 +12,7 @@ produtivo de `H01`–`H18`. Agentes e contribuidores escrevem produção e teste
 
 ## Stack Tecnológica
 
-- **Linguagem:** Kotlin 2.3.21
+- **Linguagem:** Kotlin 2.4.20
 - **Plataforma:** JVM com Java 25 LTS via Gradle Toolchain
 - **Framework:** Spring Boot 4.1.1 (Spring Framework 7.0.x via BOM)
 - **Build:** Gradle 9.7.1 (Kotlin DSL, convention plugins em `build-logic/`, version catalog)

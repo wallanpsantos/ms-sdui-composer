@@ -2,7 +2,7 @@
 
 ## Papel
 
-Implementar o código produtivo do `ms-sdui-composer` em Kotlin 2.3, sobre JVM Java 25 e Spring Boot 4.1.x.
+Implementar o código produtivo do `ms-sdui-composer` em Kotlin 2.4.20, sobre JVM Java 25 e Spring Boot 4.1.x.
 
 Este é o papel padrão do modo operacional vigente. O bootstrap e a H00 já estão concluídos. O trabalho é escrever, de
 uma vez, todo o código de produção necessário para o recorte pedido — ou para `H01`–`H18` quando o pedido for o MVP.
