@@ -3,9 +3,7 @@ rootProject.name = "ms-sdui-composer"
 include(
     "sdui-contract",
     "sdui-core",
-    "sdui-orchestrator",
-    "sdui-adapters",
-    "sdui-api",
+    "sdui-app",
     "sdui-bootstrap",
-    "sdui-integration-test"
+    "sdui-integration-test",
 )

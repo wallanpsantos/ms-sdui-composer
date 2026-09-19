@@ -67,6 +67,12 @@ tasks.test {
 	outputs.dir(project.extra["snippetsDir"]!!)
 }
 
+kotlin {
+  compilerOptions {
+    freeCompilerArgs.addAll("-Xjsr305=strict", "-Xannotation-default-target=param-property")
+  }
+}
+
 tasks.asciidoctor {
 	inputs.dir(project.extra["snippetsDir"]!!)
 	dependsOn(tasks.test)
