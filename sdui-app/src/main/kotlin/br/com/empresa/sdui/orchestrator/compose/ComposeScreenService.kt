@@ -104,6 +104,7 @@ class ComposeScreenService(
                 metrics.increment("compose.singleflight.wait", tags)
                 outcome.value
             }
+
             is SingleflightOutcome.WaitTimeout<*> -> {
                 metrics.increment("compose.singleflight.wait", tags)
                 fallbackOrUnavailable(context.platform, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
@@ -221,7 +222,10 @@ class ComposeScreenService(
             null
         }
         if (stored != null) {
-            metrics.increment("compose.fallback", tags + mapOf("channel" to channel.wire(), "fallbackReason" to reason.wire))
+            metrics.increment(
+                "compose.fallback",
+                tags + mapOf("channel" to channel.wire(), "fallbackReason" to reason.wire)
+            )
             return ComposeResult.Success(
                 stored.copy(
                     generatedAt = clock.instant(),

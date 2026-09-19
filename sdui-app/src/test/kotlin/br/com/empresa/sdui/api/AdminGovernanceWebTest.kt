@@ -8,7 +8,6 @@ import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.SpecStatus
-import br.com.empresa.sdui.orchestrator.port.inbound.DecidePublishCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftSpecCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.OpenPublishCommand
@@ -26,14 +25,14 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.test.annotation.DirtiesContext
 import org.springframework.http.MediaType
+import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.put
 import tools.jackson.databind.json.JsonMapper
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
@@ -174,7 +173,13 @@ class AdminGovernanceWebTest(
         val published = specStore.findBySpecIdAndRevision(draft.specId, draft.revision)!!
         assertThat(published.status).isEqualTo(SpecStatus.PUBLISHED)
         val previousPointer = pointerStore.find(MvpCatalog.SURFACE_HOME, ClientPlatform.IOS, Channel.STABLE)!!
-        pointerStore.save(previousPointer.copy(specRevisionId = published.specRevisionId, specId = published.specId, previousSpecRevisionId = "rev_01K8HOMEMAIN"))
+        pointerStore.save(
+            previousPointer.copy(
+                specRevisionId = published.specRevisionId,
+                specId = published.specId,
+                previousSpecRevisionId = "rev_01K8HOMEMAIN"
+            )
+        )
         (treeCache as InMemoryHydratedScreenCache).clear()
 
         val makerRollback = mockMvc.post("/admin/v1/pointers/home/ios/stable:rollback") {
@@ -212,7 +217,9 @@ class AdminGovernanceWebTest(
         val composed = mockMvc.get("/v1/surfaces/home") {
             CanonicalHeaders.ios().forEach { (n, v) -> header(n, v) }
         }.andReturn()
-        assertThat(jsonMapper.readTree(composed.response.contentAsString).get("envelope").get("specRevisionId").asText())
+        assertThat(
+            jsonMapper.readTree(composed.response.contentAsString).get("envelope").get("specRevisionId").asText()
+        )
             .isEqualTo("rev_01K8HOMEMAIN")
         assertThat(auditLog.list().map { it.action }).contains("publish.approve", "pointer.rollback")
         val rollbackEvents = auditLog.list().count { it.action == "pointer.rollback" && it.requestId == "rb-1" }
@@ -226,7 +233,13 @@ class AdminGovernanceWebTest(
             .hasMessageContaining("imutavel")
         val stable = pointerStore.find("home", ClientPlatform.IOS, Channel.STABLE)!!
         val canary = pointerStore.find("home", ClientPlatform.IOS, Channel.CANARY)!!
-        pointerStore.save(canary.copy(specRevisionId = "rev_01K8HOMENEXT", specId = "spec_home_ios_next", version = canary.version + 1))
+        pointerStore.save(
+            canary.copy(
+                specRevisionId = "rev_01K8HOMENEXT",
+                specId = "spec_home_ios_next",
+                version = canary.version + 1
+            )
+        )
         val stableAfter = pointerStore.find("home", ClientPlatform.IOS, Channel.STABLE)!!
         assertThat(stableAfter.specRevisionId).isEqualTo(stable.specRevisionId)
         pointerStore.save(canary)
@@ -246,7 +259,8 @@ class AdminGovernanceWebTest(
             header("Actor-Id", "maker-1")
             header("Actor-Role", "MAKER")
             contentType = MediaType.APPLICATION_JSON
-            content = """{"type":"top_bar","typeVersion":1,"status":"ACTIVE","sinceSchema":"3","requiredProps":["greetingName"]}"""
+            content =
+                """{"type":"top_bar","typeVersion":1,"status":"ACTIVE","sinceSchema":"3","requiredProps":["greetingName"]}"""
         }.andReturn()
         assertThat(ok.response.status).isEqualTo(200)
         val types = jsonMapper.readTree(ok.response.contentAsString).get("components")

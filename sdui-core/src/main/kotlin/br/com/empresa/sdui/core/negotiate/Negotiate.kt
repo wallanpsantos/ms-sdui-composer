@@ -1,11 +1,11 @@
 package br.com.empresa.sdui.core.negotiate
 
+import br.com.empresa.sdui.core.model.Capability
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.ContextValidation
 import br.com.empresa.sdui.core.model.ContextViolation
-import br.com.empresa.sdui.core.model.Capability
 import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.SemVer
 

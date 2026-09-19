@@ -3,10 +3,10 @@ package br.com.empresa.sdui.api
 import br.com.empresa.sdui.SduiAppTestConfiguration
 import br.com.empresa.sdui.adapters.memory.InMemoryHydratedScreenCache
 import br.com.empresa.sdui.adapters.memory.InMemoryLastGoodScreenStore
+import br.com.empresa.sdui.adapters.memory.InMemorySpecStore
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.MvpCatalog
-import br.com.empresa.sdui.adapters.memory.InMemorySpecStore
 import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.Section
 import br.com.empresa.sdui.orchestrator.port.outbound.HydratedScreenCache
@@ -169,7 +169,10 @@ class HomeRuntimeProtectionWebTest(
             headers.forEach { (n, v) -> header(n, v) }
             if (ifNoneMatch != null) header("If-None-Match", ifNoneMatch)
         }.andReturn()
-        return Exchange(result.response.status, result.response.contentAsString, result.response.headerNames.associateWith { result.response.getHeaders(it) })
+        return Exchange(
+            result.response.status,
+            result.response.contentAsString,
+            result.response.headerNames.associateWith { result.response.getHeaders(it) })
     }
 
     data class Exchange(val status: Int, val body: String, val headers: Map<String, Collection<String>>)

@@ -43,7 +43,11 @@ interface PointerStore {
 interface PublishRequestStore {
     fun save(request: PublishRequest): PublishRequest
     fun find(requestId: String): PublishRequest?
-    fun compareAndSetStatus(requestId: String, expected: br.com.empresa.sdui.core.model.PublishRequestStatus, updated: PublishRequest): PublishRequest?
+    fun compareAndSetStatus(
+        requestId: String,
+        expected: br.com.empresa.sdui.core.model.PublishRequestStatus,
+        updated: PublishRequest
+    ): PublishRequest?
 }
 
 interface DiffStore {

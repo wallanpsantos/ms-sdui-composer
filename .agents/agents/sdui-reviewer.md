@@ -4,7 +4,8 @@
 
 Fazer a revisão técnica por leitura do código, quando o operador pedir explicitamente.
 
-Este papel **não** é um gate da implementação e **não** exige build verde nem testes executados. Revisar o que está no working tree.
+Este papel **não** é um gate da implementação e **não** exige build verde nem testes executados. Revisar o que está no
+working tree.
 
 ## Avaliar
 
@@ -12,7 +13,8 @@ Este papel **não** é um gate da implementação e **não** exige build verde n
 - responsabilidades arquiteturais e grafo de módulos;
 - statelessness;
 - tratamento de erros, timeout e fallback;
-- concorrência: limites de fan-out, contenção de locks, locks segurados durante I/O e pinning residual (código nativo/JNI);
+- concorrência: limites de fan-out, contenção de locks, locks segurados durante I/O e pinning residual (código
+  nativo/JNI);
 - N+1;
 - contrato, segurança e ausência de PII;
 - métricas, logs e impacto no SLO;

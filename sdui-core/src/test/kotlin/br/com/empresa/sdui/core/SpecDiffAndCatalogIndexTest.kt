@@ -5,6 +5,7 @@ import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.Section
+import br.com.empresa.sdui.core.model.SemVer
 import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.SlotDefinition
 import br.com.empresa.sdui.core.model.SlotLayout
@@ -12,7 +13,6 @@ import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecStatus
 import br.com.empresa.sdui.core.model.Targeting
 import br.com.empresa.sdui.core.model.VersionRange
-import br.com.empresa.sdui.core.model.SemVer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Instant

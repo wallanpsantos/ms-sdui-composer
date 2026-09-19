@@ -82,6 +82,7 @@ class ContractJacksonRoundtripTest {
                     assertTreePreserved(value, roundtrip.get(key), childPath)
                 }
             }
+
             original.isArray -> {
                 assertThat(roundtrip.isArray).`as`("%s deve permanecer array", path).isTrue()
                 assertThat(roundtrip.size())
@@ -91,6 +92,7 @@ class ContractJacksonRoundtripTest {
                     assertTreePreserved(original.get(index), roundtrip.get(index), "$path[$index]")
                 }
             }
+
             else -> {
                 assertThat(roundtrip)
                     .`as`("valor de %s mudou no round-trip", path)

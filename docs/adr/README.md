@@ -15,10 +15,10 @@ Todo ADR deve conter:
 2. **Status:** `PROPOSTO` | `ACEITO` | `REJEITADO` | `DEPRECADO` | `SUPERSEDED`
 3. **Contexto:** Motivação do problema, restrições técnicas, requisitos não funcionais.
 4. **Decisão:** O que foi decidido, detalhamento técnico, contratos afetados.
-5. **Consequências:** 
-   - Pontos positivos (o que ganhamos);
-   - Pontos negativos / trade-offs aceitos;
-   - Riscos operacionais e mitigações.
+5. **Consequências:**
+    - Pontos positivos (o que ganhamos);
+    - Pontos negativos / trade-offs aceitos;
+    - Riscos operacionais e mitigações.
 6. **Alternativas Consideradas:** Soluções descartadas e a justificativa técnica para o descarte.
 7. **Critérios de Validação:** Como a decisão é verificada (testes unitários, ArchUnit, benchmarks, classpath).
 
@@ -26,7 +26,8 @@ Todo ADR deve conter:
 
 Os ADRs fundamentais da pré-arquitetura (`docs/pre-arquitetura-ms-sdui-composer.md`) são:
 
-- **ADR-001:** Divisão em 4 módulos de produção (`contract`, `core`, `app`, `bootstrap`) e 1 de teste (`integration-test`). (`ACEITO`)
+- **ADR-001:** Divisão em 4 módulos de produção (`contract`, `core`, `app`, `bootstrap`) e 1 de teste
+  (`integration-test`). (`ACEITO`)
 - **ADR-002:** Isolamento estrito de `ComposeTraceContext` (fora de `core` e `orchestrator`). (`ACEITO`)
 - **ADR-003:** Isolamento de `@Transactional` com `TransactionalUnitOfWork`. (`ACEITO`)
 - **ADR-004:** Adoção de `Screen` e eliminação de `Fragment` no MVP. (`ACEITO`)

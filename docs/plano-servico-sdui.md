@@ -7,10 +7,12 @@ Documento de engenharia para implementar o **ms-sdui-composer**, desenhado para 
 produto (tendo a `home` como primeira surface). Este arquivo é a especificação, não o código. A implementação produtiva
 de `H01`–`H18` está em curso e não espera novo ciclo de planejamento, de Gradle ou de testes.
 
-> **Baseline atualizada em 16/09/2026.** Java 25 LTS, Spring Framework 7.0.9+, Spring Boot 4.1.1, Gradle 9.7.1 - Kotlin+, MongoDB
+> **Baseline atualizada em 16/09/2026.** Java 25 LTS, Spring Framework 7.0.9+, Spring Boot 4.1.1, Gradle 9.7.1 -
+> Kotlin+, MongoDB
 > 8.3+ e Redis. Kafka permanece opcional e somente para auditoria/evento assíncrono real. Spring Cloud não faz parte da
 > baseline e só entra com módulo concreto e requisito comprovado. Testcontainers, Springdoc, Micrometer, OpenTelemetry,
-> ArchUnit e demais bibliotecas devem usar as versões gerenciadas pelo Spring Boot ou a versão mais recente verificada no
+> ArchUnit e demais bibliotecas devem usar as versões gerenciadas pelo Spring Boot ou a versão mais recente verificada
+> no
 > repositório corporativo/Maven Central.
 
 Papel: Staff/Principal Kotlin/Spring.

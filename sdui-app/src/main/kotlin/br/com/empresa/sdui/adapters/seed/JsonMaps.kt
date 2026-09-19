@@ -13,6 +13,7 @@ object JsonMaps {
             val text = node.asText()
             if (text.contains('.') || text.contains('e') || text.contains('E')) node.asDouble() else node.asLong()
         }
+
         node.isTextual -> node.asText()
         node.isArray -> (0 until node.size()).map { toValue(node.get(it)) }
         node.isObject -> node.properties().associate { it.key to toValue(it.value) }
@@ -40,11 +41,13 @@ object JsonMaps {
                 value.forEach { array.add(toNode(mapper, it)) }
                 array
             }
+
             is Map<*, *> -> {
                 val obj: ObjectNode = mapper.nodeFactory.objectNode()
                 value.forEach { (k, v) -> obj.set<JsonNode>(k.toString(), toNode(mapper, v)) }
                 obj
             }
+
             else -> mapper.nodeFactory.stringNode(value.toString())
         }
     }

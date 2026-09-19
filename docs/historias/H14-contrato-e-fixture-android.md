@@ -18,8 +18,8 @@ contrato JSON canônico (`contrato-sdui-home-definitivo.json`) e o catálogo sem
   `credit_offer@1`, `coverage_card@1` e `decision_card@1`.
 - A fixture contém o skeleton semântico compartilhado: `header`, `shortcuts`, `accounts`, `cards`, `offers`, `coverage`
   e `foryou`, na ordem definida pelo plano.
-- Todo campo Android é mapeado e aprovado contra o contrato JSON canônico
-  (`contrato-sdui-home-definitivo.json`); campo ausente nesse contrato e no catálogo compartilhado bloqueia a
+- Todo campo Android é mapeado e aprovado contra o contrato JSON canônico (`contrato-sdui-home-definitivo.json`); campo
+  ausente nesse contrato e no catálogo compartilhado bloqueia a
   publicação da fixture.
 - A fixture não contém cor, tipografia, dimensões, margin, padding, gap, raio, animação, haptic, ripple, shimmer,
   orientação, variantes de forma ou qualquer CSS/pixel no JSON.

@@ -107,7 +107,11 @@ class ActionContractGuardTest {
                     val actionId = item.get("actionId").asText()
 
                     assertThat(actionId)
-                        .`as`("O item '${item.get("id").asText()}' referencia actionId '$actionId' não existente na section")
+                        .`as`(
+                            "O item '${
+                                item.get("id").asText()
+                            }' referencia actionId '$actionId' não existente na section"
+                        )
                         .isIn(actionIds)
                 }
             }

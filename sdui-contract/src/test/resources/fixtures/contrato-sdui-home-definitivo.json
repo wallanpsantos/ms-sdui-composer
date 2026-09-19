@@ -43,13 +43,39 @@
     "id": "home.default",
     "layout": "vertical_scroll",
     "slots": [
-      { "id": "header", "layout": "fixed" },
-      { "id": "shortcuts", "layout": "shelf" },
-      { "id": "accounts", "layout": "list", "title": "Conta" },
-      { "id": "cards", "layout": "list", "title": "Cartão de crédito" },
-      { "id": "offers", "layout": "list", "title": "Crédito" },
-      { "id": "coverage", "layout": "list", "title": "Seguros" },
-      { "id": "foryou", "layout": "pager", "title": "Para você" }
+      {
+        "id": "header",
+        "layout": "fixed"
+      },
+      {
+        "id": "shortcuts",
+        "layout": "shelf"
+      },
+      {
+        "id": "accounts",
+        "layout": "list",
+        "title": "Conta"
+      },
+      {
+        "id": "cards",
+        "layout": "list",
+        "title": "Cartão de crédito"
+      },
+      {
+        "id": "offers",
+        "layout": "list",
+        "title": "Crédito"
+      },
+      {
+        "id": "coverage",
+        "layout": "list",
+        "title": "Seguros"
+      },
+      {
+        "id": "foryou",
+        "layout": "pager",
+        "title": "Para você"
+      }
     ]
   },
   "sections": [
@@ -66,7 +92,14 @@
         "primaryActionLabel": "SOS"
       },
       "actions": [
-        { "id": "act_sos", "type": "navigate", "label": "SOS", "payload": { "route": "app://assistance/sos" } }
+        {
+          "id": "act_sos",
+          "type": "navigate",
+          "label": "SOS",
+          "payload": {
+            "route": "app://assistance/sos"
+          }
+        }
       ],
       "analytics": {
         "event": "sdui_section_shown",
@@ -86,17 +119,69 @@
       "props": {
         "variant": "compact",
         "items": [
-          { "id": "sc_pix", "label": "Pix", "icon": "icon.pix", "selected": false, "actionId": "act_pix" },
-          { "id": "sc_pagar", "label": "Pagar", "icon": "icon.barcode", "selected": false, "actionId": "act_pay" },
-          { "id": "sc_transferir", "label": "Transferir", "icon": "icon.transfer", "selected": false, "actionId": "act_transfer" },
-          { "id": "sc_credito", "label": "Crédito", "icon": "icon.credit", "selected": true, "actionId": "act_sc_credito" }
+          {
+            "id": "sc_pix",
+            "label": "Pix",
+            "icon": "icon.pix",
+            "selected": false,
+            "actionId": "act_pix"
+          },
+          {
+            "id": "sc_pagar",
+            "label": "Pagar",
+            "icon": "icon.barcode",
+            "selected": false,
+            "actionId": "act_pay"
+          },
+          {
+            "id": "sc_transferir",
+            "label": "Transferir",
+            "icon": "icon.transfer",
+            "selected": false,
+            "actionId": "act_transfer"
+          },
+          {
+            "id": "sc_credito",
+            "label": "Crédito",
+            "icon": "icon.credit",
+            "selected": true,
+            "actionId": "act_sc_credito"
+          }
         ]
       },
       "actions": [
-        { "id": "act_pix", "type": "navigate", "label": "Pix", "payload": { "route": "app://pix" } },
-        { "id": "act_pay", "type": "navigate", "label": "Pagar", "payload": { "route": "app://payments" } },
-        { "id": "act_transfer", "type": "navigate", "label": "Transferir", "payload": { "route": "app://transfer" } },
-        { "id": "act_sc_credito", "type": "navigate", "label": "Crédito", "payload": { "route": "app://credit" } }
+        {
+          "id": "act_pix",
+          "type": "navigate",
+          "label": "Pix",
+          "payload": {
+            "route": "app://pix"
+          }
+        },
+        {
+          "id": "act_pay",
+          "type": "navigate",
+          "label": "Pagar",
+          "payload": {
+            "route": "app://payments"
+          }
+        },
+        {
+          "id": "act_transfer",
+          "type": "navigate",
+          "label": "Transferir",
+          "payload": {
+            "route": "app://transfer"
+          }
+        },
+        {
+          "id": "act_sc_credito",
+          "type": "navigate",
+          "label": "Crédito",
+          "payload": {
+            "route": "app://credit"
+          }
+        }
       ],
       "analytics": {
         "event": "sdui_section_shown",
@@ -128,7 +213,14 @@
         ]
       },
       "actions": [
-        { "id": "act_acc_details", "type": "navigate", "label": "Ver extrato", "payload": { "route": "app://account/statement" } }
+        {
+          "id": "act_acc_details",
+          "type": "navigate",
+          "label": "Ver extrato",
+          "payload": {
+            "route": "app://account/statement"
+          }
+        }
       ],
       "analytics": {
         "event": "sdui_section_shown",
@@ -166,7 +258,14 @@
         ]
       },
       "actions": [
-        { "id": "act_card_invoice", "type": "navigate", "label": "Pagar fatura", "payload": { "route": "app://cards/8821/invoice" } }
+        {
+          "id": "act_card_invoice",
+          "type": "navigate",
+          "label": "Pagar fatura",
+          "payload": {
+            "route": "app://cards/8821/invoice"
+          }
+        }
       ],
       "analytics": {
         "event": "sdui_section_shown",
@@ -204,7 +303,14 @@
         ]
       },
       "actions": [
-        { "id": "act_card_visa", "type": "navigate", "label": "Ver cartão", "payload": { "route": "app://cards/1044" } }
+        {
+          "id": "act_card_visa",
+          "type": "navigate",
+          "label": "Ver cartão",
+          "payload": {
+            "route": "app://cards/1044"
+          }
+        }
       ],
       "analytics": {
         "event": "sdui_section_shown",
@@ -228,8 +334,22 @@
         "secondaryLabel": "Ver detalhes"
       },
       "actions": [
-        { "id": "act_simular_emprestimo", "type": "navigate", "label": "Simular empréstimo", "payload": { "route": "app://credit/loan/simulate" } },
-        { "id": "act_sheet_offer", "type": "open_bottom_sheet", "label": "Ver detalhes", "payload": { "sheet": "sheet_credit_terms" } }
+        {
+          "id": "act_simular_emprestimo",
+          "type": "navigate",
+          "label": "Simular empréstimo",
+          "payload": {
+            "route": "app://credit/loan/simulate"
+          }
+        },
+        {
+          "id": "act_sheet_offer",
+          "type": "open_bottom_sheet",
+          "label": "Ver detalhes",
+          "payload": {
+            "sheet": "sheet_credit_terms"
+          }
+        }
       ],
       "analytics": {
         "event": "sdui_section_shown",
@@ -259,7 +379,14 @@
         ]
       },
       "actions": [
-        { "id": "act_coverage_view", "type": "navigate", "label": "Acessar apólice", "payload": { "route": "app://insurance/life/current" } }
+        {
+          "id": "act_coverage_view",
+          "type": "navigate",
+          "label": "Acessar apólice",
+          "payload": {
+            "route": "app://insurance/life/current"
+          }
+        }
       ],
       "analytics": {
         "event": "sdui_section_shown",
@@ -283,8 +410,19 @@
         "acceptLabel": "Baixar informe"
       },
       "actions": [
-        { "id": "act_foryou_accept", "type": "navigate", "label": "Baixar informe", "payload": { "route": "app://documents/irpf/2026" } },
-        { "id": "act_foryou_reject", "type": "noop", "label": "Lembrar mais tarde" }
+        {
+          "id": "act_foryou_accept",
+          "type": "navigate",
+          "label": "Baixar informe",
+          "payload": {
+            "route": "app://documents/irpf/2026"
+          }
+        },
+        {
+          "id": "act_foryou_reject",
+          "type": "noop",
+          "label": "Lembrar mais tarde"
+        }
       ],
       "analytics": {
         "event": "sdui_section_shown",

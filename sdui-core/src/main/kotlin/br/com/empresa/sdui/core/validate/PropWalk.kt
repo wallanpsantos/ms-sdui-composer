@@ -11,6 +11,7 @@ object PropWalk {
                     walkKeys(child, childPath, visit)
                 }
             }
+
             is List<*> -> {
                 value.forEachIndexed { index, child ->
                     walkKeys(child, "$path[$index]", visit)
@@ -41,6 +42,7 @@ object PropWalk {
                     if (actionId is String) ids += actionId
                     node.values.forEach { scan(it) }
                 }
+
                 is List<*> -> node.forEach { scan(it) }
             }
         }

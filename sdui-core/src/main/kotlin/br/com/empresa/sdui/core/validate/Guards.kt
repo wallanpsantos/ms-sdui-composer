@@ -34,7 +34,11 @@ object PiiGuard {
 }
 
 object ActionGuard {
-    fun validate(sectionId: String, actions: List<br.com.empresa.sdui.core.model.Action>, props: Map<String, Any?>): List<String> {
+    fun validate(
+        sectionId: String,
+        actions: List<br.com.empresa.sdui.core.model.Action>,
+        props: Map<String, Any?>
+    ): List<String> {
         val errors = mutableListOf<String>()
         val ids = actions.map { it.id }.toSet()
         for (action in actions) {

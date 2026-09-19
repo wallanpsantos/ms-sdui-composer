@@ -70,14 +70,17 @@ class HomeController(
                         details = result.violations.map { "${it.header}:${it.reason}" },
                     ),
                 )
+
                 is ComposeResult.RateLimited -> ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .header("Retry-After", "1")
                     .body(ApiErrorResponse("RATE_LIMITED", "rate limit excedido"))
+
                 is ComposeResult.NotModified -> ResponseEntity.status(HttpStatus.NOT_MODIFIED)
                     .header("ETag", result.etag)
                     .header("Cache-Control", CACHE_CONTROL)
                     .header("Vary", VARY)
                     .build<Void>()
+
                 is ComposeResult.Unavailable -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .header("Retry-After", result.retryAfterSeconds.toString())
                     .body(
@@ -87,6 +90,7 @@ class HomeController(
                             details = listOf(result.reason.wire),
                         ),
                     )
+
                 is ComposeResult.Success -> {
                     val body = mapper.toResponse(result.screen)
                     val serializeStarted = System.nanoTime()

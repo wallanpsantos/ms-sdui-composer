@@ -12,7 +12,8 @@ rollback. O MVP adota specs monoplataforma, com iOS como primeiro documento publ
 - `specs` e `skeletons` publicados não podem ser alterados; somente pointer, publish request pendente e idempotência são
   mutáveis nos respectivos ciclos.
 - Há índice único para pointer por `surface + platform + channel`, para revisão de spec e para diff entre revisões.
-- Faixas de versão persistem ordinais mínimo e máximo; seleção não compara semver como string e confirma a comparação na camada de domínio, sem comparar semver como string.
+- Faixas de versão persistem ordinais mínimo e máximo; seleção não compara semver como string e confirma a comparação na
+  camada de domínio, sem comparar semver como string.
 - O modelo suporta `stable`, `canary` e `internal`, sem confundir channel com feature flag.
 - O seed iOS criado a partir da fixture é um spec monoplataforma; não há overlay ou motor JSON Patch no MVP.
 - Não há árvore hidratada por usuário no Mongo nem payload regulado/Pii armazenado como cache de compose.

@@ -69,7 +69,14 @@ class HomeSeed(
                 SlotDefinition("header", SlotLayout.FIXED, null, 1, listOf("top_bar"), required = true),
                 SlotDefinition("shortcuts", SlotLayout.SHELF, null, 1, listOf("shortcut_shelf"), required = false),
                 SlotDefinition("accounts", SlotLayout.LIST, "Conta", 1, listOf("account_card"), required = true),
-                SlotDefinition("cards", SlotLayout.LIST, "Cartão de crédito", 3, listOf("card_product"), required = false),
+                SlotDefinition(
+                    "cards",
+                    SlotLayout.LIST,
+                    "Cartão de crédito",
+                    3,
+                    listOf("card_product"),
+                    required = false
+                ),
                 SlotDefinition("offers", SlotLayout.LIST, "Crédito", 4, listOf("credit_offer"), required = false),
                 SlotDefinition("coverage", SlotLayout.LIST, "Seguros", 3, listOf("coverage_card"), required = false),
                 SlotDefinition("foryou", SlotLayout.PAGER, "Para você", 2, listOf("decision_card"), required = false),
@@ -128,7 +135,10 @@ class HomeSeed(
                     SemVer.parse(targeting.get("appVersionMax").asText()),
                 ),
                 osVersion = VersionRange(SemVer.parse(targeting.get("osVersionMin").asText())!!, null),
-                schemaVersion = VersionRange(SemVer.parse(MvpCatalog.SCHEMA_VERSION)!!, SemVer.parse(MvpCatalog.SCHEMA_VERSION)),
+                schemaVersion = VersionRange(
+                    SemVer.parse(MvpCatalog.SCHEMA_VERSION)!!,
+                    SemVer.parse(MvpCatalog.SCHEMA_VERSION)
+                ),
                 requiredCapabilities = MvpCatalog.TYPES,
                 priority = 100,
                 band = targeting.get("band").asText(),

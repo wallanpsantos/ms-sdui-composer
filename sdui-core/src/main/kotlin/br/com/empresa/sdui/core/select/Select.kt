@@ -21,8 +21,8 @@ object Select {
         // Spec.channel is authorship metadata; promotion reuses a published revision as-is.
         val published = candidates.filter { spec ->
             spec.status == SpecStatus.PUBLISHED &&
-                spec.surface == "home" &&
-                spec.platform == context.platform
+                    spec.surface == "home" &&
+                    spec.platform == context.platform
         }
         val pointed = pointer
             ?.takeIf { it.channel == channel && it.platform == context.platform }

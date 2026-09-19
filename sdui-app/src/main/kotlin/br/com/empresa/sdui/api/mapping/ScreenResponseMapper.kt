@@ -123,11 +123,13 @@ class ScreenResponseMapper(
                 value.forEach { array.add(toNode(it)) }
                 array
             }
+
             is Map<*, *> -> {
                 val obj: ObjectNode = mapper.nodeFactory.objectNode()
                 value.forEach { (k, v) -> obj.set<JsonNode>(k.toString(), toNode(v)) }
                 obj
             }
+
             else -> mapper.nodeFactory.stringNode(value.toString())
         }
     }

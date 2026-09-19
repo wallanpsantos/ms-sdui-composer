@@ -1,10 +1,14 @@
 # ms-sdui-composer
 
-Serviço orquestrador e compositor Server-Driven UI (SDUI) para aplicações móveis (iOS e Android). O `ms-sdui-composer` atua como **Presentation + Application Controller + BFF de UI**, compondo árvores de UI hidratadas e compatíveis a partir de especificações versionadas, contexto do cliente e capabilities homologadas.
+Serviço orquestrador e compositor Server-Driven UI (SDUI) para aplicações móveis (iOS e Android). O `ms-sdui-composer`
+atua como **Presentation + Application Controller + BFF de UI**, compondo árvores de UI hidratadas e compatíveis a
+partir de especificações versionadas, contexto do cliente e capabilities homologadas.
 
 ## Modo atual
 
-O bootstrap e a H00 (contrato + fixture) estão concluídos. O foco é a **implementação direta e completa** do código produtivo de `H01`–`H18`. Agentes e contribuidores escrevem produção e testes como fontes, sem ciclos repetitivos de `gradlew` e sem esperar a suíte para continuar. A memória operacional está em `AGENTS.md`.
+O bootstrap e a H00 (contrato + fixture) estão concluídos. O foco é a **implementação direta e completa** do código
+produtivo de `H01`–`H18`. Agentes e contribuidores escrevem produção e testes como fontes, sem ciclos repetitivos de
+`gradlew` e sem esperar a suíte para continuar. A memória operacional está em `AGENTS.md`.
 
 ## Stack Tecnológica
 
@@ -21,22 +25,26 @@ O bootstrap e a H00 (contrato + fixture) estão concluídos. O foco é a **imple
 ## Estrutura Multi-Módulo
 
 - `sdui-contract`: DTOs de contrato público, envelopes de resposta e modelos do catálogo SDUI.
-- `sdui-core`: Regras puras de domínio, targeting ordinal, invariantes e políticas de composição (zero dependências de frameworks).
+- `sdui-core`: Regras puras de domínio, targeting ordinal, invariantes e políticas de composição (zero dependências de
+  frameworks).
 - `sdui-app`: Orquestrador de composição (`orchestrator`), adaptadores (`adapters`) e controllers HTTP (`api`).
 - `sdui-bootstrap`: Módulo executável Spring Boot contendo a inicialização e configuração de runtime.
 - `sdui-integration-test`: Testes arquiteturais (ArchUnit) e suíte de testes de integração end-to-end.
 
 ## Comandos de Build e Execução
 
-Para o operador humano, quando quiser verificar o working tree. **Não** fazem parte do ciclo de implementação dos agentes; se forem pedidos, correm uma única vez no final.
+Para o operador humano, quando quiser verificar o working tree. **Não** fazem parte do ciclo de implementação dos
+agentes; se forem pedidos, correm uma única vez no final.
 
 ### Verificação de Versões e Ferramental
+
 ```powershell
 java -version
 .\gradlew.bat --version
 ```
 
 ### Compilação e Validação Completa
+
 ```powershell
 .\gradlew.bat clean build --warning-mode=fail
 ```

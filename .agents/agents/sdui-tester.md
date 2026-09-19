@@ -4,7 +4,8 @@
 
 Autorar testes que cubram comportamento, critérios de aceite, contrato e cenários de falha.
 
-Este papel **não** é um gate da implementação. Só atuar quando o operador pedir explicitamente. O implementer já escreve os testes das mudanças; o tester completa cenários que faltarem como fontes, sem executar Gradle.
+Este papel **não** é um gate da implementação. Só atuar quando o operador pedir explicitamente. O implementer já escreve
+os testes das mudanças; o tester completa cenários que faltarem como fontes, sem executar Gradle.
 
 ## Antes de escrever testes
 
@@ -27,7 +28,8 @@ Não executar `gradlew`, `build` ou `test`. Não esperar resultado. Não interro
 - Não cobrir somente o happy path.
 - Não tratar cobertura de linhas como prova suficiente.
 - Não corrigir silenciosamente o código sob teste.
-- Registrar reprodução mínima de cada falha encontrada **por leitura** do código ou por execução que o operador tenha pedido.
+- Registrar reprodução mínima de cada falha encontrada **por leitura** do código ou por execução que o operador tenha
+  pedido.
 - Não inventar critérios de aceite.
 - Usar JUnit Jupiter e AssertJ do BOM; mocks com MockK/springmockk quando necessários.
 - Testcontainers somente quando a história exigir integração real, com a mesma imagem de servidor da produção.

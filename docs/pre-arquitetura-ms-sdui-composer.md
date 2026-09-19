@@ -15,16 +15,20 @@ com Kotlin DSL, multi-projeto.
 telas, hidratação dinâmica por squads e testes com níveis claros de isolamento (tendo a `home` como primeira surface).
 
 > **Atualização tecnológica — 18/09/2026.** Esta revisão migra o documento de Maven/Java para Gradle/Kotlin e fecha o
-> ADR-001 em **quatro módulos de produção** (`sdui-contract`, `sdui-core`, `sdui-app`, `sdui-bootstrap`) mais o módulo de
+> ADR-001 em **quatro módulos de produção** (`sdui-contract`, `sdui-core`, `sdui-app`, `sdui-bootstrap`) mais o módulo
+> de
 > teste `sdui-integration-test`.
 >
-> O gerenciamento de versões é centralizado no BOM do Spring Boot, importado como `platform(...)` nos convention plugins.
-> **Não fixar** no build versões de Spring Framework, starters, Jackson, JUnit Jupiter, AssertJ, Mockito, Testcontainers,
+> O gerenciamento de versões é centralizado no BOM do Spring Boot, importado como `platform(...)` nos convention
+> plugins.
+> **Não fixar** no build versões de Spring Framework, starters, Jackson, JUnit Jupiter, AssertJ, Mockito,
+> Testcontainers,
 > driver MongoDB ou Lettuce. Bibliotecas fora do BOM (ArchUnit 1.5.0, MockK, springmockk, WireMock) têm versão explícita
 > em `gradle/libs.versions.toml`, verificada antes de entrar.
 >
 > O projeto permanece sem Kafka e sem Spring Cloud por padrão. Kafka exige fluxo assíncrono real com contrato,
-> consumidores, idempotência, retry, DLQ, retenção e owner operacional. Spring Cloud só entra com caso concreto de Config
+> consumidores, idempotência, retry, DLQ, retenção e owner operacional. Spring Cloud só entra com caso concreto de
+> Config
 > Client, Discovery, client-side LoadBalancer ou Circuit Breaker. MongoDB permanece porque esta pré-arquitetura o define
 > como store de specs; RestClient/WireMock continuam condicionais à existência de hidratação HTTP real.
 
@@ -41,12 +45,12 @@ Java, salvo exigência comprovada de integração externa.
 
 A organização segue uma **Clean Architecture pragmática**, com fronteiras em dois níveis:
 
-| Fronteira                                   | Mecanismo                                   | Por quê                                                     |
-|---------------------------------------------|---------------------------------------------|-------------------------------------------------------------|
-| Pureza do domínio (`sdui-core`)             | Módulo Gradle + `verifyPureClasspath`       | É onde Spring e infraestrutura vazam com mais facilidade    |
-| Contrato público (`sdui-contract`)          | Módulo Gradle                               | Única fronteira que outro processo pode consumir            |
-| Executável (`sdui-bootstrap`)               | Módulo Gradle                               | Só um lugar tem `@SpringBootApplication` e wiring final     |
-| orchestrator × adapters × api (`sdui-app`)  | Pacotes + ArchUnit                          | Um engenheiro, sem ownership separado; fronteira por pacote |
+| Fronteira                                  | Mecanismo                             | Por quê                                                     |
+|--------------------------------------------|---------------------------------------|-------------------------------------------------------------|
+| Pureza do domínio (`sdui-core`)            | Módulo Gradle + `verifyPureClasspath` | É onde Spring e infraestrutura vazam com mais facilidade    |
+| Contrato público (`sdui-contract`)         | Módulo Gradle                         | Única fronteira que outro processo pode consumir            |
+| Executável (`sdui-bootstrap`)              | Módulo Gradle                         | Só um lugar tem `@SpringBootApplication` e wiring final     |
+| orchestrator × adapters × api (`sdui-app`) | Pacotes + ArchUnit                    | Um engenheiro, sem ownership separado; fronteira por pacote |
 
 Camadas lógicas:
 
@@ -145,13 +149,13 @@ O pacote base é `br.com.empresa.sdui`. Cada camada vive em `br.com.empresa.sdui
 
 ### Papel dos módulos
 
-| Módulo                  | Camadas                           | Spring em produção?           | Executável? |
-|-------------------------|-----------------------------------|------------------------------:|------------:|
-| `sdui-contract`         | contract                          |                           Não |         Não |
-| `sdui-core`             | core                              |                           Não |         Não |
-| `sdui-app`              | orchestrator + adapters + api     | Sim (exceto em `orchestrator`) |         Não |
-| `sdui-bootstrap`        | bootstrap                         |                           Sim |         Sim |
-| `sdui-integration-test` | testes HTTP/infra e ArchUnit      |               Apenas em teste |         Não |
+| Módulo                  | Camadas                       |            Spring em produção? | Executável? |
+|-------------------------|-------------------------------|-------------------------------:|------------:|
+| `sdui-contract`         | contract                      |                            Não |         Não |
+| `sdui-core`             | core                          |                            Não |         Não |
+| `sdui-app`              | orchestrator + adapters + api | Sim (exceto em `orchestrator`) |         Não |
+| `sdui-bootstrap`        | bootstrap                     |                            Sim |         Sim |
+| `sdui-integration-test` | testes HTTP/infra e ArchUnit  |                Apenas em teste |         Não |
 
 ### Quando dividir `sdui-app`
 
@@ -188,13 +192,13 @@ sdui-integration-test depende de sdui-bootstrap (e dos demais, em teste, para Ar
 
 ### Declaração no Gradle
 
-| Módulo                  | Dependências de projeto                                           | Observação                                                                                   |
-|-------------------------|-------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| `sdui-core`             | nenhuma                                                           | stdlib Kotlin apenas; `verifyPureClasspath` ativo                                            |
-| `sdui-contract`         | nenhuma                                                           | Jackson somente para contrato/serialização; `verifyPureClasspath` ativo                      |
-| `sdui-app`              | `api(project(":sdui-core"))`, `implementation(project(":sdui-contract"))` | `api` porque portas e casos de uso expõem tipos do core nas assinaturas públicas     |
-| `sdui-bootstrap`        | `implementation(project(":sdui-app"))`                            | recebe `sdui-core` transitivamente; não enxerga `sdui-contract` diretamente                   |
-| `sdui-integration-test` | `testImplementation` de `sdui-bootstrap`, `sdui-app`, `sdui-core`, `sdui-contract` | nada em `main`                                                               |
+| Módulo                  | Dependências de projeto                                                            | Observação                                                                       |
+|-------------------------|------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
+| `sdui-core`             | nenhuma                                                                            | stdlib Kotlin apenas; `verifyPureClasspath` ativo                                |
+| `sdui-contract`         | nenhuma                                                                            | Jackson somente para contrato/serialização; `verifyPureClasspath` ativo          |
+| `sdui-app`              | `api(project(":sdui-core"))`, `implementation(project(":sdui-contract"))`          | `api` porque portas e casos de uso expõem tipos do core nas assinaturas públicas |
+| `sdui-bootstrap`        | `implementation(project(":sdui-app"))`                                             | recebe `sdui-core` transitivamente; não enxerga `sdui-contract` diretamente      |
+| `sdui-integration-test` | `testImplementation` de `sdui-bootstrap`, `sdui-app`, `sdui-core`, `sdui-contract` | nada em `main`                                                                   |
 
 ### Regra importante sobre o `contract`
 
@@ -671,6 +675,7 @@ Se for necessário override, definir uma operação fechada e validada no publis
 qualquer JSON no request quente.
 
 ---
+
 ## 6. Estratégia de testes
 
 Testes são escritos em Kotlin, com JUnit Jupiter e AssertJ na versão do BOM. **Testcontainers não entra em teste
@@ -678,18 +683,18 @@ unitário**: pertence aos testes de adapter e de integração.
 
 ### 6.1 Matriz de testes
 
-| Camada                        | Ferramentas                                          | Módulo                          | Escopo                                          |                Infra real? |
-|-------------------------------|------------------------------------------------------|---------------------------------|-------------------------------------------------|---------------------------:|
-| Unitário core                 | JUnit Jupiter + AssertJ                              | `sdui-core`                     | Regras, políticas e invariantes                 |                        Não |
-| Unitário orchestrator         | JUnit Jupiter + AssertJ + MockK/fakes                | `sdui-app`                      | Casos de uso, ordem de chamadas e falhas        |                        Não |
-| Adapter Mongo/Redis           | JUnit Jupiter + Testcontainers                       | `sdui-app`                      | Mapeamento, TTL, índices, comandos e integração |                        Sim |
-| Client HTTP                   | JUnit Jupiter + WireMock                             | `sdui-app`                      | Status, timeout, payload, retry e erro remoto   | Simulado por servidor HTTP |
-| API MVC                       | `@WebMvcTest` + MockMvc (DSL Kotlin) + `@MockkBean`  | `sdui-app`                      | Controller, headers, status, JSON e advice      |                        Não |
-| Serialização do contrato      | `JsonMapper` autoconfigurado pelo Boot               | `sdui-app`                      | JSON de fio exatamente como sai em produção     |                        Não |
-| Contexto                      | `@SpringBootTest`                                    | `sdui-bootstrap`                | Wiring sobe                                     |                        Não |
-| Arquitetura                   | ArchUnit (`ClassFileImporter`)                       | `sdui-integration-test`         | Dependências entre pacotes e camadas            |                        Não |
-| Integração/E2E leve           | `@SpringBootTest` + Testcontainers                   | `sdui-integration-test`         | Fluxo HTTP com Mongo + Redis                    |                        Sim |
-| Carga/performance             | Ferramenta de carga da plataforma                    | fora do build                   | P99, payload, cache, singleflight               |          Ambiente dedicado |
+| Camada                   | Ferramentas                                         | Módulo                  | Escopo                                          |                Infra real? |
+|--------------------------|-----------------------------------------------------|-------------------------|-------------------------------------------------|---------------------------:|
+| Unitário core            | JUnit Jupiter + AssertJ                             | `sdui-core`             | Regras, políticas e invariantes                 |                        Não |
+| Unitário orchestrator    | JUnit Jupiter + AssertJ + MockK/fakes               | `sdui-app`              | Casos de uso, ordem de chamadas e falhas        |                        Não |
+| Adapter Mongo/Redis      | JUnit Jupiter + Testcontainers                      | `sdui-app`              | Mapeamento, TTL, índices, comandos e integração |                        Sim |
+| Client HTTP              | JUnit Jupiter + WireMock                            | `sdui-app`              | Status, timeout, payload, retry e erro remoto   | Simulado por servidor HTTP |
+| API MVC                  | `@WebMvcTest` + MockMvc (DSL Kotlin) + `@MockkBean` | `sdui-app`              | Controller, headers, status, JSON e advice      |                        Não |
+| Serialização do contrato | `JsonMapper` autoconfigurado pelo Boot              | `sdui-app`              | JSON de fio exatamente como sai em produção     |                        Não |
+| Contexto                 | `@SpringBootTest`                                   | `sdui-bootstrap`        | Wiring sobe                                     |                        Não |
+| Arquitetura              | ArchUnit (`ClassFileImporter`)                      | `sdui-integration-test` | Dependências entre pacotes e camadas            |                        Não |
+| Integração/E2E leve      | `@SpringBootTest` + Testcontainers                  | `sdui-integration-test` | Fluxo HTTP com Mongo + Redis                    |                        Sim |
+| Carga/performance        | Ferramenta de carga da plataforma                   | fora do build           | P99, payload, cache, singleflight               |          Ambiente dedicado |
 
 `@WebMvcTest` limita o contexto aos componentes MVC e auto-configura MockMvc. No Boot 4, o suporte vem do starter
 `spring-boot-starter-webmvc-test`; os pacotes das annotations de teste mudaram com a modularização do Boot 4, então os
@@ -1147,12 +1152,12 @@ Dentro de precompiled script plugins o acessor tipado `libs` não existe; usar
 
 ### 8.4 Convention plugins
 
-| Plugin                  | Aplica                                                                                     | Usado por                                  |
-|-------------------------|--------------------------------------------------------------------------------------------|--------------------------------------------|
-| `sdui.kotlin-base`      | `kotlin("jvm")`, `java-library`, toolchain 25, flags, BOM, JUnit, `verifyForbiddenDependencies` | todos, indiretamente                  |
-| `sdui.kotlin-library`   | `sdui.kotlin-base` + `verifyPureClasspath`                                                 | `sdui-core`, `sdui-contract`               |
-| `sdui.spring-library`   | `sdui.kotlin-base` + `kotlin("plugin.spring")` + `kotlin-reflect`                           | `sdui-app`, `sdui-integration-test`        |
-| `sdui.spring-app`       | `sdui.spring-library` + `org.springframework.boot`                                          | `sdui-bootstrap`                           |
+| Plugin                | Aplica                                                                                          | Usado por                           |
+|-----------------------|-------------------------------------------------------------------------------------------------|-------------------------------------|
+| `sdui.kotlin-base`    | `kotlin("jvm")`, `java-library`, toolchain 25, flags, BOM, JUnit, `verifyForbiddenDependencies` | todos, indiretamente                |
+| `sdui.kotlin-library` | `sdui.kotlin-base` + `verifyPureClasspath`                                                      | `sdui-core`, `sdui-contract`        |
+| `sdui.spring-library` | `sdui.kotlin-base` + `kotlin("plugin.spring")` + `kotlin-reflect`                               | `sdui-app`, `sdui-integration-test` |
+| `sdui.spring-app`     | `sdui.spring-library` + `org.springframework.boot`                                              | `sdui-bootstrap`                    |
 
 `sdui.kotlin-base.gradle.kts` (esboço):
 
@@ -1811,7 +1816,8 @@ borda HTTP. Esta pré-arquitetura não mencionava `ThreadLocal` em lugar nenhum.
   request, mas o `finally` protege contra reuso do carrier e contra troca futura para pool.
 - Vive no pacote `api` de `sdui-app` porque é infraestrutura HTTP. `core` e `orchestrator` continuam sem conhecê-lo.
 
-**Consequência.** Uma regra ArchUnit adicional (§7.3): nenhuma classe de `..core..` ou `..orchestrator..` pode referenciar
+**Consequência.** Uma regra ArchUnit adicional (§7.3): nenhuma classe de `..core..` ou `..orchestrator..` pode
+referenciar
 `ComposeTraceContext`. Se alguém precisar dele lá, o dado deveria estar na assinatura.
 
 **Nota sobre a referência.** A validação inicial citava "§11/§13.1" do plano. O §13.1 é apenas a lista de runtime e só
@@ -1827,7 +1833,8 @@ referencia o §11 para o veto ao `ScopedValue`. A decisão de `ThreadLocal` vive
 
 **Contexto.** O plano §7.5 é explícito: `@Transactional` não vai em controller, o serviço de publish é o único que abre
 transação, e compose não abre transação. A regra do orchestrator (§4.2) é não ter Spring,
-mesmo compartilhando o módulo `sdui-app`. `@Transactional` é `spring-tx`. As duas regras colidem: o caso de uso de publish mora no orchestrator.
+mesmo compartilhando o módulo `sdui-app`. `@Transactional` é `spring-tx`. As duas regras colidem: o caso de uso de
+publish mora no orchestrator.
 
 **Opções.** (a) `spring-tx` no orchestrator, quebrando "orchestrator sem Spring". (b) Porta pura no orchestrator,
 implementação anotada em adapters, exigindo exceção na regra ArchUnit que proíbe `@Transactional` em adapters.
@@ -1939,13 +1946,13 @@ de fora do BOM 2.4.0, obrigando a sobrescrever a versão explicitamente de qualq
 
 **Análise do que o MVP realmente precisa.**
 
-| Necessidade                          | Solução no MVP                                        | Precisa de Resilience4j?              |
-|--------------------------------------|-------------------------------------------------------|---------------------------------------|
-| Timeout por section                  | `Future.get(timeout)` + `cancel(true)` (§11)          | Não                                   |
-| Bounded fan-out de hydrator          | `Semaphore` compartilhado por instância (§11)         | Não                                   |
-| Timeout de Mongo/Redis               | Configuração do driver                                | Não                                   |
-| Rate limit do compose                | Token bucket distribuído no Redis                     | Não (o RateLimiter dele é in-process) |
-| Circuit breaker por dependência HTTP | —                                                     | Sim, **quando existir client HTTP**   |
+| Necessidade                          | Solução no MVP                                | Precisa de Resilience4j?              |
+|--------------------------------------|-----------------------------------------------|---------------------------------------|
+| Timeout por section                  | `Future.get(timeout)` + `cancel(true)` (§11)  | Não                                   |
+| Bounded fan-out de hydrator          | `Semaphore` compartilhado por instância (§11) | Não                                   |
+| Timeout de Mongo/Redis               | Configuração do driver                        | Não                                   |
+| Rate limit do compose                | Token bucket distribuído no Redis             | Não (o RateLimiter dele é in-process) |
+| Circuit breaker por dependência HTTP | —                                             | Sim, **quando existir client HTTP**   |
 
 **Decisão.** Nenhuma dependência de resiliência entra no catálogo antes de existir consumidor.
 
@@ -1979,7 +1986,8 @@ próprio §12 diz que não deve acontecer — e o app mobile perderia o sinal de
 tratado fora da escada. `404` nunca, para `home`.
 
 **Consequência.** Teste obrigatório: Redis vazio e sem `lastgood` retorna `503` com `Retry-After` e corpo estável, não
-`500` nem stacktrace. Entra na matriz do §6 (§6.5 e §6.8) e nos critérios de H07/H11. O degrau seguinte é o skeleton local do binário,
+`500` nem stacktrace. Entra na matriz do §6 (§6.5 e §6.8) e nos critérios de H07/H11. O degrau seguinte é o skeleton
+local do binário,
 que é contrato com mobile e não código deste MS.
 
 ---
@@ -1999,7 +2007,8 @@ incidente.
 
 **Opções para o checker, em ordem de preferência.**
 
-1. **Checker é uma pessoa de produto ou de negócio**, não de backend. Aprovar uma revisão de Home é decisão de produto: o
+1. **Checker é uma pessoa de produto ou de negócio**, não de backend. Aprovar uma revisão de Home é decisão de produto:
+   o
    diff N-1 → N mostra copy, ordem de slots e ações. Não exige ler código. É a opção que preserva a regra e melhora a
    governança.
 2. **Channel `internal` com atalho de publish** para o ciclo de desenvolvimento, mantendo maker-checker obrigatório em

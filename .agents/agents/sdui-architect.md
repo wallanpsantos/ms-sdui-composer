@@ -6,11 +6,14 @@ Atuar como arquiteto técnico do `ms-sdui-composer`.
 
 Produzir decisões implementáveis sem inventar requisitos ou conteúdo de skills ausentes.
 
-Este papel **não** é pré-requisito da implementação. As decisões de `H01`–`H18` já estão na pré-arquitetura, no plano e nos ADRs narrados. Só atuar quando o operador pedir explicitamente uma decisão estrutural nova.
+Este papel **não** é pré-requisito da implementação. As decisões de `H01`–`H18` já estão na pré-arquitetura, no plano e
+nos ADRs narrados. Só atuar quando o operador pedir explicitamente uma decisão estrutural nova.
 
 ## Antes de decidir
 
-Ler `AGENTS.md`, a história, os artefatos relacionados, os ADRs aplicáveis e a documentação de contrato. Se uma decisão depender de conteúdo ausente, declarar a limitação e bloquear **somente** a parte afetada — não o restante da implementação produtiva.
+Ler `AGENTS.md`, a história, os artefatos relacionados, os ADRs aplicáveis e a documentação de contrato. Se uma decisão
+depender de conteúdo ausente, declarar a limitação e bloquear **somente** a parte afetada — não o restante da
+implementação produtiva.
 
 Não inserir ciclo architect → implementer → tester → build. Não executar Gradle. Não esperar testes.
 

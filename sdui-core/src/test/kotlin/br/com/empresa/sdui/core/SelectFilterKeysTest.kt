@@ -35,7 +35,8 @@ class SelectFilterKeysTest {
         assertThat(selected?.specRevisionId).isEqualTo("rev_ios")
         assertThat(Select.select(null, listOf(ios, android), ctx, caps, Channel.STABLE)?.specRevisionId)
             .isEqualTo(selected?.specRevisionId)
-        val androidSelected = Select.select(null, listOf(ios, android), context(ClientPlatform.ANDROID), caps, Channel.STABLE)
+        val androidSelected =
+            Select.select(null, listOf(ios, android), context(ClientPlatform.ANDROID), caps, Channel.STABLE)
         assertThat(androidSelected?.specRevisionId).isEqualTo("rev_and")
         assertThat(androidSelected?.specRevisionId).isNotEqualTo("rev_ios")
     }
@@ -94,7 +95,14 @@ class SelectFilterKeysTest {
             surface = "home",
             layout = "vertical_scroll",
             slots = MvpCatalog.SLOT_ORDER.map { id ->
-                SlotDefinition(id, SlotLayout.LIST, null, 3, MvpCatalog.TYPE_NAMES.toList(), id in MvpCatalog.REQUIRED_SLOTS)
+                SlotDefinition(
+                    id,
+                    SlotLayout.LIST,
+                    null,
+                    3,
+                    MvpCatalog.TYPE_NAMES.toList(),
+                    id in MvpCatalog.REQUIRED_SLOTS
+                )
             },
             status = SpecStatus.PUBLISHED,
         )

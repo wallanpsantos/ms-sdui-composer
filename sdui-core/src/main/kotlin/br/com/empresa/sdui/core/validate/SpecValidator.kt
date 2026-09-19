@@ -101,7 +101,9 @@ object SpecValidator {
             val schema = spec.targeting.schemaVersion.min
             val context = ctx.copy(schemaVersion = schema.major.toString())
             Combo(
-                label = "${spec.platform.wire()} ${version} caps=${matrix.effective(context).joinToString { it.wire() }}",
+                label = "${spec.platform.wire()} ${version} caps=${
+                    matrix.effective(context).joinToString { it.wire() }
+                }",
                 caps = matrix.effective(context),
             )
         }

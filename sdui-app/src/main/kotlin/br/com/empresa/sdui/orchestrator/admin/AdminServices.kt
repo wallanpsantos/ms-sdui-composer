@@ -7,6 +7,7 @@ import br.com.empresa.sdui.core.model.AuditEvent
 import br.com.empresa.sdui.core.model.Catalog
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
+import br.com.empresa.sdui.core.model.IdempotencyRecord
 import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.PublishRequest
 import br.com.empresa.sdui.core.model.PublishRequestStatus
@@ -30,7 +31,6 @@ import br.com.empresa.sdui.orchestrator.port.inbound.RollbackPointerUseCase
 import br.com.empresa.sdui.orchestrator.port.outbound.AuditLogStore
 import br.com.empresa.sdui.orchestrator.port.outbound.CatalogStore
 import br.com.empresa.sdui.orchestrator.port.outbound.DiffStore
-import br.com.empresa.sdui.core.model.IdempotencyRecord
 import br.com.empresa.sdui.orchestrator.port.outbound.HydratedScreenCache
 import br.com.empresa.sdui.orchestrator.port.outbound.IdempotencyStore
 import br.com.empresa.sdui.orchestrator.port.outbound.PointerStore
@@ -40,7 +40,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.SpecCache
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
 import br.com.empresa.sdui.orchestrator.port.outbound.TransactionalUnitOfWork
 import java.time.Clock
-import java.util.UUID
+import java.util.*
 
 class AdminDenied(message: String) : RuntimeException(message)
 class AdminConflict(message: String) : RuntimeException(message)
@@ -75,7 +75,12 @@ class DraftService(
         val skeleton = skeletonStore.find(command.spec.skeletonId, command.spec.skeletonRevision)
             ?: skeletonStore.current(command.spec.skeletonId)
             ?: throw AdminNotFound("skeleton ${command.spec.skeletonId}")
-        val errors = SpecValidator.validateDraft(command.spec.copy(status = SpecStatus.DRAFT), skeleton, catalogStore.current(), matrix)
+        val errors = SpecValidator.validateDraft(
+            command.spec.copy(status = SpecStatus.DRAFT),
+            skeleton,
+            catalogStore.current(),
+            matrix
+        )
         if (errors.isNotEmpty()) throw AdminValidation(errors)
         val revision = if (existing == null) specStore.nextRevision(command.spec.specId) else command.spec.revision
         return specStore.save(
@@ -280,7 +285,7 @@ class RollbackService(
         val pointer = pointerStore.find(command.surface, command.platform, command.channel)
             ?: throw AdminNotFound("pointer")
         val targetId = command.targetSpecRevisionId ?: pointer.previousSpecRevisionId
-            ?: throw AdminValidation(listOf("sem revisao anterior"))
+        ?: throw AdminValidation(listOf("sem revisao anterior"))
         val target = specStore.findByRevisionId(targetId) ?: throw AdminNotFound("spec $targetId")
         if (target.status != SpecStatus.PUBLISHED) {
             throw AdminValidation(listOf("alvo nao publicado"))
@@ -315,7 +320,13 @@ class RollbackService(
                     requestId = command.idempotencyKey,
                 ),
             )
-            idempotency.put(IdempotencyRecord(command.idempotencyKey, "rollback", "${command.surface}:${command.platform.wire()}:${command.channel.wire()}"))
+            idempotency.put(
+                IdempotencyRecord(
+                    command.idempotencyKey,
+                    "rollback",
+                    "${command.surface}:${command.platform.wire()}:${command.channel.wire()}"
+                )
+            )
             saved
         }
     }
