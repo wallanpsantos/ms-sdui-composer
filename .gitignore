@@ -6,6 +6,10 @@
 # Gradle Build Artifacts
 .gradle/
 build/
+.kotlin/
+local.properties
+.env
+
 # Manter os arquivos do Gradle Wrapper versionados
 !gradle/wrapper/gradle-wrapper.jar
 !gradle/wrapper/gradle-wrapper.properties

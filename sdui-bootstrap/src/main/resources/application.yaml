@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: ms-sdui-composer
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: 8080
