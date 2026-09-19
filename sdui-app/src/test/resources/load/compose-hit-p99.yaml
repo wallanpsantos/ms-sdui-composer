@@ -1,0 +1,23 @@
+name: compose-hit-p99
+surface: home
+duration_seconds: 60
+hit_ratio: 0.9
+miss_ratio: 0.1
+p99_ms: 400
+slo_e2e_p99_ms: 1200
+headers:
+  UI-Schema-Version: "3"
+  Client-Platform: ios
+  Client-Version: 8.14.2
+  Client-Build: "81420"
+  Accept-Language: pt-BR
+  API-Version: "1"
+  OS-Version: "18.1"
+metrics:
+  - compose.hit
+  - compose.miss
+  - compose.fallback
+  - compose.singleflight.wait
+  - payload.bytes
+  - serialize.ms
+  - section.top_bar.ms

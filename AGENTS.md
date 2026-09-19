@@ -87,7 +87,8 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 ## 10. Ordem e Status das Histórias
 - **H00:** Concluída. Gates de contrato e fixture verdes (identidade da fixture, catálogo, actions, sem visual, round-trip Jackson 3).
-- **H01–H18:** Código produtivo em aberto. Implementar de forma direta e completa; não bloquear a escrita da história seguinte à espera de build ou de testes.
+- **H01–H13:** Código produtivo e testes escritos (Negotiate→Envelope, persistência em memória, admin, cache/fallback, canary iOS, métricas). Execução Gradle só se o operador pedir.
+- **H14–H18:** Isolamento Android implementado (pointer/cache/select). Fixture `contrato-sdui-home-android-proposto.json` ausente — conteúdo Android não inventado.
 - Dependências documentadas em `docs/historias/` (ex.: H04 depende de H01+H03) definem ordem de composição do código, não ciclos de verificação.
 - Não antecipar escopo fora do MVP (Fragment, CMS, CSS no payload, gRPC, coroutines). Dentro do MVP, não adiar implementação.
 
@@ -104,7 +105,7 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 - **Pacote Base Canônico:** `br.com.empresa.sdui`, estruturado por camadas (`.contract`, `.core`, `.orchestrator`, `.adapters`, `.api`, `.bootstrap`, `.it`).
 
 ## 13. Pendências Temporárias
-- **`allowEmptyShould(true)` no ArchUnit:** permanece nas regras de `core`, `orchestrator`, `adapters` e `api` enquanto essas camadas não tiverem classes de produção. Remover gradualmente de H01 a H04. A regra de `contract` já verifica classes reais.
+- **`allowEmptyShould(true)` no ArchUnit:** removido das regras de `core`, `orchestrator`, `adapters` e `api` após essas camadas receberem classes de produção.
 
 ## 14. Regra para ADRs
 Novas decisões estruturais exigem ADR em `docs/adr/ADR-XXX-<slug>.md` seguindo o padrão documentado em `docs/adr/README.md`.

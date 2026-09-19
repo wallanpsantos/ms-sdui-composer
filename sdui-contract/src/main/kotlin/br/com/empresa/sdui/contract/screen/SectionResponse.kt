@@ -4,6 +4,9 @@ import br.com.empresa.sdui.contract.analytics.SectionAnalyticsResponse
 import br.com.empresa.sdui.contract.component.ActionResponse
 import tools.jackson.databind.JsonNode
 
+import com.fasterxml.jackson.annotation.JsonInclude
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class SectionResponse(
     val id: String,
     val slot: String,

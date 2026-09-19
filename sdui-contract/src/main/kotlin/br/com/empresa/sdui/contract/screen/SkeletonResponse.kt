@@ -1,5 +1,8 @@
 package br.com.empresa.sdui.contract.screen
 
+import com.fasterxml.jackson.annotation.JsonInclude
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class SlotResponse(
     val id: String,
     val layout: String,
