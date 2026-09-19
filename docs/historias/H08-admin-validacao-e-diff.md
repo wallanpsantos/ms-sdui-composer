@@ -46,5 +46,4 @@ validação profunda ocorre antes de publish; o caminho quente não remonta a Ho
 
 - Plano: §§ 4.3, 6.3, 7.2 e 7.3.
 - Contrato JSON: `skeleton`, `sections[].slot`, `sections[].type`, `props`, `actions`, `analytics`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, dicionário dos campos de spec e resposta.
 - Skill: `skills/sdui-backend/`, validação em publish e imutabilidade de revisão.

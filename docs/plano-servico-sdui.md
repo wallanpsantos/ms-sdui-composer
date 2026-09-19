@@ -328,7 +328,6 @@ Regras do envelope:
 - Dinheiro só como string formatada (`valueDisplay` / `valueDisplayRevealed`). Olho é gesto local do app.
 - Actions: `navigate` | `open_bottom_sheet` | `track` | `noop`. CTA visível leva `label`. Rota = `payload.route`
   `app://…`.
-- Dicionário campo a campo: `documentacao-contrato-sdui-home-v3.docx`.
 
 Não expor CRUD de spec neste mesmo host no MVP de runtime. Authoring pode ser o mesmo binário com perfil `admin` e path
 `/admin/v1/**`, ou um segundo deploy. Preferência: **mesmo código, perfil separado**, para não duplicar o modelo.
@@ -1198,8 +1197,7 @@ Decisões já tomadas neste plano (para não reabrir em PR):
 8. Sem personalização por usuário neste MS.
 9. Catálogo Home MVP fechado: `top_bar`, `shortcut_shelf`, `account_card`, `card_product`, `credit_offer`,
    `coverage_card`, `decision_card` @1.
-10. Fio canônico iOS: `artifacts/contrato-sdui-home-definitivo.json`. Dicionário:
-    `documentacao-contrato-sdui-home-v3.docx`.
+10. Fio canônico iOS: `artifacts/contrato-sdui-home-definitivo.json`.
 11. `Component-Capabilities` é recomendado (delta); matriz servidor é a fonte.
 12. Actions fechadas: `navigate` | `open_bottom_sheet` | `track` | `noop`; rota `app://`; CTA com `label`.
 13. Jackson 3 (`tools.jackson`) no contrato; Jackson 2 não entra (ADR-005).
@@ -1249,7 +1247,6 @@ Qualquer PR que comece por “framework de widget genérico” está fora deste 
 Consultar, não copiar:
 
 - `artifacts/contrato-sdui-home-definitivo.json` — fio iOS (envelope + skeleton + sections).
-- `artifacts/documentacao-contrato-sdui-home-v3.docx` — dicionário campo a campo com exemplos práticos.
 - `artifacts/resumos-server-driven-ui.md` — síntese cruzada (Airbnb section, Joud quê/como, Fowler toggles).
 - `artifacts/instrucoes-projeto.md` — stack, envelope, SLO, proibições.
 - Skill `skills/sdui-backend/` — fallback 0–7, actions, versionamento.

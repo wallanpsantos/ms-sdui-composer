@@ -112,5 +112,4 @@ pointer antes de promover para `stable`. É a última história do recorte iOS.
 - ADRs (`pre-arquitetura-sdui-home.md` §16): ADR-007 (escada de resposta), ADR-008 (quem é o checker).
 - Contrato JSON: `envelope.platform`, `envelope.channel`, `envelope.specRevisionId`, `envelope.fallback`,
   `envelope.analytics`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, campos de envelope, analytics e rastreabilidade.
 - Skill: `skills/sdui-backend/`, channels, compatibilidade, fallback, pointer, rollback e rollout.

@@ -18,7 +18,7 @@ dicionário v3.
   `credit_offer@1`, `coverage_card@1` e `decision_card@1`.
 - A fixture contém o skeleton semântico compartilhado: `header`, `shortcuts`, `accounts`, `cards`, `offers`, `coverage`
   e `foryou`, na ordem definida pelo plano.
-- Todo campo Android é mapeado e aprovado contra o dicionário `documentacao-contrato-sdui-home-v3.docx`; campo não
+- Todo campo Android é mapeado e aprovado contra o contrato canônico v3; campo não
   documentado bloqueia a publicação da fixture.
 - A fixture não contém cor, tipografia, dimensões, margin, padding, gap, raio, animação, haptic, ripple, shimmer,
   orientação, variantes de forma ou qualquer CSS/pixel no JSON.
@@ -50,5 +50,4 @@ dicionário v3.
 - Plano: §§ 0, 1, 2, 4.1, 4.2, 5.1, 5.4, 6.1, 6.2, 6.4 e 15 (Fase 0 e Fase 1).
 - Contrato JSON: `contrato-sdui-home-definitivo.json` é fio canônico somente para iOS; usar como referência estrutural,
   não como contrato Android implícito.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, dicionário campo a campo que deve validar a fixture Android.
 - Skill: `skills/sdui-backend/`, envelope fechado, compatibilidade, catálogo semântico e omit-unknown.

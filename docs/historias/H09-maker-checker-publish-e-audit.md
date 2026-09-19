@@ -35,5 +35,4 @@ move o pointer. A trilha é append-only e publish é transacional no Mongo repli
 
 - Plano: §§ 0, 4.3, 7.2, 7.5, 8 e 9.
 - Contrato JSON: `envelope.specRevisionId`, `envelope.channel`, `envelope.analytics.specRevisionId`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, campos de rastreabilidade expostos no contrato.
 - Skill: `skills/sdui-backend/`, publish imutável, maker-checker, auditoria e invalidação.

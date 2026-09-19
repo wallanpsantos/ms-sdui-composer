@@ -6,7 +6,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
 
 class NoVisualAttributesTest {
 
@@ -24,13 +23,7 @@ class NoVisualAttributesTest {
         @JvmStatic
         @BeforeAll
         fun loadFixture() {
-            val json = NoVisualAttributesTest::class.java.getResourceAsStream("/fixtures/contrato-sdui-home-definitivo.json")
-                ?.bufferedReader()
-                ?.readText()
-                ?: error("Fixture não encontrada")
-
-            val mapper = JsonMapper.builder().build()
-            rootNode = mapper.readTree(json)
+            rootNode = CanonicalHomeFixture.loadClasspathTree()
         }
     }
 

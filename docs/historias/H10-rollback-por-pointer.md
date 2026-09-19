@@ -37,5 +37,4 @@ Rollback não edita JSON publicado nem reescreve histórico.
 - Plano: §§ 4.3, 7.5, 8 e 9.
 - Contrato JSON: `envelope.specRevisionId`, `envelope.channel`, `envelope.fallback`,
   `envelope.analytics.specRevisionId`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, campos de revisão e canal do envelope.
 - Skill: `skills/sdui-backend/`, pointer, rollback, idempotência e última árvore boa.

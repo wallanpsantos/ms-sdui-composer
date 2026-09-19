@@ -46,5 +46,4 @@ operacional é escopada por plataforma e channel.
 - Plano: §§ 4.3, 7.2, 7.5, 8, 9 e 15 (Fase 3).
 - Contrato JSON: `envelope.specRevisionId`, `envelope.platform`, `envelope.channel`,
   `envelope.analytics.specRevisionId`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, campos de rastreabilidade do envelope.
 - Skill: `skills/sdui-backend/`, maker-checker, revisão imutável, pointer, auditoria e rollback.

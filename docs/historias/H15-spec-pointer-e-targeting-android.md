@@ -47,6 +47,4 @@ sua identidade e capabilities.
 - Plano: §§ 0, 1, 2, 4.1, 5.1, 5.2, 5.4, 7.2, 7.3, 7.4 e 15 (Fases 1 e 2).
 - Contrato JSON: estrutura de `envelope.client`, `envelope.targeting`, `envelope.specRevisionId` e `envelope.channel`;
   valores iOS não definem valores Android.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, campos de targeting, envelope e sections aprovados para o
-  contrato Android.
 - Skill: `skills/sdui-backend/`, seleção por plataforma, versão, capability e pointer.

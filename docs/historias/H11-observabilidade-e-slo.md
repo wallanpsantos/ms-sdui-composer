@@ -47,5 +47,4 @@ saúde da degradação. Métricas não devem carregar PII nem conteúdo regulado
 
 - Plano: §§ 0, 4.2 e 8.
 - Contrato JSON: `envelope.analytics`, `sections[].analytics`, `envelope.fallback`, `envelope.specRevisionId`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, semântica dos objetos analytics.
 - Skill: `skills/sdui-backend/`, observabilidade por compose/section e SLO.

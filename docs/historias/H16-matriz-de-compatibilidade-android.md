@@ -49,5 +49,4 @@ compatibilidade de binário/schema/componentes e comportamento resiliente antes 
 - Plano: §§ 3, 4.2, 5.2, 5.4, 6.3, 8 e 15 (Fases 0, 2 e 4).
 - Contrato JSON: `envelope`, `skeleton`, `sections`, `envelope.etag`, `envelope.fallback`, `envelope.fallbackReason` e
   `envelope.omitted` como estrutura de referência.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, regras do payload Android aprovado.
 - Skill: `skills/sdui-backend/`, compatibilidade, filtro, cache, singleflight, fallback e envelope.

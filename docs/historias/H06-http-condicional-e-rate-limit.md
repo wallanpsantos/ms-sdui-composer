@@ -35,5 +35,4 @@ Adicionar semântica HTTP de revalidação e proteção de capacidade ao endpoin
 
 - Plano: § 4.2, regras do envelope; § 8, proteção de runtime.
 - Contrato JSON: `envelope.etag`, `envelope.specRevisionId`, `envelope.platform`, `envelope.schemaVersion`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, semântica dos campos de envelope.
 - Skill: `skills/sdui-backend/`, cache/revalidação HTTP e resiliência do runtime.

@@ -511,7 +511,6 @@ Enquanto a skill não estiver disponível, consultar as fontes do projeto:
 
 - `plano-servico-sdui.md`;
 - `resumos-server-driven-ui.md`;
-- `documentacao-contrato-sdui-home-v3.docx`;
 - `artifacts/`.
 
 Se uma decisão depender especificamente de conteúdo ausente da skill,

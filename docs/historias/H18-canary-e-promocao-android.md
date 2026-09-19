@@ -54,5 +54,4 @@ sem afetar a experiência iOS.
 - Plano: §§ 0, 2, 4.2, 5.2, 5.3, 8, 9 e 15 (Fase 5).
 - Contrato JSON: `envelope.platform`, `envelope.channel`, `envelope.specRevisionId`, `envelope.fallback` e
   `envelope.analytics` como estrutura de referência.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, campos Android aprovados no contrato v3.
 - Skill: `skills/sdui-backend/`, channels, compatibilidade, observabilidade, pointer e rollback.

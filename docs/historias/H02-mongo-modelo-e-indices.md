@@ -35,5 +35,4 @@ rollback. O MVP adota specs monoplataforma, com iOS como primeiro documento publ
 
 - Plano: §§ 5.1, 7.2, 7.3, 7.4 e 7.5.
 - Contrato JSON: `envelope.specRevisionId`, `envelope.targeting`, `skeleton`, `sections`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, campos persistidos que espelham o contrato v3.
 - Skill: `skills/sdui-backend/`, fonte de verdade, revisões imutáveis e pointers.

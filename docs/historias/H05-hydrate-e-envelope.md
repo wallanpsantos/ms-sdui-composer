@@ -37,5 +37,4 @@ hidratação opera apenas projeções de apresentação e não consulta domínio
 
 - Plano: §§ 1, 3, 4.2, 6.3 e 6.4.
 - Contrato JSON: documento completo; em especial `envelope`, `skeleton` e `sections`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, definição campo a campo do payload v3.
 - Skill: `skills/sdui-backend/`, compose, degradação por section e envelope fechado.

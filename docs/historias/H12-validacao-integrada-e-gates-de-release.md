@@ -112,5 +112,4 @@ do rollout.
   contrato), ADR-007 (`503` + `Retry-After`), ADR-008 (dois atores no teste de maker-checker).
 - Contrato JSON: documento completo; principalmente `envelope`, `skeleton`, `sections`, `sections[].actions` e
   `sections[].analytics`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, dicionário campo a campo do contrato v3.
 - Skill: `skills/sdui-backend/`, compatibilidade, fallback, observabilidade, validação e rollout seguro.

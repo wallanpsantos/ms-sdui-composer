@@ -66,14 +66,14 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 - Escada de fallback (ADR-007): 200 OK -> 200 OK com omissão -> 200 Cache -> 200 Last Good -> 503 Retry-After.
 
 ## 10. Ordem e Status das Histórias
-- **H00:** Contrato e fixture. Fixture canônica e tipos Kotlin presentes em `sdui-contract`. Aceite final bloqueado pelos documentos ausentes da §11.
+- **H00:** Gates testáveis verdes (identidade da fixture, catálogo, actions, sem visual, round-trip Jackson 3).
 - **H01–H18:** Bloqueadas até a conclusão das etapas precedentes. Não antecipar implementação.
 
 ## 11. Lacunas Documentais Registradas
 - `docs/fluxos-integracao-ms-sdui-composer.md`: o arquivo real contém `\u200b` (Zero Width Space) no nome. Mantido intacto conforme regra de verdade.
 - ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/pre-arquitetura-ms-sdui-composer.md`. Arquivos individuais `docs/adr/ADR-XXX-*.md` ainda não foram extraídos; o diretório tem só `README.md`.
 - Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em `sdui-contract/src/test/resources/fixtures/`).
-- Ausentes: `contrato-sdui-home-android-proposto.json` (H14), `documentacao-contrato-sdui-home-v3.docx` (dicionário da H00) e `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`.
+- Ausentes: `contrato-sdui-home-android-proposto.json` (H14) e `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`.
 - Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`.
 
 ## 12. Decisões Provisórias
