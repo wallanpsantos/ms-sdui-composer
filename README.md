@@ -12,7 +12,7 @@ de performance no hot path (`agent-skills:performance-optimization`).
 
 As 7 correções de resiliência e concorrência (incluindo o reparo crítico do Singleflight, proteção contra overflow de
 SemVer e eliminação da dupla serialização JSON) foram aplicadas e validadas. A memória operacional consolidada está
-em `AGENTS.md` e em `docs/memoria-projeto-ms-sdui-composer.md`.
+em `AGENTS.md` e em `docs/06-memoria-projeto-ms-sdui-composer.md`.
 
 ## Stack Tecnológica
 
@@ -56,8 +56,9 @@ java -version
 ## Governança e Memória Operacional
 
 - `AGENTS.md`: Memória operacional viva com regras de negócio, grafo de módulos e convenções para agentes.
-- `docs/memoria-projeto-ms-sdui-composer.md`: Memória arquitetural e operacional consolidada do serviço.
-- `docs/relatorio-revisao-e-otimizacao-performance.md`: Relatório detalhado da auditoria de qualidade e otimização de performance.
+- `docs/README.md`: Índice sequencial completo da documentação do projeto.
+- `docs/06-memoria-projeto-ms-sdui-composer.md`: Memória arquitetural e operacional consolidada do serviço.
+- `docs/07-relatorio-revisao-e-otimizacao-performance.md`: Relatório detalhado da auditoria de qualidade e otimização de performance.
 - `.agents/agents/`: Instruções operacionais para papéis especializados.
 - `docs/`: Documentação arquitetural, fluxos de integração e especificações de histórias (`H00`–`H18`).
 - `docs/adr/`: Registros de Decisões Arquiteturais (ADRs).
