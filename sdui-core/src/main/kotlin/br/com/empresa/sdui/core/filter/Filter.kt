@@ -34,10 +34,7 @@ object Filter {
                 )
             }
         }
-        val ordered = kept.sortedWith(
-            compareBy<Section> { slotOrder[it.slot] ?: Int.MAX_VALUE }
-                .thenBy { kept.indexOf(it) },
-        )
+        val ordered = kept.sortedBy { slotOrder[it.slot] ?: Int.MAX_VALUE }
         return FilterResult(ordered, omitted)
     }
 }

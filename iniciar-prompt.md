@@ -143,6 +143,17 @@ Não usar preview, incubating ou `--enable-preview`.
   disponível, escolha um pacote base, registre-o como decisão provisória no `AGENTS.md` e no relatório.
 - Portas ficam em `orchestrator.port.inbound` e `orchestrator.port.outbound` (`in` é palavra reservada em Kotlin).
 
+## Evitar
+
+- Preview/incubating e `--enable-preview`
+- `@Transactional` em controller, adapter ou infra
+- Happy path de rede/banco/broker
+- I/O sem timeout, sem try-with-resources, sem tratamento terminal
+- Abstração genérica sem necessidade
+- Dado regulado (LGPD) no payload de UI
+- Token visual no JSON de UI
+- SDK/framework SDUI de mercado
+
 ## Regras inegociáveis
 
 Não enviar no JSON de UI: `color`, `background`, `font`, `typography`, `margin`, `padding`, `gap`, `width`, `height`,

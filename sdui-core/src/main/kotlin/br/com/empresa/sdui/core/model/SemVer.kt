@@ -30,13 +30,19 @@ data class SemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<S
             val value = raw?.trim().orEmpty()
             if (value.isEmpty()) return null
             THREE.matchEntire(value)?.let { m ->
-                return SemVer(m.groupValues[1].toInt(), m.groupValues[2].toInt(), m.groupValues[3].toInt())
+                val major = m.groupValues[1].toIntOrNull() ?: return null
+                val minor = m.groupValues[2].toIntOrNull() ?: return null
+                val patch = m.groupValues[3].toIntOrNull() ?: return null
+                return SemVer(major, minor, patch)
             }
             TWO.matchEntire(value)?.let { m ->
-                return SemVer(m.groupValues[1].toInt(), m.groupValues[2].toInt(), 0)
+                val major = m.groupValues[1].toIntOrNull() ?: return null
+                val minor = m.groupValues[2].toIntOrNull() ?: return null
+                return SemVer(major, minor, 0)
             }
             ONE.matchEntire(value)?.let { m ->
-                return SemVer(m.groupValues[1].toInt(), 0, 0)
+                val major = m.groupValues[1].toIntOrNull() ?: return null
+                return SemVer(major, 0, 0)
             }
             return null
         }
@@ -44,7 +50,10 @@ data class SemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<S
         fun parseThreePart(raw: String?): SemVer? {
             val value = raw?.trim().orEmpty()
             val match = THREE.matchEntire(value) ?: return null
-            return SemVer(match.groupValues[1].toInt(), match.groupValues[2].toInt(), match.groupValues[3].toInt())
+            val major = match.groupValues[1].toIntOrNull() ?: return null
+            val minor = match.groupValues[2].toIntOrNull() ?: return null
+            val patch = match.groupValues[3].toIntOrNull() ?: return null
+            return SemVer(major, minor, patch)
         }
     }
 }

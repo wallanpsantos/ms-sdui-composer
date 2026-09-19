@@ -58,4 +58,32 @@ class SingleflightAndCanaryTest {
         assertThat(policy.channelFor(ClientPlatform.ANDROID, "81420", Channel.CANARY)).isEqualTo(Channel.STABLE)
         assertThat(policy.channelFor(ClientPlatform.IOS, "81420", Channel.STABLE)).isEqualTo(Channel.STABLE)
     }
+
+    @Test
+    fun `waiter timeout nao cancela o future do lider`() {
+        val singleflight = InMemoryComposeSingleflight()
+        val leaderStarted = CountDownLatch(1)
+        val pool = Executors.newVirtualThreadPerTaskExecutor()
+
+        val leader = pool.submit<SingleflightOutcome<Int>> {
+            singleflight.runExclusive("k2", Duration.ofSeconds(5)) {
+                leaderStarted.countDown()
+                Thread.sleep(300)
+                99
+            }
+        }
+        val waiter = pool.submit<SingleflightOutcome<Int>> {
+            leaderStarted.await()
+            singleflight.runExclusive("k2", Duration.ofMillis(50)) {
+                error("waiter nao deve computar")
+            }
+        }
+        val waiterResult = waiter.get()
+        assertThat(waiterResult).isInstanceOf(SingleflightOutcome.WaitTimeout::class.java)
+
+        val leaderResult = leader.get()
+        assertThat(leaderResult).isInstanceOf(SingleflightOutcome.Leader::class.java)
+        assertThat((leaderResult as SingleflightOutcome.Leader).value).isEqualTo(99)
+        pool.close()
+    }
 }

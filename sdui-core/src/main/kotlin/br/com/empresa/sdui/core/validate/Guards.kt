@@ -3,10 +3,12 @@ package br.com.empresa.sdui.core.validate
 import br.com.empresa.sdui.core.model.MvpCatalog
 
 object VisualGuard {
+    private val LOWER_VISUAL_KEYS: Set<String> = MvpCatalog.VISUAL_KEYS.map { it.lowercase() }.toSet()
+
     fun violations(root: Any?): List<String> {
         val found = mutableListOf<String>()
         PropWalk.walkKeys(root) { path, key ->
-            if (key.lowercase() in MvpCatalog.VISUAL_KEYS.map { it.lowercase() }.toSet()) {
+            if (key.lowercase() in LOWER_VISUAL_KEYS) {
                 found += "$path: campo proibido '$key'"
             }
         }
@@ -15,13 +17,14 @@ object VisualGuard {
 }
 
 object PiiGuard {
+    private val LOWER_PII_KEYS: Set<String> = MvpCatalog.PII_KEYS.map { it.lowercase() }.toSet()
     private val CPF = Regex("""\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{11}\b""")
     private val PAN = Regex("""\b\d{16}\b""")
 
     fun violations(root: Any?): List<String> {
         val found = mutableListOf<String>()
         PropWalk.walkKeys(root) { path, key ->
-            if (key.lowercase() in MvpCatalog.PII_KEYS.map { it.lowercase() }.toSet()) {
+            if (key.lowercase() in LOWER_PII_KEYS) {
                 found += "$path: chave regulada '$key'"
             }
         }

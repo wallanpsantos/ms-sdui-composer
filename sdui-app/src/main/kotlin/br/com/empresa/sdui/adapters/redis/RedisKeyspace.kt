@@ -21,7 +21,7 @@ object RedisKeyspace {
 
     fun singleflight(treeKey: String): String = RedisKeys.singleflight(treeKey)
 
-    fun treePrefix(surface: String, platform: ClientPlatform, channel: Channel): String =
+    fun treePrefix(surface: String, platform: ClientPlatform): String =
         "sdui:tree:$surface:${platform.wire()}:"
 
     fun matchesSurfacePlatformChannel(

@@ -9,6 +9,7 @@ import br.com.empresa.sdui.orchestrator.compose.ComposeResult
 import br.com.empresa.sdui.orchestrator.port.inbound.ComposeScreenUseCase
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestHeader
@@ -119,7 +120,8 @@ class HomeController(
                         .header("ETag", result.screen.etag)
                         .header("Cache-Control", CACHE_CONTROL)
                         .header("Vary", VARY)
-                        .body(body)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(json)
                 }
             }
         } finally {
