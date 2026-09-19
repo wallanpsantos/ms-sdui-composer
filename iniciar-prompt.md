@@ -298,7 +298,7 @@ Não criar controller de produção, endpoint, Mongo ativo, Redis ativo, reposit
 
 Os arquivos em `.agents/agents/` são instruções operacionais, não agentes executáveis e não componentes do runtime.
 
-Cada papel deve ler `AGENTS.md` antes de agir e reportar as fontes consultadas, arquivos alterados, comandos executados, resultado, riscos e bloqueios.
+Cada papel deve ler `AGENTS.md` antes de agir e reportar as fontes consultadas, arquivos alterados, resultado, riscos e bloqueios. Depois do bootstrap, o implementer **não** reporta nem executa Gradle no ciclo de implementação.
 
 | Papel         | Arquivo                                 | Permissão padrão                                          |
 | ------------- | --------------------------------------- | --------------------------------------------------------- |
@@ -699,8 +699,8 @@ Somente considerar concluído quando:
 - os cinco arquivos em `.agents/agents/` existirem;
 - o marcador da skill existir sem conteúdo inventado;
 - `AGENTS.md` apontar para os papéis e registrar lacunas e pendências temporárias;
-- `clean build --warning-mode=fail` tiver sido executado com sucesso;
-- nenhuma funcionalidade H01–H18 tiver sido antecipada.
+- `clean build --warning-mode=fail` tiver sido executado com sucesso **neste bootstrap**;
+- nenhuma funcionalidade H01–H18 tiver sido antecipada **neste bootstrap**. Depois dele, `H01`–`H18` passam a ser o código produtivo a escrever de uma vez.
 
 ## Relatório final
 

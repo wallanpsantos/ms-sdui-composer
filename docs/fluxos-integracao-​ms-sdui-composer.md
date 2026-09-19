@@ -3,7 +3,8 @@
 **ms-sdui-composer** = o serviço que, a cada request, compõe a árvore de UI da surface a partir de uma spec versionada,
 do contexto do cliente e das capabilities, devolvendo um envelope pronto e seguro para o app.
 
-> **Status:** proposta de arquitetura para alinhamento técnico.
+> **Status:** proposta de arquitetura para alinhamento técnico. O bootstrap e a H00 estão concluídos; a implementação
+> produtiva de `H01`–`H18` segue estes fluxos de forma direta, sem ciclos de Gradle nem espera de testes.
 >
 > **Escopo:** `ms-sdui-composer` atendendo iOS e Android por meio de um **serviço consumidor/BFF Mobile** (com a Home
 > como primeira surface). O `ms-sdui-composer` não é chamado diretamente pelo app neste desenho e não consulta domínios

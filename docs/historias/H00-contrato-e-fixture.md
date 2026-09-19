@@ -1,5 +1,7 @@
 # H00 — Contrato e fixture canônicos
 
+> **Status:** concluída. Não reabrir como gate. O trabalho restante é a implementação produtiva de `H01`–`H18`.
+
 ## Objetivo
 
 Congelar o contrato de fio da Home iOS como fonte de teste do runtime. Transformar o JSON definitivo em fixture

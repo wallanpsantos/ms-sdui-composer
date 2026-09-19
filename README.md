@@ -28,6 +28,8 @@ O bootstrap e a H00 (contrato + fixture) estão concluídos. O foco é a **imple
 
 ## Comandos de Build e Execução
 
+Para o operador humano, quando quiser verificar o working tree. **Não** fazem parte do ciclo de implementação dos agentes; se forem pedidos, correm uma única vez no final.
+
 ### Verificação de Versões e Ferramental
 ```powershell
 java -version

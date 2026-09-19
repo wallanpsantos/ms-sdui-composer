@@ -97,7 +97,8 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 - Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em `sdui-contract/src/test/resources/fixtures/`). Fonte de verdade do contrato Home iOS.
 - `documentacao-contrato-sdui-home-v3.docx`: removido de propósito. Não recriar. Semântica de campo vive no JSON canônico e nos testes de `sdui-contract`.
 - Ausentes: `contrato-sdui-home-android-proposto.json` (H14) e `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`.
-- Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`.
+- Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`. A skill ausente não bloqueia o que já está especificado nas histórias, no plano, na pré-arquitetura, nos ADRs e no contrato.
+- Presente: `docs/historias/README.md` — backlog de implementação direta de `H01`–`H18`.
 
 ## 12. Decisões Provisórias
 - **Pacote Base Canônico:** `br.com.empresa.sdui`, estruturado por camadas (`.contract`, `.core`, `.orchestrator`, `.adapters`, `.api`, `.bootstrap`, `.it`).
