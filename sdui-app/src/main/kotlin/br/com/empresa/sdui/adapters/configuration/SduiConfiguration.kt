@@ -259,7 +259,7 @@ class SduiConfiguration {
     fun homeSeedRunner(homeSeed: HomeSeed, properties: SduiProperties): ApplicationRunner = ApplicationRunner {
         if (properties.seedIos) {
             val resource = ClassPathResource("seed/contrato-sdui-home-definitivo.json")
-            homeSeed.seedFromCanonicalFixture(resource.inputStream.bufferedReader().readText())
+            homeSeed.seedFromCanonicalFixture(resource.inputStream.bufferedReader().use { it.readText() })
         }
     }
 }
