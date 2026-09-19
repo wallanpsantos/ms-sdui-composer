@@ -6,26 +6,33 @@
 
 ## Papel
 
-Atue como Engenheiro de Software Staff/Principal Java responsável por criar o bootstrap verificável do `ms-sdui-composer`.
+Atue como Engenheiro de Software Staff/Principal Kotlin/Spring responsável por criar o bootstrap verificável do `ms-sdui-composer`.
+
+A implementação usa Kotlin 2.3.21 sobre JVM com Java 25 LTS e Spring Boot 4.1.1.
+O projeto é multi-módulo, usa Gradle Kotlin DSL e todo código de produção fica em `src/main/kotlin`;
+testes ficam em `src/test/kotlin`.
+Não criar fontes Java, exceto quando estritamente exigido por uma integração externa.
 
 O projeto é greenfield. Prepare a fundação Gradle, a documentação operacional, a estrutura de módulos, os papéis especializados e os testes mínimos para iniciar H00. Não implemente H01–H18.
 
 ## Regra de verdade
 
-Antes de alterar qualquer arquivo, localize e leia os documentos disponíveis em `docs/` e `artifacts/`.
+Antes de alterar qualquer arquivo, localize e leia os documentos disponíveis em `docs/` (incluindo `docs/adr/` e `docs/artifacts/`).
 
 Precedência:
 
 1. `docs/plano-servico-sdui.md`.
-2. ADRs explícitos em `docs/pre-arquitetura-sdui-home.md`.
-3. `docs/pre-arquitetura-sdui-home.md`.
-4. `docs/fluxos-integracao-ms-sdui-home.md`.
+2. ADRs em `docs/adr/` e ADRs explícitos em `docs/pre-arquitetura-ms-sdui-composer.md`.
+3. `docs/pre-arquitetura-ms-sdui-composer.md`.
+4. `docs/fluxos-integracao-ms-sdui-composer.md`.
 5. `docs/historias/H*.md`.
-6. `artifacts/*.json`.
+6. `docs/artifacts/*.json`.
 7. `docs/resumos-server-driven-ui.md`.
 8. `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`, se existir.
 
-Se um documento citado não existir, informe o caminho exato, não reconstrua o conteúdo por inferência e registre a lacuna no relatório final e no `AGENTS.md`. Se houver divergência sem ADR resolvendo-a, pare antes de codar a parte afetada.
+Se um documento existir com nome legado (por exemplo `pre-arquitetura-sdui-home.md` ou `fluxos-integracao-ms-sdui-home.md`), use-o na mesma posição de precedência e registre a divergência de nome no relatório final e no `AGENTS.md`. Não renomeie arquivos de origem sem pedido explícito.
+
+Se um documento citado não existir em nenhuma variante, informe o caminho exato, não reconstrua o conteúdo por inferência e registre a lacuna no relatório final e no `AGENTS.md`. Se houver divergência sem ADR resolvendo-a, pare antes de codar a parte afetada.
 
 ## Identidade do serviço
 
@@ -41,6 +48,8 @@ O Composer é Presentation + Application Controller + BFF de UI e permanece stat
 
 Não criar CMS genérico, Design System, micro-frontend, backend que envia CSS, gateway genérico, serviço de domínio, GraphQL, gRPC, Protobuf, SDK SDUI de mercado, CQRS, Event Sourcing ou framework de Hexagonal Architecture.
 
+O Spring Boot 4.1 passou a oferecer suporte nativo a gRPC; isso não altera a proibição. Nenhuma dependência de gRPC/Protobuf entra no projeto sem ADR.
+
 ## Tríade SDUI
 
 - **Section:** bloco autocontido com `id`, `type`, `typeVersion`, dados semânticos e actions.
@@ -49,22 +58,49 @@ Não criar CMS genérico, Design System, micro-frontend, backend que envia CSS, 
 
 `Fragment`, `FragmentStore`, `FragmentResolver`, endpoint de fragment e chave Redis de fragmento estão fora do MVP.
 
-## Stack travada (minimo)
+## Stack travada
 
-- Java 25 LTS.
-- Spring Framework 7.0.9+.
-- Spring Boot 4.1.1+, nunca 3.x.
-- Gradle 9.7.1 com Kotlin DSL (`build.gradle.kts` / `settings.gradle.kts`), multi-módulo.
-- MongoDB 8.3+ como fonte de verdade das specs.
+Versões exatas vivem em `gradle/libs.versions.toml`. Este bloco define pisos e regras.
+
+- Kotlin 2.3.21. Deve coincidir com a versão de Kotlin gerenciada pelo Spring Boot; não divergir. Ao subir o Kotlin, subir o Boot junto ou justificar.
+- Java 25 LTS via toolchain (`kotlin { jvmToolchain(25) }`), com o plugin `org.gradle.toolchains.foojay-resolver-convention` no `settings.gradle.kts` (versão estável mais recente, registrada no relatório).
+- Spring Boot 4.1.1 como BOM, importado com `platform(SpringBootPlugin.BOM_COORDINATES)`. Não usar `io.spring.dependency-management`.
+- Spring Framework, Jackson 3, JUnit Jupiter, AssertJ, Mockito, Testcontainers, driver MongoDB e Lettuce usam **sempre** a versão do BOM. Nunca fixar versão dessas bibliotecas.
+- Gradle 9.7.1 com Kotlin DSL, version catalog (`gradle/libs.versions.toml`) e convention plugins em `build-logic/`. Proibido `allprojects {}` e `subprojects {}`. Configuration cache e build cache habilitados.
+- Plugins por papel de módulo (aplicados somente via convention plugins):
+  - `sdui.kotlin-library` (`sdui-core`, `sdui-contract`): `kotlin("jvm")` apenas.
+  - `sdui.spring-library` (`sdui-orchestrator`, `sdui-adapters`, `sdui-api`): `sdui.kotlin-library` + `kotlin("plugin.spring")` + BOM do Boot.
+  - `sdui.spring-app` (`sdui-bootstrap`): `sdui.spring-library` + `org.springframework.boot`.
+  - `sdui-integration-test` usa `sdui.spring-library` e somente dependências de teste.
+- Compilador Kotlin: `-Xannotation-default-target=param-property` e `allWarningsAsErrors = true`.
+- `kotlin-reflect` nos módulos Spring, pois a aplicação depende de reflexão Kotlin.
+- JSON: Jackson 3 gerenciado pelo Boot. Onde houver serialização de `data class`, declarar `tools.jackson.module:jackson-module-kotlin` (groupId do Jackson 3; nunca `com.fasterxml.jackson.module`).
+- Starters: usar os starters modulares do Spring Boot 4. Confirmar o nome exato de cada starter no BOM antes de declará-lo; não usar nomes da linha 3.x.
+- Testes: JUnit Jupiter e AssertJ na versão do BOM.
+- ArchUnit 1.5.0 (fora do BOM, no catálogo), artefato `com.tngtech.archunit:archunit` usado dentro de testes JUnit Jupiter comuns. Não usar o engine `archunit-junit5`.
+- Mocks: MockK com `springmockk` (`@MockkBean`) quando uma história exigir. Não adicionar no bootstrap. Ao adicionar, registrar no catálogo uma versão verificada como compatível com Spring Boot 4.1. Se Mockito for usado em vez de MockK, usar `mockito-kotlin` e configurar o Mockito como `-javaagent` na task de teste.
+- Testes de integração com Testcontainers (+ `@ServiceConnection`): somente quando uma história exigir. Não adicionar no bootstrap.
+- MongoDB como fonte de verdade das specs. A versão de servidor é a que o ambiente produtivo roda; o driver segue o BOM. Testes futuros usam a mesma imagem de servidor da produção.
 - Redis na mesma AZ para cache.
-- Jackson gerenciado pelo Spring Boot.
-- JUnit 5, AssertJ testImplementation("org.assertj:assertj-core:3.27.7"), Mockito testImplementation("org.mockito:mockito-core:5.23.0"), testImplementation("org.testcontainers:testcontainers:2.0.5"),testImplementation("org.testcontainers:testcontainers-mongodb:2.0.5"), testImplementation("org.testcontainers:testcontainers-junit-jupiter:2.0.5"), ArchUnit (1.5.0) e archunit-junit5:1.5.0 quando necessários.
-- Virtual Threads para I/O bound.
+- Virtual Threads para I/O bound, habilitadas com `spring.threads.virtual.enabled: true` no `application.yaml` do bootstrap.
 - Kafka somente para auditoria assíncrona real; não adicionar no bootstrap.
 - Spring Cloud fora por padrão.
-- MapStruct 1.6.3
+- Sem MapStruct e sem `kapt`: mapeamento entre camadas via funções de extensão Kotlin (`fun SectionSpec.toDto() = ...`), explícito e testável.
 
-Não usar preview, incubating ou `--enable-preview`. Não fixar versões gerenciadas pelo Spring Boot sem justificativa comprovada.
+Não usar preview, incubating ou `--enable-preview`.
+
+## Convenções Kotlin
+
+- Usar `data class` para DTOs, envelopes, comandos, resultados e value objects imutáveis.
+- Usar `sealed interface` ou `sealed class` para hierarquias fechadas de domínio.
+- Usar `enum class` para conjuntos enumerados estáveis.
+- Preferir construtor primário e propriedades `val`.
+- Não usar `Optional`; representar ausência com `T?` somente quando ela for válida no domínio.
+- Não usar `!!`; tratar explicitamente valores ausentes.
+- Código de produção em `src/main/kotlin`; testes em `src/test/kotlin`.
+- Não criar fontes em Java, salvo necessidade comprovada de integração.
+- `kotlin("plugin.spring")` somente nos módulos que têm classes Spring, via convention plugin.
+- Pacotes seguem `<pacote-base>.<modulo>` (ex.: `<pacote-base>.core`, `<pacote-base>.contract`, `<pacote-base>.orchestrator`, `<pacote-base>.adapters`, `<pacote-base>.api`, `<pacote-base>.bootstrap`). Se os documentos não definirem o pacote base, escolha um, registre-o como decisão provisória no `AGENTS.md` e no relatório.
 
 ## Regras inegociáveis
 
@@ -92,11 +128,12 @@ Não colocar PII, dado regulado, valor financeiro individual, credencial, token 
 ## Concorrência e rede
 
 - Não usar `Executors.newFixedThreadPool` para I/O de banco ou rede.
-- Não usar `synchronized` envolvendo I/O.
+- Não usar `synchronized` envolvendo I/O. Desde o Java 24 (JEP 491) `synchronized` não prende mais a virtual thread ao carrier, mas segurar lock durante I/O continua gerando contenção e latência. Quando exclusão mútua for necessária, preferir `ReentrantLock` com escopo mínimo.
 - Não deixar `CompletableFuture` sem `.handle()` ou `.exceptionally()`.
-- Não usar `ScopedValue` ou `StructuredTaskScope`.
+- Não usar `StructuredTaskScope` (preview no Java 25).
+- Não usar `ScopedValue`. Ele é final no Java 25; a exclusão é decisão arquitetural (sem consumidor concreto no MVP) e só pode ser revista via ADR.
 - Todo I/O externo deve ter timeout explícito.
-- Fan-out deve ter limite e orçamento total.
+- Fan-out deve ter limite de concorrência (ex.: `Semaphore`) e orçamento total de tempo; virtual threads não limitam carga por si só.
 - Falha tolerável de section deve omitir a section.
 - Não fazer N+1.
 - Não adicionar Resilience4j no bootstrap.
@@ -113,32 +150,42 @@ ms-sdui-composer/
 ├── iniciar-prompt.md
 ├── build.gradle.kts
 ├── settings.gradle.kts
+├── gradle.properties
 ├── gradlew
 ├── gradlew.bat
 ├── gradle/
+│   ├── libs.versions.toml
 │   └── wrapper/
 │       ├── gradle-wrapper.jar
 │       └── gradle-wrapper.properties
+├── build-logic/
+│   ├── settings.gradle.kts
+│   ├── build.gradle.kts
+│   └── src/main/kotlin/
+│       ├── sdui.kotlin-library.gradle.kts
+│       ├── sdui.spring-library.gradle.kts
+│       └── sdui.spring-app.gradle.kts
 ├── docs/
-│   ├── plano-servico-sdui.md
-│   ├── pre-arquitetura-ms-sdui-composer.md
-│   ├── fluxos-integracao-ms-sdui-composer.md
-│   ├── resumos-server-driven-ui.md
-│   ├── documentacao-contrato-sdui-home-v3.docx
+│   ├── plano-servico-sdui.md                      (somente se existir)
+│   ├── pre-arquitetura-ms-sdui-composer.md        (somente se existir)
+│   ├── fluxos-integracao-ms-sdui-composer.md      (somente se existir)
+│   ├── resumos-server-driven-ui.md                (somente se existir)
 │   ├── historias/
-│   │   └── H00...H18
+│   │   └── H00...H18                              (somente as que existirem)
 │   ├── adr/
 │   │   └── README.md
 │   └── artifacts/
-│       └── contrato-sdui-home-android-proposto.json
-│
+│       └── contrato-sdui-home-android-proposto.json   (somente se existir)
 ├── .agents/
 │   ├── agents/
-│       ├── sdui-architect.md
-│       ├── sdui-implementer.md
-│       ├── sdui-tester.md
-│       ├── sdui-contract-guard.md
-│       └── sdui-reviewer.md
+│   │   ├── sdui-architect.md
+│   │   ├── sdui-implementer.md
+│   │   ├── sdui-tester.md
+│   │   ├── sdui-contract-guard.md
+│   │   └── sdui-reviewer.md
+│   └── skills/
+│       └── sdui-backend/
+│           └── README.md
 ├── sdui-contract/
 ├── sdui-core/
 ├── sdui-orchestrator/
@@ -148,9 +195,11 @@ ms-sdui-composer/
 └── sdui-integration-test/
 ```
 
-Se os documentos de origem não estiverem disponíveis, não os invente. Crie os diretórios permitidos e registre os arquivos ausentes.
+Cada módulo contém `build.gradle.kts`, `src/main/kotlin/` e `src/test/kotlin/` (criar apenas os diretórios necessários; não criar classes vazias de enfeite).
 
-## Grafo de Dependências
+Arquivos de `docs/` marcados como "somente se existir" não são criados por este prompt. Se não estiverem disponíveis, não os invente: crie apenas os diretórios e registre os arquivos ausentes no `AGENTS.md` e no relatório.
+
+## Grafo de dependências
 
 ```text
 sdui-bootstrap
@@ -162,31 +211,81 @@ sdui-bootstrap
 sdui-api → sdui-orchestrator, sdui-contract
 sdui-adapters → sdui-orchestrator, sdui-core
 sdui-orchestrator → sdui-core
-sdui-contract → JDK e serialização estritamente necessária
-sdui-core → JDK e bibliotecas puras estritamente necessárias
-sdui-integration-test → sdui-bootstrap e dependências de teste
+sdui-contract → JDK, stdlib Kotlin e serialização estritamente necessária
+sdui-core → JDK, stdlib Kotlin e bibliotecas puras estritamente necessárias
+sdui-integration-test → sdui-bootstrap (+ testImplementation dos demais módulos para testes de arquitetura)
 ```
 
 Somente `sdui-bootstrap` é executável e contém `@SpringBootApplication`.
+
+O grafo é garantido primeiro pelo Gradle (declaração de dependências + verificação de classpath) e depois pelo ArchUnit. O ArchUnit não substitui a verificação de classpath.
+
+## Build Gradle
+
+### `settings.gradle.kts`
+
+- `pluginManagement { includeBuild("build-logic") }`.
+- Plugin `org.gradle.toolchains.foojay-resolver-convention`.
+- `rootProject.name = "ms-sdui-composer"` e `include` dos sete módulos.
+- `dependencyResolutionManagement` com `repositoriesMode` em `FAIL_ON_PROJECT_REPOS` e `mavenCentral()`.
+
+### `build-logic/`
+
+- Build incluído com plugin `kotlin-dsl` e precompiled script plugins.
+- `build-logic/settings.gradle.kts` importa o catálogo da raiz: `versionCatalogs { create("libs") { from(files("../gradle/libs.versions.toml")) } }`.
+- `build-logic/build.gradle.kts` declara como dependências os artefatos dos plugins (Kotlin Gradle Plugin, `kotlin-allopen` para `plugin.spring` e Spring Boot Gradle Plugin), com versões vindas do catálogo.
+- Dentro de precompiled script plugins o acessor tipado `libs` não está disponível; usar `extensions.getByType<VersionCatalogsExtension>().named("libs")`.
+
+### Verificações de classpath (ligadas à task `check`)
+
+- `verifyPureClasspath`, registrada em `sdui.kotlin-library` e ativa somente em `sdui-core` e `sdui-contract`: falha se o `runtimeClasspath` resolvido contiver módulos dos grupos `org.springframework*`, `org.mongodb`, `io.lettuce`, `jakarta.servlet`.
+- `verifyForbiddenDependencies`, registrada em todos os módulos: falha se o `runtimeClasspath` contiver `io.grpc`, `com.google.protobuf`, `org.springframework.grpc`, `com.graphql-java`, `org.springframework.graphql`, `org.mapstruct` ou `org.apache.kafka` (este último até existir ADR de auditoria assíncrona).
+- As duas tasks devem ser compatíveis com configuration cache: receber o resultado da resolução como input (`incoming.resolutionResult.rootComponent` via `Provider`), sem acessar `project` na execução.
+
+### `gradle.properties`
+
+```properties
+org.gradle.configuration-cache=true
+org.gradle.caching=true
+org.gradle.parallel=true
+kotlin.code.style=official
+```
+
+### Wrapper
+
+O `gradle-wrapper.jar` é binário e **não** deve ser escrito à mão nem baixado de fonte não oficial. Gerar com um Gradle instalado localmente:
+
+```text
+gradle wrapper --gradle-version 9.7.1 --distribution-type bin --gradle-distribution-sha256-sum acd53f1edaf02f1a8ff99879f8a34b302661a057d9b063ae9e35b552f804d20a
+```
+
+O checksum acima é o da distribuição `bin` do Gradle 9.7.1 publicado pelo projeto Gradle; confirme em https://gradle.org/release-checksums/ antes de usar. `gradle-wrapper.properties` deve conter `distributionSha256Sum`. Se não houver Gradle instalado, reportar o bloqueio e parar.
+
+### `.gitignore`
+
+Incluir no mínimo: `build/`, `.gradle/`, `.kotlin/`, `.idea/`, `*.iml`, `out/`, `local.properties`, `.env`.
 
 ## Escopo do bootstrap
 
 Criar:
 
-1. `build.gradle.kts` raiz e `build.gradle.kts` dos subprojetos (quando houver módulos).
-2. Gradle Wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`).
-3. Diretórios dos módulos.
-4. `SduiApplication`.
-5. Configurações YAML sem credenciais ou URLs reais.
-6. `README.md`.
-7. `.gitignore`.
-8. `AGENTS.md` abaixo de 400 linhas.
-9. Os cinco arquivos de papel em `.agents/agents/`.
-10. `.agents/skills/sdui-backend/README.md` como marcador.
-11. Teste mínimo de contexto no bootstrap.
-12. Teste ArchUnit mínimo para independência do core.
+1. `settings.gradle.kts`, `build.gradle.kts` raiz (vazio ou apenas `apply false`; sem lógica compartilhada) e `build.gradle.kts` de cada módulo aplicando um único convention plugin.
+2. `build-logic/` com os três convention plugins e as duas verificações de classpath.
+3. `gradle/libs.versions.toml` e `gradle.properties`.
+4. Gradle Wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) com checksum.
+5. Diretórios dos módulos.
+6. `SduiApplication` em `sdui-bootstrap`.
+7. `application.yaml` sem credenciais ou URLs reais, com `spring.threads.virtual.enabled: true`.
+8. `README.md`.
+9. `.gitignore`.
+10. `AGENTS.md` abaixo de 400 linhas.
+11. Os cinco arquivos de papel em `.agents/agents/`.
+12. `.agents/skills/sdui-backend/README.md` como marcador.
+13. `docs/adr/README.md` explicando formato e numeração de ADRs.
+14. Teste mínimo de contexto no bootstrap.
+15. Testes ArchUnit mínimos em `sdui-integration-test`.
 
-Não criar controller de produção, endpoint, Mongo ativo, Redis ativo, repositories, hydrator, cache produtivo, governança, rollback, canary, auditoria, seed ou CI/CD, salvo requisito explícito que pertença ao bootstrap.
+Não criar controller de produção, endpoint, Mongo ativo, Redis ativo, repositories, hydrator, cache produtivo, governança, rollback, canary, auditoria, seed ou CI/CD, salvo requisito explícito que pertença ao bootstrap. Não declarar starters de MongoDB ou Redis no bootstrap.
 
 ## Papéis especializados
 
@@ -194,13 +293,13 @@ Os arquivos em `.agents/agents/` são instruções operacionais, não agentes ex
 
 Cada papel deve ler `AGENTS.md` antes de agir e reportar as fontes consultadas, arquivos alterados, comandos executados, resultado, riscos e bloqueios.
 
-| Papel           | Arquivo                                   | Permissão padrão                                            |
-| --------------- | ----------------------------------------- | ------------------------------------------------------------- |
-| Arquitetura     | `.agents/agents/sdui-architect.md`      | documentação/ADRs somente                                   |
-| Implementação | `.agents/agents/sdui-implementer.md`    | código e testes do escopo                                    |
-| Testes          | `.agents/agents/sdui-tester.md`         | testes e relatório; não corrigir produção silenciosamente |
-| Contrato        | `.agents/agents/sdui-contract-guard.md` | auditoria; não alterar código                               |
-| Revisão        | `.agents/agents/sdui-reviewer.md`       | auditoria; não alterar código                               |
+| Papel         | Arquivo                                 | Permissão padrão                                          |
+| ------------- | --------------------------------------- | --------------------------------------------------------- |
+| Arquitetura   | `.agents/agents/sdui-architect.md`      | documentação/ADRs somente                                 |
+| Implementação | `.agents/agents/sdui-implementer.md`    | código e testes do escopo                                 |
+| Testes        | `.agents/agents/sdui-tester.md`         | testes e relatório; não corrigir produção silenciosamente |
+| Contrato      | `.agents/agents/sdui-contract-guard.md` | auditoria; não alterar código                             |
+| Revisão       | `.agents/agents/sdui-reviewer.md`       | auditoria; não alterar código                             |
 
 ### Conteúdo dos papéis
 
@@ -229,7 +328,7 @@ Ler `AGENTS.md`, a história, os artefatos relacionados, os ADRs aplicáveis e a
 - Definir comportamento normal, erro, timeout e fallback.
 - Avaliar impacto no contrato e na compatibilidade.
 - Definir testes e observabilidade.
-- Produzir ADR para decisão estrutural.
+- Produzir ADR em `docs/adr/` para decisão estrutural.
 
 ## Restrições
 
@@ -238,6 +337,7 @@ Ler `AGENTS.md`, a história, os artefatos relacionados, os ADRs aplicáveis e a
 - Não criar endpoint fora do escopo.
 - Não colocar regra de domínio no Composer.
 - Não introduzir GraphQL, gRPC, Protobuf ou framework SDUI.
+- Não introduzir `ScopedValue`, Kafka ou nova biblioteca fora do BOM sem ADR.
 - Não criar targeting por form factor.
 - Não adicionar aparência, geometria ou CSS ao payload.
 - Não propor abstração genérica sem consumidor concreto.
@@ -274,7 +374,7 @@ Ler `AGENTS.md`, a história, os artefatos relacionados, os ADRs aplicáveis e a
 
 ## Papel
 
-Implementar mudanças aprovadas usando Java 25 e Spring Boot 4.1.x.
+Implementar mudanças aprovadas em Kotlin 2.3, sobre JVM Java 25 e Spring Boot 4.1.x.
 
 ## Pré-condições
 
@@ -283,16 +383,19 @@ Ler `AGENTS.md`, a história, os artefatos relacionados, as decisões arquitetur
 ## Regras
 
 - Implementar somente o escopo solicitado.
+- Escrever produção em `src/main/kotlin` e testes em `src/test/kotlin`; não criar fontes Java.
 - Não alterar contrato para facilitar implementação.
 - Não inventar comportamento.
 - Não expor entidades como DTOs HTTP.
+- Mapear entre camadas com funções de extensão Kotlin; não usar MapStruct nem `kapt`.
 - Não colocar regra de domínio no Composer.
 - Não criar N+1.
 - Usar timeout em chamadas externas.
 - Tratar terminalmente operações assíncronas.
-- Não usar `synchronized` envolvendo I/O.
-- Usar Virtual Threads somente para I/O bound.
-- Não adicionar dependências sem justificativa.
+- Não usar `synchronized` envolvendo I/O; se precisar de exclusão mútua, `ReentrantLock` com escopo mínimo.
+- Usar Virtual Threads somente para I/O bound e limitar fan-out explicitamente.
+- Não adicionar dependências sem justificativa; versões gerenciadas pelo Spring Boot nunca são fixadas.
+- Adicionar dependência sempre via `gradle/libs.versions.toml` e convention plugins; nunca `allprojects {}`/`subprojects {}`.
 - Manter o Composer stateless.
 - Não usar `@Transactional` em controller, adapter ou infraestrutura.
 
@@ -341,6 +444,8 @@ Ler `AGENTS.md`, a história, o contrato, os artefatos, a decisão arquitetural,
 - Não corrigir silenciosamente o código sob teste.
 - Registrar reprodução mínima de cada falha.
 - Não inventar critérios de aceite.
+- Usar JUnit Jupiter e AssertJ do BOM; mocks com MockK/springmockk quando necessários.
+- Testcontainers somente quando a história exigir integração real, com a mesma imagem de servidor da produção.
 
 ## Saída
 
@@ -406,13 +511,15 @@ Fazer a revisão técnica final antes da integração.
 ## Avaliar
 
 - escopo e critérios de aceite;
-- responsabilidades arquiteturais;
+- responsabilidades arquiteturais e grafo de módulos;
 - statelessness;
 - tratamento de erros, timeout e fallback;
-- concorrência, N+1 e thread pinning;
+- concorrência: limites de fan-out, contenção de locks, locks segurados durante I/O e pinning residual (código nativo/JNI);
+- N+1;
 - contrato, segurança e ausência de PII;
 - métricas, logs e impacto no SLO;
-- legibilidade, testes, dependências e reversibilidade.
+- dependências: nada fixado que o BOM gerencia, nada proibido no classpath;
+- legibilidade, testes e reversibilidade.
 
 ## Não fazer
 
@@ -509,7 +616,7 @@ marcar a tarefa como bloqueada e solicitar uma decisão explícita.
 
 ## AGENTS.md obrigatório
 
-Criar `AGENTS.md` como memória operacional curta, contendo definição do serviço, stack, módulos, tríade SDUI, pipeline, eixos de compatibilidade, proibições, ordem H00–H18, status inicial das histórias, lacunas, comandos executados, regra sobre `Fragment`, regra de ADR e esta localização dos papéis:
+Criar `AGENTS.md` como memória operacional curta, contendo: definição do serviço, stack (com a regra "versões gerenciadas pelo Boot nunca são fixadas"), módulos e grafo, convention plugins, tríade SDUI, pipeline, eixos de compatibilidade, proibições, regras de concorrência, ordem H00–H18, status inicial das histórias, lacunas (incluindo documentos ausentes ou com nome legado), decisões provisórias (ex.: pacote base), pendências temporárias (ex.: `allowEmptyShould`), comandos executados, regra sobre `Fragment`, regra de ADR e esta localização dos papéis:
 
 ```markdown
 ## Papéis especializados
@@ -523,29 +630,49 @@ Antes de executar uma tarefa especializada, carregar `AGENTS.md` e o arquivo do 
 
 Criar somente:
 
-1. teste de contexto Spring Boot em `sdui-bootstrap`;
-2. teste ArchUnit garantindo que `sdui-core` não dependa de:
+1. Teste de contexto Spring Boot em `sdui-bootstrap` (`@SpringBootTest`), que sobe sem Mongo nem Redis.
+2. Testes ArchUnit em `sdui-integration-test`, usando `ClassFileImporter` sobre `<pacote-base>` e o artefato `archunit` dentro de testes JUnit Jupiter comuns:
+   - classes de `<pacote-base>.core..` não dependem de:
 
-```text
-org.springframework..
-org.mongodb..
-com.mongodb..
-io.lettuce..
-jakarta.servlet..
-```
+     ```text
+     org.springframework..
+     org.mongodb..
+     com.mongodb..
+     io.lettuce..
+     jakarta.servlet..
+     ```
 
-Não incluir Testcontainers, WireMock, Mongo ou Redis até uma história exigir integração.
+   - classes de `<pacote-base>.contract..` não dependem de `<pacote-base>.core..` nem de `org.springframework..`;
+   - classes de `<pacote-base>.api..` não dependem de `<pacote-base>.adapters..`;
+   - somente `<pacote-base>.bootstrap..` contém classes anotadas com `@SpringBootApplication`.
+
+Enquanto os módulos estiverem vazios, as regras ArchUnit falhariam por não verificarem nenhuma classe. Use `.allowEmptyShould(true)` apenas nessas regras, com comentário apontando a história que removerá a exceção, e registre a pendência no `AGENTS.md`.
+
+A proteção primária de pureza de `sdui-core` e `sdui-contract` é a task `verifyPureClasspath`; o ArchUnit é a segunda camada.
+
+Não incluir Testcontainers, WireMock, Mongo, Redis ou mocks até uma história exigir.
 
 ## Comandos obrigatórios
 
-No Windows PowerShell, executar e reportar:
+Executar e reportar no shell disponível.
+
+Windows PowerShell:
 
 ```powershell
 java -version
 .\gradlew.bat --version
-.\gradlew.bat clean test
-.\gradlew.bat build
+.\gradlew.bat clean build --warning-mode=fail
 ```
+
+Linux/macOS (e CI):
+
+```bash
+java -version
+./gradlew --version
+./gradlew clean build --warning-mode=fail
+```
+
+`build` já executa `test` e `check` (incluindo `verifyPureClasspath` e `verifyForbiddenDependencies`); não rodar os testes duas vezes. `--warning-mode=fail` torna deprecações do Gradle visíveis desde o início.
 
 Se algum comando falhar, informar a falha exata e não declarar o projeto validado.
 
@@ -553,14 +680,17 @@ Se algum comando falhar, informar a falha exata e não declarar o projeto valida
 
 Somente considerar concluído quando:
 
-- os sete módulos existirem e estiverem no `settings.gradle.kts` (quando multi-módulo);
-- a aplicação compilar;
+- os sete módulos existirem e estiverem no `settings.gradle.kts`;
+- cada módulo aplicar exatamente um convention plugin e não houver `allprojects {}`/`subprojects {}`;
+- nenhuma versão gerenciada pelo Spring Boot estiver fixada no catálogo ou nos builds;
+- o wrapper apontar para Gradle 9.7.1 com `distributionSha256Sum`;
+- a aplicação compilar com toolchain Java 25;
 - o contexto iniciar sem Mongo/Redis externos;
-- ArchUnit estiver verde;
+- `verifyPureClasspath`, `verifyForbiddenDependencies` e ArchUnit estiverem verdes;
 - os cinco arquivos em `.agents/agents/` existirem;
 - o marcador da skill existir sem conteúdo inventado;
-- `AGENTS.md` apontar para os papéis;
-- `.\gradlew.bat build` tiver sido executado com sucesso;
+- `AGENTS.md` apontar para os papéis e registrar lacunas e pendências temporárias;
+- `clean build --warning-mode=fail` tiver sido executado com sucesso;
 - nenhuma funcionalidade H01–H18 tiver sido antecipada.
 
 ## Relatório final
@@ -569,27 +699,27 @@ Responder com:
 
 ### Build
 
-Versões detectadas, comandos executados e resultado real.
+Versões detectadas (Java, Gradle, Kotlin, Spring Boot e versões efetivas resolvidas pelo BOM), comandos executados e resultado real.
 
 ### Arquivos criados
 
-Agrupar por documentação, papéis, raiz e módulos.
+Agrupar por documentação, papéis, build (`build-logic/`, catálogo, wrapper), raiz e módulos.
 
 ### Estrutura final
 
-Mostrar a árvore sem `target/`.
+Mostrar a árvore sem `build/`, `.gradle/` e `.kotlin/`.
 
 ### Testes
 
-Listar testes, resultado e proteção fornecida.
+Listar testes e verificações de classpath, resultado e proteção fornecida.
 
 ### Decisões aplicadas
 
-Listar somente decisões documentadas ou expressamente definidas neste prompt.
+Listar somente decisões documentadas, expressamente definidas neste prompt ou registradas como provisórias no `AGENTS.md`.
 
 ### Lacunas e bloqueios
 
-Listar arquivos, skills, ADRs ou decisões ausentes.
+Listar arquivos (incluindo nomes legados encontrados), skills, ADRs ou decisões ausentes.
 
 ### Próximo passo
 
