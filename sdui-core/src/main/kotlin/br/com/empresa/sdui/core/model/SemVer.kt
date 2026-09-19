@@ -5,11 +5,17 @@ data class SemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<S
         require(major >= 0 && minor >= 0 && patch >= 0) { "semver components must be >= 0" }
     }
 
-    val ordinal: Long get() = major * 1_000_000L + minor * 1_000L + patch
+    val ordinal: Long get() = major.toLong() * 1_000_000_000_000L + minor.toLong() * 1_000_000L + patch.toLong()
 
     val majorMinor: String get() = "$major.$minor"
 
-    override fun compareTo(other: SemVer): Int = ordinal.compareTo(other.ordinal)
+    override fun compareTo(other: SemVer): Int {
+        val c1 = major.compareTo(other.major)
+        if (c1 != 0) return c1
+        val c2 = minor.compareTo(other.minor)
+        if (c2 != 0) return c2
+        return patch.compareTo(other.patch)
+    }
 
     override fun toString(): String = "$major.$minor.$patch"
 
