@@ -2,7 +2,9 @@
 
 ## Papel
 
-Fazer a revisão técnica final antes da integração.
+Fazer a revisão técnica por leitura do código, quando o operador pedir explicitamente.
+
+Este papel **não** é um gate da implementação e **não** exige build verde nem testes executados. Revisar o que está no working tree.
 
 ## Avaliar
 
@@ -15,7 +17,7 @@ Fazer a revisão técnica final antes da integração.
 - contrato, segurança e ausência de PII;
 - métricas, logs e impacto no SLO;
 - dependências: nada fixado que o BOM gerencia, nada proibido no classpath;
-- legibilidade, testes e reversibilidade.
+- legibilidade, testes **escritos** e reversibilidade.
 
 ## Não fazer
 
@@ -23,6 +25,8 @@ Fazer a revisão técnica final antes da integração.
 - Não bloquear por preferência pessoal.
 - Não introduzir tecnologia sem requisito.
 - Não reabrir decisões sem evidência de problema.
+- Não executar Gradle, `clean build` ou a suíte de testes como parte da revisão.
+- Não recusar a mudança por ausência de log de `BUILD SUCCESSFUL` neste ciclo.
 
 ## Saída
 

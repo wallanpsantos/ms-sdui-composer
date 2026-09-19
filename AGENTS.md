@@ -1,5 +1,25 @@
 # AGENTS.md — Memória Operacional do ms-sdui-composer
 
+## Modo operacional vigente
+
+O bootstrap Gradle e a H00 (contrato + fixture) estão concluídos.
+
+**Foco a partir de agora:** implementação direta e completa de todo o código produtivo necessário para o MVP (`H01`–`H18` e dependências de código), em `src/main/kotlin`, com os testes correspondentes escritos em `src/test/kotlin`.
+
+Regras deste modo:
+
+- Implementar o recorte pedido por inteiro numa única passada de código. Se o pedido for o serviço/MVP, implementar o código produtivo de `H01`–`H18` de uma vez, sem fatiar por história com gate intermediário.
+- As dependências entre histórias orientam a ordem de *escrita* (Negotiate existe no código antes de Filter). Não são gates de build, de teste executado nem de ciclo de papéis.
+- Escrever produção e testes como fontes. Não deixar esqueleto vazio, `TODO`/`FIXME` nem stub no lugar de comportamento especificado.
+- **Não** executar `gradlew`, `gradlew.bat`, `clean`, `build`, `test`, `check` nem qualquer tarefa Gradle de forma repetitiva.
+- **Não** interromper a escrita para esperar compilação ou resultado de testes.
+- **Não** entregar uma história, rodar build, esperar e só então começar a próxima.
+- **Não** encadear `architect → implementer → tester → contract-guard → reviewer` como pré-requisito para continuar implementando.
+- Papel padrão: `sdui-implementer`. Os demais papéis só entram quando o operador pedir explicitamente.
+- Gradle, `clean build` ou suíte de testes só correm se o operador humano pedir, e nesse caso **uma única vez, no final**, sem repetir o ciclo.
+
+Os comandos da seção 16 são registro histórico do bootstrap. Não reexecutá-los como rotina de implementação.
+
 ## 1. Identidade e Definição do Serviço
 O `ms-sdui-composer` é o serviço responsável por compor a árvore de UI de uma surface (a primeira surface é `home`) a partir de uma spec versionada, contexto do cliente e capabilities declaradas, entregando um envelope REST/JSON pronto para clientes iOS e Android.
 - **Papel Arquitetural:** Presentation + Application Controller + BFF de UI (Fowler).
@@ -66,8 +86,10 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 - Escada de fallback (ADR-007): 200 OK -> 200 OK com omissão -> 200 Cache -> 200 Last Good -> 503 Retry-After.
 
 ## 10. Ordem e Status das Histórias
-- **H00:** Gates testáveis verdes (identidade da fixture, catálogo, actions, sem visual, round-trip Jackson 3).
-- **H01–H18:** Bloqueadas até a conclusão das etapas precedentes. Não antecipar implementação.
+- **H00:** Concluída. Gates de contrato e fixture verdes (identidade da fixture, catálogo, actions, sem visual, round-trip Jackson 3).
+- **H01–H18:** Código produtivo em aberto. Implementar de forma direta e completa; não bloquear a escrita da história seguinte à espera de build ou de testes.
+- Dependências documentadas em `docs/historias/` (ex.: H04 depende de H01+H03) definem ordem de composição do código, não ciclos de verificação.
+- Não antecipar escopo fora do MVP (Fragment, CMS, CSS no payload, gRPC, coroutines). Dentro do MVP, não adiar implementação.
 
 ## 11. Lacunas Documentais Registradas
 - `docs/fluxos-integracao-ms-sdui-composer.md`: o arquivo real contém `\u200b` (Zero Width Space) no nome. Mantido intacto conforme regra de verdade.
@@ -88,18 +110,21 @@ Novas decisões estruturais exigem ADR em `docs/adr/ADR-XXX-<slug>.md` seguindo 
 
 ## 15. Papéis especializados
 
-Os papéis estão em `.agents/agents/`.
+Os papéis estão em `.agents/agents/`. São instruções de desenvolvimento, não componentes do runtime.
 
-Antes de executar uma tarefa especializada, carregar `AGENTS.md` e o arquivo do papel correspondente. Os papéis são instruções de desenvolvimento, não componentes do runtime.
+Papel padrão deste modo: **implementação** (`.agents/agents/sdui-implementer.md`). Carregar `AGENTS.md` e o implementer e escrever o código. Não carregar os demais papéis nem esperar o fluxo completo antes de implementar.
 
-Mapeamento:
+Os outros papéis só são carregados quando o operador os pedir nominalmente:
+
 - Arquitetura: `.agents/agents/sdui-architect.md`
-- Implementação: `.agents/agents/sdui-implementer.md`
-- Testes: `.agents/agents/sdui-tester.md`
+- Testes (autoria de fontes de teste, sem execução Gradle no ciclo): `.agents/agents/sdui-tester.md`
 - Guarda de Contrato: `.agents/agents/sdui-contract-guard.md`
 - Revisão: `.agents/agents/sdui-reviewer.md`
 
-## 16. Comandos executados no bootstrap
+## 16. Comandos executados no bootstrap (histórico)
+
+Registro único da inicialização. Não repetir como rotina de implementação.
+
 ```text
 java -version
   OpenJDK 25.0.4.1 Temurin (build 25.0.4.1+1-LTS)

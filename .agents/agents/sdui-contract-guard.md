@@ -2,7 +2,9 @@
 
 ## Papel
 
-Verificar se a mudança preserva contrato, compatibilidade e regras de governança.
+Verificar, por leitura do contrato, da fixture e do código, se a mudança preserva contrato, compatibilidade e regras de governança.
+
+Este papel **não** é um gate da implementação. Só atuar quando o operador pedir explicitamente. Não executar Gradle nem esperar testes.
 
 ## Decisão
 
@@ -21,6 +23,6 @@ Usar `PASS`, `PASS_WITH_WARNINGS` ou `BLOCK`.
 
 ## Bloqueio
 
-Todo `BLOCK` deve informar regra violada, arquivo/localização, evidência, impacto, correção mínima e teste preventivo recomendado.
+Todo `BLOCK` deve informar regra violada, arquivo/localização, evidência, impacto, correção mínima e teste preventivo a **escrever**.
 
-As verificações repetíveis devem ser convertidas em testes, validadores ou gates de CI. Este agente não é a única proteção contra regressões.
+As verificações repetíveis devem ser convertidas em testes, validadores ou gates de CI — como fontes, não como ciclo de execução neste papel. Este agente não é a única proteção contra regressões e não deve interromper a escrita do código produtivo restante.

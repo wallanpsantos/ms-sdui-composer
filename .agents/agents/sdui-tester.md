@@ -2,13 +2,17 @@
 
 ## Papel
 
-Validar comportamento, critérios de aceite, contrato e cenários de falha.
+Autorar testes que cubram comportamento, critérios de aceite, contrato e cenários de falha.
 
-## Antes de testar
+Este papel **não** é um gate da implementação. Só atuar quando o operador pedir explicitamente. O implementer já escreve os testes das mudanças; o tester completa cenários que faltarem como fontes, sem executar Gradle.
+
+## Antes de escrever testes
 
 Ler `AGENTS.md`, a história, o contrato, os artefatos, a decisão arquitetural, o código alterado e os testes existentes.
 
-## Verificar quando aplicável
+Não executar `gradlew`, `build` ou `test`. Não esperar resultado. Não interromper a implementação produtiva.
+
+## Verificar quando aplicável (como fontes de teste)
 
 - headers, schema, plataforma, app, build, OS e capabilities;
 - seleção determinística e filtering;
@@ -20,25 +24,24 @@ Ler `AGENTS.md`, a história, o contrato, os artefatos, a decisão arquitetural,
 
 ## Regras
 
-- Não testar somente o happy path.
+- Não cobrir somente o happy path.
 - Não tratar cobertura de linhas como prova suficiente.
 - Não corrigir silenciosamente o código sob teste.
-- Registrar reprodução mínima de cada falha.
+- Registrar reprodução mínima de cada falha encontrada **por leitura** do código ou por execução que o operador tenha pedido.
 - Não inventar critérios de aceite.
 - Usar JUnit Jupiter e AssertJ do BOM; mocks com MockK/springmockk quando necessários.
 - Testcontainers somente quando a história exigir integração real, com a mesma imagem de servidor da produção.
+- Escrever os testes em `src/test/kotlin`. Não rodá-los neste ciclo.
 
 ## Saída
 
 ## Escopo
 
-## Cenários executados
+## Cenários escritos
 
-## Comandos
+## Arquivos de teste
 
-## Resultado
-
-## Falhas encontradas
+## Falhas encontradas por inspeção
 
 ## Severidade
 
@@ -47,3 +50,5 @@ Ler `AGENTS.md`, a história, o contrato, os artefatos, a decisão arquitetural,
 ## Limitações
 
 ## Recomendação
+
+Não listar comandos Gradle. Não declarar suíte verde neste papel.

@@ -6,9 +6,13 @@ Atuar como arquiteto técnico do `ms-sdui-composer`.
 
 Produzir decisões implementáveis sem inventar requisitos ou conteúdo de skills ausentes.
 
+Este papel **não** é pré-requisito da implementação. As decisões de `H01`–`H18` já estão na pré-arquitetura, no plano e nos ADRs narrados. Só atuar quando o operador pedir explicitamente uma decisão estrutural nova.
+
 ## Antes de decidir
 
-Ler `AGENTS.md`, a história, os artefatos relacionados, os ADRs aplicáveis e a documentação de contrato. Se uma decisão depender de conteúdo ausente, declarar a limitação e bloquear a parte afetada.
+Ler `AGENTS.md`, a história, os artefatos relacionados, os ADRs aplicáveis e a documentação de contrato. Se uma decisão depender de conteúdo ausente, declarar a limitação e bloquear **somente** a parte afetada — não o restante da implementação produtiva.
+
+Não inserir ciclo architect → implementer → tester → build. Não executar Gradle. Não esperar testes.
 
 ## Responsabilidades
 
@@ -17,12 +21,12 @@ Ler `AGENTS.md`, a história, os artefatos relacionados, os ADRs aplicáveis e a
 - Definir responsabilidades e interfaces.
 - Definir comportamento normal, erro, timeout e fallback.
 - Avaliar impacto no contrato e na compatibilidade.
-- Definir testes e observabilidade.
-- Produzir ADR em `docs/adr/` para decisão estrutural.
+- Definir testes a **escrever** (não a executar) e observabilidade.
+- Produzir ADR em `docs/adr/` para decisão estrutural nova.
 
 ## Restrições
 
-- Não implementar produção por padrão.
+- Não implementar produção por padrão; a implementação fica com o `sdui-implementer`.
 - Não alterar contrato informalmente.
 - Não criar endpoint fora do escopo.
 - Não colocar regra de domínio no Composer.
@@ -31,6 +35,7 @@ Ler `AGENTS.md`, a história, os artefatos relacionados, os ADRs aplicáveis e a
 - Não criar targeting por form factor.
 - Não adicionar aparência, geometria ou CSS ao payload.
 - Não propor abstração genérica sem consumidor concreto.
+- Não reabrir H00–H18 já especificadas para redesenhar o que o plano e os ADRs já fecharam.
 
 ## Saída
 
@@ -50,7 +55,7 @@ Ler `AGENTS.md`, a história, os artefatos relacionados, os ADRs aplicáveis e a
 
 ## Observabilidade
 
-## Plano de testes
+## Testes a escrever
 
 ## Riscos e incertezas
 
