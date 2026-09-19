@@ -3,6 +3,9 @@
 **ms-sdui-composer** = o serviço que, a cada request, compõe a árvore de UI da surface a partir de uma spec versionada,
 do contexto do cliente e das capabilities, devolvendo um envelope pronto e seguro para o app.
 
+Este documento é a pré-arquitetura canônica. O bootstrap e a H00 já estão concluídos. A implementação produtiva de
+`H01`–`H18` segue este desenho de forma direta e completa, sem ciclos repetitivos de Gradle nem espera de testes.
+
 ## Kotlin, Gradle, Clean Architecture pragmática e estratégia de testes
 
 **Baseline:** Kotlin 2.3.21 sobre JVM Java 25 LTS, Spring Boot 4.1.1 (que gerencia Spring Framework 7.0.x), Gradle 9.7.1
