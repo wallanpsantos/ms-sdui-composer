@@ -31,6 +31,7 @@ import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.put
 import tools.jackson.databind.json.JsonMapper
 import java.util.UUID
 import java.util.concurrent.Callable
@@ -229,5 +230,44 @@ class AdminGovernanceWebTest(
         val stableAfter = pointerStore.find("home", ClientPlatform.IOS, Channel.STABLE)!!
         assertThat(stableAfter.specRevisionId).isEqualTo(stable.specRevisionId)
         pointerStore.save(canary)
+    }
+
+    @Test
+    fun `put de type generico no catalogo falha e put de type mvp preserva os sete types`() {
+        val generic = mockMvc.put("/admin/v1/catalog/components/row/1") {
+            header("Actor-Id", "maker-1")
+            header("Actor-Role", "MAKER")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"type":"row","typeVersion":1,"status":"ACTIVE","sinceSchema":"3","requiredProps":[]}"""
+        }.andReturn()
+        assertThat(generic.response.status).isEqualTo(400)
+
+        val ok = mockMvc.put("/admin/v1/catalog/components/top_bar/1") {
+            header("Actor-Id", "maker-1")
+            header("Actor-Role", "MAKER")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"type":"top_bar","typeVersion":1,"status":"ACTIVE","sinceSchema":"3","requiredProps":["greetingName"]}"""
+        }.andReturn()
+        assertThat(ok.response.status).isEqualTo(200)
+        val types = jsonMapper.readTree(ok.response.contentAsString).get("components")
+        assertThat(types.size()).isEqualTo(7)
+    }
+
+    @Test
+    fun `publish recusa slot portante so com account_card 2 em faixa que so declara 1`() {
+        val current = specStore.findByRevisionId("rev_01K8HOMEMAIN")!!
+        val accountsV2 = current.sections.map { section ->
+            if (section.slot == "accounts") section.copy(typeVersion = 2) else section
+        }
+        val draft = current.copy(
+            specId = "spec_home_ios_account_v2",
+            revision = 1,
+            specRevisionId = "rev_account_v2",
+            status = SpecStatus.DRAFT,
+            sections = accountsV2,
+        )
+        assertThatThrownBy {
+            drafts.createSpecDraft(DraftSpecCommand(Actor("maker-1", ActorRole.MAKER), draft))
+        }.hasMessageMatching("(?s).*(required|catalogo|fora do catalogo).*")
     }
 }

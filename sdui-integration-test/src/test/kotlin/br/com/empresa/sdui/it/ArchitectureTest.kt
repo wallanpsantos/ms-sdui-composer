@@ -91,6 +91,16 @@ class ArchitectureTest {
     }
 
     @Test
+    fun `compose nao declara Transactional`() {
+        noMethods().that().areDeclaredInClassesThat().haveSimpleName("ComposeScreenService")
+            .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
+            .check(importedClasses)
+        noClasses().that().haveSimpleName("ComposeScreenService")
+            .should().dependOnClassesThat().resideInAnyPackage("org.springframework.transaction..")
+            .check(importedClasses)
+    }
+
+    @Test
     fun `nenhuma classe de producao depende de bibliotecas reativas`() {
         noClasses()
             .should().dependOnClassesThat().resideInAnyPackage(

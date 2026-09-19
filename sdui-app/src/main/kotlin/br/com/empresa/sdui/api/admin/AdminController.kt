@@ -6,6 +6,7 @@ import br.com.empresa.sdui.core.model.AuditEvent
 import br.com.empresa.sdui.core.model.Catalog
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
+import br.com.empresa.sdui.core.model.ComponentType
 import br.com.empresa.sdui.core.model.PublishRequest
 import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.Spec
@@ -13,6 +14,7 @@ import br.com.empresa.sdui.core.model.SpecDiff
 import br.com.empresa.sdui.orchestrator.admin.AdminDenied
 import br.com.empresa.sdui.orchestrator.port.inbound.CatalogQueryUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.DecidePublishCommand
+import br.com.empresa.sdui.orchestrator.port.inbound.DraftCatalogCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftSkeletonCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftSpecCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftUseCase
@@ -46,6 +48,19 @@ class AdminController(
         actor(headers)
         return catalogQuery.catalog()
     }
+
+    @PutMapping("/catalog/components/{type}/{ver}")
+    fun putComponent(
+        @PathVariable type: String,
+        @PathVariable ver: Int,
+        @RequestBody component: ComponentType,
+        @RequestHeader headers: org.springframework.http.HttpHeaders,
+    ): Catalog = drafts.upsertComponent(
+        DraftCatalogCommand(
+            actor(headers),
+            component.copy(type = type, typeVersion = ver),
+        ),
+    )
 
     @GetMapping("/skeletons/{id}")
     fun skeleton(@PathVariable id: String, @RequestHeader headers: org.springframework.http.HttpHeaders): Skeleton {

@@ -4,6 +4,7 @@ import br.com.empresa.sdui.core.model.Actor
 import br.com.empresa.sdui.core.model.Catalog
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
+import br.com.empresa.sdui.core.model.ComponentType
 import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.PublishRequest
 import br.com.empresa.sdui.core.model.Skeleton
@@ -24,6 +25,11 @@ data class DraftSpecCommand(
 data class DraftSkeletonCommand(
     val actor: Actor,
     val skeleton: Skeleton,
+)
+
+data class DraftCatalogCommand(
+    val actor: Actor,
+    val component: ComponentType,
 )
 
 data class OpenPublishCommand(
@@ -61,6 +67,7 @@ interface CatalogQueryUseCase {
 interface DraftUseCase {
     fun createSpecDraft(command: DraftSpecCommand): Spec
     fun createSkeletonDraft(command: DraftSkeletonCommand): Skeleton
+    fun upsertComponent(command: DraftCatalogCommand): Catalog
 }
 
 interface PublishUseCase {

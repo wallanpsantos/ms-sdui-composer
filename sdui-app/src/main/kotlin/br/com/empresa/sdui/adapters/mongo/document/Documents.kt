@@ -95,10 +95,30 @@ data class IdempotencyDocument(
     val resultRef: String,
 )
 
+data class MongoUniqueIndex(
+    val collection: String,
+    val keys: String,
+)
+
 object MongoIndexCatalog {
-    val uniqueKeys: List<String> = listOf(
-        "pointers.surface+platform+channel",
-        "specs.specId+revision",
-        "diffs.specId+fromRev+toRev",
+    val unique: List<MongoUniqueIndex> = listOf(
+        MongoUniqueIndex("pointers", "surface+platform+channel"),
+        MongoUniqueIndex("specs", "specId+revision"),
+        MongoUniqueIndex("skeletons", "skeletonId+revision"),
+        MongoUniqueIndex("diffs", "specId+fromRev+toRev"),
+        MongoUniqueIndex("idempotency", "key"),
+    )
+
+    val uniqueKeys: List<String> = unique.map { "${it.collection}.${it.keys}" }
+
+    val collections: List<String> = listOf(
+        "component_catalog",
+        "skeletons",
+        "specs",
+        "pointers",
+        "publish_requests",
+        "diffs",
+        "audit_log",
+        "idempotency",
     )
 }

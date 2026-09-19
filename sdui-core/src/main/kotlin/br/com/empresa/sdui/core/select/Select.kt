@@ -24,7 +24,10 @@ object Select {
                 spec.surface == "home" &&
                 spec.platform == context.platform
         }
-        val pointed = pointer?.specRevisionId?.let { id -> published.firstOrNull { it.specRevisionId == id } }
+        val pointed = pointer
+            ?.takeIf { it.channel == channel && it.platform == context.platform }
+            ?.specRevisionId
+            ?.let { id -> published.firstOrNull { it.specRevisionId == id } }
         if (pointed != null && pointed.matches(context, effectiveCaps)) {
             return pointed
         }

@@ -75,6 +75,8 @@ class HomeController(
                     .body(ApiErrorResponse("RATE_LIMITED", "rate limit excedido"))
                 is ComposeResult.NotModified -> ResponseEntity.status(HttpStatus.NOT_MODIFIED)
                     .header("ETag", result.etag)
+                    .header("Cache-Control", CACHE_CONTROL)
+                    .header("Vary", VARY)
                     .build<Void>()
                 is ComposeResult.Unavailable -> ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .header("Retry-After", result.retryAfterSeconds.toString())
@@ -111,6 +113,8 @@ class HomeController(
                     )
                     ResponseEntity.ok()
                         .header("ETag", result.screen.etag)
+                        .header("Cache-Control", CACHE_CONTROL)
+                        .header("Vary", VARY)
                         .body(body)
                 }
             }
@@ -122,5 +126,11 @@ class HomeController(
             )
             trace.close()
         }
+    }
+
+    private companion object {
+        const val CACHE_CONTROL: String = "private, max-age=60"
+        const val VARY: String =
+            "API-Version, UI-Schema-Version, Client-Platform, Client-Version, Client-Build, Component-Capabilities"
     }
 }

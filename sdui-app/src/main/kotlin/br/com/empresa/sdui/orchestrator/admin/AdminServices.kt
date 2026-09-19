@@ -19,6 +19,7 @@ import br.com.empresa.sdui.core.validate.SkeletonValidator
 import br.com.empresa.sdui.core.validate.SpecValidator
 import br.com.empresa.sdui.orchestrator.port.inbound.CatalogQueryUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.DecidePublishCommand
+import br.com.empresa.sdui.orchestrator.port.inbound.DraftCatalogCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftSkeletonCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftSpecCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftUseCase
@@ -96,6 +97,18 @@ class DraftService(
         val errors = SkeletonValidator.validate(command.skeleton)
         if (errors.isNotEmpty()) throw AdminValidation(errors)
         return skeletonStore.save(command.skeleton.copy(status = SpecStatus.DRAFT))
+    }
+
+    override fun upsertComponent(command: DraftCatalogCommand): Catalog {
+        requireRole(command.actor.role, ActorRole.MAKER, ActorRole.CHECKER)
+        val current = catalogStore.current()
+        val replaced = current.components.filterNot {
+            it.type == command.component.type && it.typeVersion == command.component.typeVersion
+        } + command.component
+        val catalog = Catalog(replaced)
+        val errors = CatalogValidator.validate(catalog)
+        if (errors.isNotEmpty()) throw AdminValidation(errors)
+        return catalogStore.save(catalog)
     }
 }
 

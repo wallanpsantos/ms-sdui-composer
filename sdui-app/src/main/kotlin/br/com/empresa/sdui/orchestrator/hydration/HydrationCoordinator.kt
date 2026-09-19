@@ -10,6 +10,7 @@ import br.com.empresa.sdui.orchestrator.compose.SectionHydrator
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 import java.util.concurrent.Executor
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
@@ -35,15 +36,16 @@ class HydrationCoordinator(
         alreadyOmitted: List<OmittedSection>,
     ): HydratedTree {
         val omitted = alreadyOmitted.toMutableList()
-        val kept = mutableListOf<Section>()
-        var requiredFailed = false
         val requiredSlots = skeleton.slots.filter { it.required }.map { it.id }.toSet()
+        if (sections.isEmpty()) {
+            return HydratedTree(emptyList(), omitted, requiredSlotFailed = false)
+        }
 
-        for (section in sections) {
+        val jobs = sections.map { section ->
             val hydrator = hydrators.firstOrNull { it.supports(section.type, section.typeVersion) }
                 ?: PassThroughHydrator()
             val started = System.nanoTime()
-            val future = CompletableFuture.supplyAsync(
+            val original = CompletableFuture.supplyAsync(
                 {
                     fanOut.acquire()
                     try {
@@ -53,29 +55,40 @@ class HydrationCoordinator(
                     }
                 },
                 executor,
-            ).handle { result, error ->
-                if (error != null) HydrationResult.Failed(OmittedReason.HYDRATION_FAILED) else result
-            }
-            val result = try {
-                future.get(timeout.toMillis(), TimeUnit.MILLISECONDS)
-            } catch (_: TimeoutException) {
-                future.cancel(true)
-                HydrationResult.Failed(OmittedReason.HYDRATION_TIMEOUT)
-            } catch (_: Exception) {
-                future.cancel(true)
-                HydrationResult.Failed(OmittedReason.HYDRATION_FAILED)
-            }
-            val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
-            metrics.recordTime(
-                "section.${section.type}.ms",
-                elapsedMs,
-                mapOf(
-                    "type" to section.type,
-                    "typeVersion" to section.typeVersion.toString(),
-                    "platform" to context.platform.wire(),
-                    "channel" to context.channel.wire(),
-                ),
             )
+            original.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
+                .handle { result, error ->
+                    val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
+                    metrics.recordTime(
+                        "section.${section.type}.ms",
+                        elapsedMs,
+                        mapOf(
+                            "type" to section.type,
+                            "typeVersion" to section.typeVersion.toString(),
+                            "platform" to context.platform.wire(),
+                            "channel" to context.channel.wire(),
+                        ),
+                    )
+                    val hydration = if (error != null) {
+                        original.cancel(true)
+                        val root = rootCause(error)
+                        if (root is TimeoutException) {
+                            HydrationResult.Failed(OmittedReason.HYDRATION_TIMEOUT)
+                        } else {
+                            HydrationResult.Failed(OmittedReason.HYDRATION_FAILED)
+                        }
+                    } else {
+                        result ?: HydrationResult.Failed(OmittedReason.HYDRATION_FAILED)
+                    }
+                    section to hydration
+                }
+        }
+        jobs.forEach { it.join() }
+
+        val kept = mutableListOf<Section>()
+        var requiredFailed = false
+        for (job in jobs) {
+            val (section, result) = job.join()
             when (result) {
                 is HydrationResult.Ok -> kept += section.copy(props = result.props)
                 is HydrationResult.Failed -> {
@@ -90,18 +103,24 @@ class HydrationCoordinator(
                         requiredFailed = true
                     }
                 }
-                null -> {
-                    omitted += OmittedSection(
-                        id = section.id,
-                        slot = section.slot,
-                        type = section.type,
-                        typeVersion = section.typeVersion,
-                        reason = OmittedReason.HYDRATION_FAILED,
-                    )
-                    if (section.slot in requiredSlots) requiredFailed = true
-                }
             }
         }
         return HydratedTree(kept, omitted, requiredFailed)
+    }
+
+    private fun rootCause(error: Throwable): Throwable {
+        var current = error
+        val seen = HashSet<Throwable>()
+        while (true) {
+            if (current is CompletionException) {
+                val cause = current.cause
+                if (cause == null || !seen.add(current)) return current
+                current = cause
+                continue
+            }
+            val cause = current.cause
+            if (cause == null || cause === current || !seen.add(current)) return current
+            current = cause
+        }
     }
 }
