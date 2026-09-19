@@ -12,6 +12,7 @@ import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecDiff
 import br.com.empresa.sdui.orchestrator.admin.AdminDenied
+import br.com.empresa.sdui.orchestrator.admin.AdminNotFound
 import br.com.empresa.sdui.orchestrator.port.inbound.CatalogQueryUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.DecidePublishCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftCatalogCommand
@@ -23,6 +24,7 @@ import br.com.empresa.sdui.orchestrator.port.inbound.PublishUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.RollbackCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.RollbackPointerUseCase
 import br.com.empresa.sdui.orchestrator.port.outbound.AuditLogStore
+import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -44,7 +46,7 @@ class AdminController(
     private val auditLog: AuditLogStore,
 ) {
     @GetMapping("/catalog/components")
-    fun catalog(@RequestHeader headers: org.springframework.http.HttpHeaders): Catalog {
+    fun catalog(@RequestHeader headers: HttpHeaders): Catalog {
         actor(headers)
         return catalogQuery.catalog()
     }
@@ -54,7 +56,7 @@ class AdminController(
         @PathVariable type: String,
         @PathVariable ver: Int,
         @RequestBody component: ComponentType,
-        @RequestHeader headers: org.springframework.http.HttpHeaders,
+        @RequestHeader headers: HttpHeaders,
     ): Catalog = drafts.upsertComponent(
         DraftCatalogCommand(
             actor(headers),
@@ -63,23 +65,23 @@ class AdminController(
     )
 
     @GetMapping("/skeletons/{id}")
-    fun skeleton(@PathVariable id: String, @RequestHeader headers: org.springframework.http.HttpHeaders): Skeleton {
+    fun skeleton(@PathVariable id: String, @RequestHeader headers: HttpHeaders): Skeleton {
         actor(headers)
-        return catalogQuery.skeleton(id) ?: throw br.com.empresa.sdui.orchestrator.admin.AdminNotFound(id)
+        return catalogQuery.skeleton(id) ?: throw AdminNotFound(id)
     }
 
     @PutMapping("/skeletons/{id}")
     fun putSkeleton(
         @PathVariable id: String,
         @RequestBody skeleton: Skeleton,
-        @RequestHeader headers: org.springframework.http.HttpHeaders,
+        @RequestHeader headers: HttpHeaders,
     ): Skeleton = drafts.createSkeletonDraft(DraftSkeletonCommand(actor(headers), skeleton.copy(skeletonId = id)))
 
     @GetMapping("/specs")
     fun specs(
         @RequestParam(required = false) platform: String?,
         @RequestParam(required = false) channel: String?,
-        @RequestHeader headers: org.springframework.http.HttpHeaders,
+        @RequestHeader headers: HttpHeaders,
     ): List<Spec> {
         actor(headers)
         return catalogQuery.specs(platform?.let { ClientPlatform.parse(it) }, channel?.let { Channel.parse(it) })
@@ -88,11 +90,11 @@ class AdminController(
     @PostMapping("/specs")
     fun createSpec(
         @RequestBody spec: Spec,
-        @RequestHeader headers: org.springframework.http.HttpHeaders,
+        @RequestHeader headers: HttpHeaders,
     ): Spec = drafts.createSpecDraft(DraftSpecCommand(actor(headers), spec))
 
     @GetMapping("/specs/{id}/revisions")
-    fun revisions(@PathVariable id: String, @RequestHeader headers: org.springframework.http.HttpHeaders): List<Spec> {
+    fun revisions(@PathVariable id: String, @RequestHeader headers: HttpHeaders): List<Spec> {
         actor(headers)
         return catalogQuery.revisions(id)
     }
@@ -102,16 +104,16 @@ class AdminController(
         @PathVariable id: String,
         @PathVariable from: Int,
         @PathVariable to: Int,
-        @RequestHeader headers: org.springframework.http.HttpHeaders,
+        @RequestHeader headers: HttpHeaders,
     ): SpecDiff {
         actor(headers)
-        return catalogQuery.diff(id, from, to) ?: throw br.com.empresa.sdui.orchestrator.admin.AdminNotFound("diff")
+        return catalogQuery.diff(id, from, to) ?: throw AdminNotFound("diff")
     }
 
     @PostMapping("/publish-requests")
     fun openPublish(
         @RequestBody body: OpenPublishBody,
-        @RequestHeader headers: org.springframework.http.HttpHeaders,
+        @RequestHeader headers: HttpHeaders,
         @RequestHeader(name = "Idempotency-Key", required = false) idempotencyKey: String?,
     ): PublishRequest = publish.open(
         OpenPublishCommand(
@@ -126,7 +128,7 @@ class AdminController(
     @PostMapping("/publish-requests/{id}/approve")
     fun approve(
         @PathVariable id: String,
-        @RequestHeader headers: org.springframework.http.HttpHeaders,
+        @RequestHeader headers: HttpHeaders,
         @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
     ): PublishRequest = publish.approve(DecidePublishCommand(actor(headers), id, idempotencyKey))
 
@@ -134,7 +136,7 @@ class AdminController(
     fun reject(
         @PathVariable id: String,
         @RequestBody body: RejectBody,
-        @RequestHeader headers: org.springframework.http.HttpHeaders,
+        @RequestHeader headers: HttpHeaders,
         @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
     ): PublishRequest = publish.reject(DecidePublishCommand(actor(headers), id, idempotencyKey), body.reason)
 
@@ -144,7 +146,7 @@ class AdminController(
         @PathVariable platform: String,
         @PathVariable channel: String,
         @RequestBody(required = false) body: RollbackBody?,
-        @RequestHeader headers: org.springframework.http.HttpHeaders,
+        @RequestHeader headers: HttpHeaders,
         @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
     ): ResponseEntity<*> {
         val moved = rollback.rollback(
@@ -162,7 +164,7 @@ class AdminController(
     }
 
     @GetMapping("/audit")
-    fun audit(@RequestHeader headers: org.springframework.http.HttpHeaders): List<AuditEvent> {
+    fun audit(@RequestHeader headers: HttpHeaders): List<AuditEvent> {
         val current = actor(headers)
         if (current.role != ActorRole.AUDITOR && current.role != ActorRole.CHECKER) {
             throw AdminDenied("auditoria exige checker ou auditor")
@@ -170,7 +172,7 @@ class AdminController(
         return auditLog.list()
     }
 
-    private fun actor(headers: org.springframework.http.HttpHeaders): Actor {
+    private fun actor(headers: HttpHeaders): Actor {
         val id = headers.getFirst("Actor-Id") ?: throw AdminDenied("Actor-Id ausente")
         val role = ActorRole.parse(headers.getFirst("Actor-Role")) ?: throw AdminDenied("Actor-Role ausente")
         return Actor(id, role)

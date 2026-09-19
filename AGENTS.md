@@ -14,7 +14,8 @@ homologação com clientes móveis.
 
 Regras deste modo:
 
-- Qualquer alteração pontual deve manter estritamente a conformidade com as regras de pureza do `sdui-core`, o isolamento
+- Qualquer alteração pontual deve manter estritamente a conformidade com as regras de pureza do `sdui-core`, o
+  isolamento
   de camadas do ArchUnit e a ausência de warnings (`allWarningsAsErrors = true`).
 - **Não** executar `gradlew`, `gradlew.bat`, `clean`, `build`, `test`, `check` nem qualquer tarefa Gradle de forma
   repetitiva.
@@ -122,7 +123,8 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
   round-trip Jackson 3).
 - **H01–H13:** Concluídas. Código produtivo e testes completos (Negotiate→Envelope, persistência em memória e MongoDB,
   admin maker-checker, cache/fallback escalonado, canary iOS e métricas Micrometer). Quality Gate APROVADO.
-- **H14–H18:** Concluídas no servidor. Isolamento Android integralmente implementado (pointer/cache/select independentes,
+- **H14–H18:** Concluídas no servidor. Isolamento Android integralmente implementado (pointer/cache/select
+  independentes,
   matriz de capabilities e canary Android). Fixture `contrato-sdui-home-android-proposto.json` aguarda definição formal
   da equipe Android — conteúdo não inferido a partir do iOS.
 - **Pós-H18:** Auditoria multidimensional (`code-review-and-quality`) e auditoria de performance
@@ -130,7 +132,8 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 ## 11. Lacunas Documentais Registradas
 
-- ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/02-pre-arquitetura-ms-sdui-composer.md`. Arquivos individuais
+- ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/02-pre-arquitetura-ms-sdui-composer.md`. Arquivos
+  individuais
   `docs/adr/ADR-XXX-*.md` ainda não foram extraídos; o diretório tem só `README.md`.
 - Presente: `docs/README.md` — índice sequencial e catálogo da documentação em 3 arquivos canônicos (`01`, `02`, `03`).
 - Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em
@@ -193,17 +196,21 @@ Regras inegociáveis resultantes do ciclo de auditoria técnica (`code-review-an
 
 1. **Singleflight Concorrente:** Waiters que sofrem timeout local no `ComposeSingleflight` **nunca** executam
    `existing.cancel(true)`. Devem retornar `WaitTimeout()` deixando o líder concluir a computação normalmente.
-2. **Parsing SemVer Seguro:** Todo parsing de números em SemVer (`SemVer.kt`) deve utilizar `.toIntOrNull() ?: return null`.
+2. **Parsing SemVer Seguro:** Todo parsing de números em SemVer (`SemVer.kt`) deve utilizar
+   `.toIntOrNull() ?: return null`.
    Proibido lançar `NumberFormatException` que possa vazar como HTTP 500 no `Negotiate`.
 3. **Serialização de Passo Único no Hot Path:** O `HomeController` deve retornar o `byte[]` pré-serializado diretamente
    com `MediaType.APPLICATION_JSON`. Nunca repassar instâncias de objeto de resposta para o Spring re-serializar.
 4. **Constantes Pré-calculadas em Validações:** Em classes de guardas (`Guards.kt`), sets de chaves restritas
    (`LOWER_VISUAL_KEYS`, `LOWER_PII_KEYS`) devem ser `private val` pré-calculados, evitando alocações no loop recursivo.
-5. **Estabilidade de Ordenação em Filter:** A ordenação de seções em `Filter.kt` deve utilizar `sortedBy` sobre a ordem de
-   slots do skeleton. Não introduzir comparadores secundários com busca linear O(N) (`indexOf`), aproveitando a estabilidade
+5. **Estabilidade de Ordenação em Filter:** A ordenação de seções em `Filter.kt` deve utilizar `sortedBy` sobre a ordem
+   de
+   slots do skeleton. Não introduzir comparadores secundários com busca linear O (N) (`indexOf`), aproveitando a
+   estabilidade
    do TimSort.
 6. **Limpeza de Chaves Redis:** Assinaturas de métodos geradores de chaves (`RedisKeyspace.kt`) devem conter apenas
    parâmetros efetivamente interpolados na chave, e garantir `!RedisKeys.containsUserId(key)`.
-7. **Fechamento de Recursos:** Qualquer leitura de stream de arquivo ou classpath (`ClassPathResource`) deve ser envolvida
+7. **Fechamento de Recursos:** Qualquer leitura de stream de arquivo ou classpath (`ClassPathResource`) deve ser
+   envolvida
    por `.use { }` para garantir encerramento do recurso e evitar vazamentos de file descriptors.
 

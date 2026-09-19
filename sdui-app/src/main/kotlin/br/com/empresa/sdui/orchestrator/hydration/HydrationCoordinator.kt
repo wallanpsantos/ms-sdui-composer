@@ -83,7 +83,6 @@ class HydrationCoordinator(
                     section to hydration
                 }
         }
-        jobs.forEach { it.join() }
 
         val kept = mutableListOf<Section>()
         var requiredFailed = false

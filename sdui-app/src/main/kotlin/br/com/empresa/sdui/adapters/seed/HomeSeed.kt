@@ -196,40 +196,18 @@ class HomeSeed(
 
     fun seedPointers() {
         val iosCurrent = specStore.findByRevisionId("rev_01K8HOMEMAIN")
-        pointerStore.save(
-            Pointer(
-                surface = MvpCatalog.SURFACE_HOME,
-                platform = ClientPlatform.IOS,
-                channel = Channel.STABLE,
-                specId = iosCurrent?.specId,
-                specRevisionId = iosCurrent?.specRevisionId,
-                previousSpecRevisionId = null,
-                version = 1,
-            ),
-        )
-        pointerStore.save(
-            Pointer(
-                surface = MvpCatalog.SURFACE_HOME,
-                platform = ClientPlatform.IOS,
-                channel = Channel.CANARY,
-                specId = iosCurrent?.specId,
-                specRevisionId = iosCurrent?.specRevisionId,
-                previousSpecRevisionId = null,
-                version = 1,
-            ),
-        )
-        pointerStore.save(
-            Pointer(
-                surface = MvpCatalog.SURFACE_HOME,
-                platform = ClientPlatform.IOS,
-                channel = Channel.INTERNAL,
-                specId = iosCurrent?.specId,
-                specRevisionId = iosCurrent?.specRevisionId,
-                previousSpecRevisionId = null,
-                version = 1,
-            ),
-        )
         for (channel in Channel.entries) {
+            pointerStore.save(
+                Pointer(
+                    surface = MvpCatalog.SURFACE_HOME,
+                    platform = ClientPlatform.IOS,
+                    channel = channel,
+                    specId = iosCurrent?.specId,
+                    specRevisionId = iosCurrent?.specRevisionId,
+                    previousSpecRevisionId = null,
+                    version = 1,
+                ),
+            )
             pointerStore.save(
                 Pointer(
                     surface = MvpCatalog.SURFACE_HOME,

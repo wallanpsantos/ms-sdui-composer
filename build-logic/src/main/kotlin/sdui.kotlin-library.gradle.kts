@@ -1,3 +1,5 @@
+import org.gradle.kotlin.dsl.register
+
 plugins {
     id("sdui.kotlin-base")
 }

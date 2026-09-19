@@ -5,7 +5,7 @@ import br.com.empresa.sdui.core.model.Catalog
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.ComponentType
-import br.com.empresa.sdui.core.model.NegotiateHeaders
+import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.PublishRequest
 import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.Spec
@@ -77,19 +77,5 @@ interface PublishUseCase {
 }
 
 interface RollbackPointerUseCase {
-    fun rollback(command: RollbackCommand): br.com.empresa.sdui.core.model.Pointer
-}
-
-interface HeaderNegotiation {
-    fun headersOf(
-        uiSchemaVersion: String?,
-        clientPlatform: String?,
-        clientVersion: String?,
-        clientBuild: String?,
-        acceptLanguage: String?,
-        apiVersion: String?,
-        osVersion: String?,
-        componentCapabilities: String?,
-        channel: String?,
-    ): NegotiateHeaders
+    fun rollback(command: RollbackCommand): Pointer
 }

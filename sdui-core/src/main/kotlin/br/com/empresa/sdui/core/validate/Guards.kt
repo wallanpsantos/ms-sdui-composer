@@ -1,5 +1,6 @@
 package br.com.empresa.sdui.core.validate
 
+import br.com.empresa.sdui.core.model.Action
 import br.com.empresa.sdui.core.model.MvpCatalog
 
 object VisualGuard {
@@ -37,9 +38,11 @@ object PiiGuard {
 }
 
 object ActionGuard {
+    private val CTA_ACTIONS: Set<String> = setOf("navigate", "open_bottom_sheet")
+
     fun validate(
         sectionId: String,
-        actions: List<br.com.empresa.sdui.core.model.Action>,
+        actions: List<Action>,
         props: Map<String, Any?>
     ): List<String> {
         val errors = mutableListOf<String>()
@@ -54,7 +57,7 @@ object ActionGuard {
                     errors += "section $sectionId action ${action.id} navigate exige rota app://"
                 }
             }
-            if (action.type in setOf("navigate", "open_bottom_sheet") && action.label.isNullOrBlank()) {
+            if (action.type in CTA_ACTIONS && action.label.isNullOrBlank()) {
                 errors += "section $sectionId action ${action.id} CTA exige label"
             }
         }

@@ -32,8 +32,9 @@ object SpecValidator {
             if (section.type !in slot.allowedTypes) {
                 errors += "type ${section.type} nao permitido no slot ${section.slot}"
             }
-            counts[section.slot] = (counts[section.slot] ?: 0) + 1
-            if ((counts[section.slot] ?: 0) > slot.maxInstances) {
+            val currentCount = (counts[section.slot] ?: 0) + 1
+            counts[section.slot] = currentCount
+            if (currentCount > slot.maxInstances) {
                 errors += "slot ${section.slot} excede maxInstances ${slot.maxInstances}"
             }
             if (catalog.find(section.type, section.typeVersion) == null) {
@@ -84,24 +85,20 @@ object SpecValidator {
         val min = spec.targeting.appVersion.min
         val max = spec.targeting.appVersion.max ?: SemVer(min.major, min.minor + 50, 0)
         val samples = linkedSetOf(min, max)
-        if (max > min) {
-            samples += SemVer(min.major, min.minor, min.patch)
-        }
+        val schemaVersion = spec.targeting.schemaVersion.min.major.toString()
         return samples.map { version ->
-            val ctx = ClientContext(
+            val context = ClientContext(
                 platform = spec.platform,
                 appVersion = version,
                 build = "1",
                 osVersion = spec.targeting.osVersion?.min,
-                schemaVersion = spec.targeting.schemaVersion.min.toString().substringBefore("."),
+                schemaVersion = schemaVersion,
                 locale = "pt-BR",
                 apiVersion = "1",
                 headerCapabilities = emptyList(),
             )
-            val schema = spec.targeting.schemaVersion.min
-            val context = ctx.copy(schemaVersion = schema.major.toString())
             Combo(
-                label = "${spec.platform.wire()} ${version} caps=${
+                label = "${spec.platform.wire()} $version caps=${
                     matrix.effective(context).joinToString { it.wire() }
                 }",
                 caps = matrix.effective(context),

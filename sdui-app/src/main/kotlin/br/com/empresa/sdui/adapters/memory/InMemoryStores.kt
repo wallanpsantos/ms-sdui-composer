@@ -282,7 +282,7 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
     }
 }
 
-class RecordingMetrics : br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder {
+class RecordingMetrics : MetricsRecorder {
     data class Sample(val name: String, val tags: Map<String, String>, val value: Long? = null)
 
     val samples = mutableListOf<Sample>()
