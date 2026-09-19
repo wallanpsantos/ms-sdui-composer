@@ -13,25 +13,42 @@
         └── README.md
 ```
 
-Não é necessário criar `.agents/AGENTS.md` se ele não fizer parte da convenção da ferramenta utilizada. Se o ambiente usa um `AGENTS.md` na raiz, ele pode existir separadamente, mas isso é uma decisão de integração da ferramenta, não uma exigência da arquitetura dos agentes.
+Não é necessário criar `.agents/AGENTS.md` se ele não fizer parte da convenção da ferramenta utilizada. Se o ambiente
+usa um `AGENTS.md` na raiz, ele pode existir separadamente, mas isso é uma decisão de integração da ferramenta, não uma
+exigência da arquitetura dos agentes.
 
 Os arquivos `*.md` devem ser tratados como **prompts operacionais especializados**.
 
+## Modo operacional vigente
+
+O bootstrap e a H00 estão concluídos. O foco é a implementação direta e completa de todo o código produtivo necessário
+(`H01`–`H18`) pelo `sdui-implementer`.
+
+- Papel padrão: `sdui-implementer`.
+- Os demais papéis só entram quando o operador os pedir nominalmente.
+- Não encadear `architect → implementer → tester → contract-guard → reviewer` como rotina.
+- Não executar Gradle, `clean build` ou a suíte de testes de forma repetitiva, nem esperar o resultado para continuar a
+  escrever código.
+- Produção e testes são fontes. Verificação Gradle, se pedida pelo operador, ocorre uma única vez no final.
+
 ## Divisão correta de responsabilidades
 
-| Agente                  | Pergunta que responde                                  | Responsabilidade                 |
-| ----------------------- | ------------------------------------------------------ | -------------------------------- |
-| `sdui-architect`      | “Como esta mudança deve ser desenhada?”             | Decisão e decomposição        |
-| `sdui-implementer`    | “Como transformar a decisão em código?”            | Implementação                  |
-| `sdui-tester`         | “O comportamento funciona nos cenários relevantes?” | Testes e evidências             |
-| `sdui-contract-guard` | “A mudança viola o contrato?”                       | Validação objetiva do contrato |
-| `sdui-reviewer`       | “A mudança está pronta para integração?”         | Revisão final                   |
+| Agente                | Quando entra                                   | Responsabilidade                           |
+|-----------------------|------------------------------------------------|--------------------------------------------|
+| `sdui-implementer`    | Sempre (papel padrão)                          | Código produtivo e testes como fontes      |
+| `sdui-architect`      | Só se o operador pedir decisão estrutural nova | Decisão e decomposição                     |
+| `sdui-tester`         | Só se o operador pedir autoria extra de testes | Fontes de teste; sem execução Gradle       |
+| `sdui-contract-guard` | Só se o operador pedir inspeção de contrato    | Validação objetiva do contrato por leitura |
+| `sdui-reviewer`       | Só se o operador pedir revisão                 | Revisão por leitura, sem build             |
 
-A responsabilidade mais importante do `contract-guard` é **detectar e reportar violações**. As verificações repetíveis devem ser implementadas em testes, validadores ou gates de CI. O agente não deve ser a única barreira contra uma alteração inválida.
+A responsabilidade mais importante do `contract-guard` é **detectar e reportar violações**. As verificações repetíveis
+devem ser implementadas em testes, validadores ou gates de CI. O agente não deve ser a única barreira contra uma
+alteração inválida.
 
 # `sdui-architect.md`
 
-Esse agente deve ser usado quando a tarefa envolve decisões de desenho, novas interfaces, persistência, cache, concorrência, versionamento, fallback ou alteração de contrato.
+Esse agente só deve ser usado quando o operador pedir uma decisão estrutural nova. As histórias `H01`–`H18` já têm
+desenho no plano, na pré-arquitetura e nos ADRs; não inserir um ciclo de arquitetura antes de implementar.
 
 Ele não deve implementar código por padrão.
 
@@ -108,11 +125,14 @@ Responder com:
 ## Próxima ação
 ```
 
-O arquiteto deve produzir uma decisão que o implementador consiga seguir sem redesenhar o problema durante a codificação.
+O arquiteto deve produzir uma decisão que o implementador consiga seguir sem redesenhar o problema durante a
+codificação.
 
 # `sdui-implementer.md`
 
-Esse agente recebe uma tarefa já delimitada. Se surgir uma decisão arquitetural não resolvida, ele deve parar e registrar o bloqueio, não decidir silenciosamente.
+Papel padrão. Recebe o recorte e escreve de uma vez todo o código produtivo (e os testes como fontes). Não executa
+Gradle e não espera testes. Se surgir uma decisão estrutural nova, ainda não documentada, registra o bloqueio da parte
+afetada e continua o restante.
 
 ```markdown
 # SDUI Implementer
@@ -135,7 +155,8 @@ Antes de alterar arquivos:
 
 ## Regras
 
-- Implementar somente o escopo solicitado.
+- Implementar o recorte por inteiro numa única passada; se o pedido for o MVP, `H01`–`H18`.
+- Não executar Gradle nem esperar testes.
 - Não alterar o contrato para facilitar a implementação.
 - Não inventar comportamento ausente da especificação.
 - Não expor entidades de persistência como DTOs HTTP.
@@ -164,7 +185,7 @@ Antes de alterar arquivos:
 
 ## Testes
 
-Adicionar ou atualizar os testes relacionados à mudança.
+Adicionar ou atualizar os testes relacionados à mudança como fontes. Não executá-los neste ciclo.
 
 Quando aplicável, cobrir:
 
@@ -195,8 +216,7 @@ Informar:
 - arquivos alterados;
 - comportamento implementado;
 - decisões reutilizadas;
-- testes executados;
-- comandos executados;
+- testes escritos (não executados neste ciclo);
 - resultado;
 - riscos;
 - pendências.
@@ -204,7 +224,8 @@ Informar:
 
 # `sdui-tester.md`
 
-O tester deve validar o comportamento real e os cenários de falha. Ele pode criar testes, mas não deve corrigir a implementação sem solicitação.
+O tester só atua quando pedido. Autora fontes de teste; não executa Gradle e não é gate da implementação. Não corrige a
+produção sem solicitação.
 
 ```markdown
 # SDUI Tester
@@ -295,11 +316,13 @@ Selecionar apenas os testes necessários:
 ## Recomendação
 ```
 
-O tester é especialmente importante nas histórias H06, H07, H10, H12, H13 e H18, porque elas envolvem conditional HTTP, cache, fallback, rollback e gates operacionais.
+O tester é especialmente importante nas histórias H06, H07, H10, H12, H13 e H18, porque elas envolvem conditional HTTP,
+cache, fallback, rollback e gates operacionais.
 
 # `sdui-contract-guard.md`
 
-Esse agente deve atuar como uma revisão de contrato. Entretanto, suas regras mais importantes devem também ser expressas em testes automatizados.
+Esse agente deve atuar como uma revisão de contrato. Entretanto, suas regras mais importantes devem também ser expressas
+em testes automatizados.
 
 ```markdown
 # SDUI Contract Guard
@@ -408,7 +431,8 @@ Todo `BLOCK` deve conter:
 6. teste que deveria impedir a regressão.
 ```
 
-O `contract-guard` não deve decidir sozinho se uma nova regra de produto é válida. Se o contrato mudou, isso precisa estar refletido nos artefatos apropriados e ter aprovação arquitetural.
+O `contract-guard` não deve decidir sozinho se uma nova regra de produto é válida. Se o contrato mudou, isso precisa
+estar refletido nos artefatos apropriados e ter aprovação arquitetural.
 
 # `sdui-reviewer.md`
 
@@ -511,63 +535,52 @@ Enquanto a skill não estiver disponível, consultar as fontes do projeto:
 
 - `plano-servico-sdui.md`;
 - `resumos-server-driven-ui.md`;
-- `documentacao-contrato-sdui-home-v3.docx`;
 - `artifacts/`.
 
 Se uma decisão depender especificamente de conteúdo ausente da skill,
 marcar a tarefa como bloqueada e solicitar uma decisão explícita.
 ```
 
-Isso é melhor do que reproduzir no README uma “versão aproximada” da skill. O projeto explicitamente determina que a skill ausente não deve ser inventada.
+Isso é melhor do que reproduzir no README uma “versão aproximada” da skill. O projeto explicitamente determina que a
+skill ausente não deve ser inventada.
 
 # Fluxos de uso
 
-O fluxo não precisa ser sempre linear. Eu usaria estas combinações:
-
-## Alteração somente de código
+O fluxo padrão, a partir de agora, é um só:
 
 ```text
-implementer → contract-guard → reviewer
+implementer
 ```
 
-Exemplo: correção interna que não altera contrato, persistência ou comportamento externo.
+O implementer escreve produção e testes como fontes, para o recorte inteiro, sem Gradle e sem espera. Os demais papéis
+só entram se o operador os nomear.
 
-## Nova história de implementação
+Combinações opcionais, somente sob pedido explícito:
+
+## Inspeção de contrato (sem executar testes)
 
 ```text
-architect → implementer → tester → contract-guard → reviewer
+contract-guard
 ```
 
-Exemplo: H04, H05 ou H07.
-
-## Alteração do contrato
+## Revisão por leitura
 
 ```text
-architect → contract-guard → implementer → tester
-→ contract-guard → reviewer
+reviewer
 ```
 
-O primeiro `contract-guard` valida a decisão antes do código; o segundo valida o resultado serializado.
-
-## Falha em produção
+## Decisão estrutural nova
 
 ```text
-tester → architect → implementer → tester → reviewer
+architect
 ```
 
-O tester começa reproduzindo o problema. O arquiteto decide a correção, em vez de o implementador aplicar um remendo sem entender o impacto.
+Não usar `architect → implementer → tester → contract-guard → reviewer` como rotina. Não inserir build, `clean build` ou
+espera de testes entre papéis ou entre histórias.
 
-# Ajuste importante sobre H00
+# H00
 
-H00 deve ser tratado como um **gate de contrato**, não como uma tarefa comum de implementação. O artefato exige que a fixture permaneça semanticamente idêntica ao contrato definitivo, use apenas a Home iOS e contenha os componentes aprovados, sem campos de geometria ou aparência. [Server-Driven](Server-Driven UI (SDUI)/artifacts/H00-contrato-e-fixture.md)
-
-Portanto, o fluxo recomendado para H00 é:
-
-```text
-contract-guard → tester → reviewer
-```
-
-Não começaria com o implementador, a menos que a fixture precise realmente ser criada ou corrigida.
+H00 já foi o gate de contrato e está concluída. Não reabrir esse fluxo. O trabalho restante é implementar `H01`–`H18`.
 
 # Relação com o desenho do Composer
 
@@ -577,6 +590,8 @@ A distribuição dos agentes está alinhada às fronteiras do serviço:
 Negotiate → Select → Filter → Hydrate → Fallback → Envelope
 ```
 
-Essas responsabilidades pertencem ao runtime do Composer, que deve permanecer stateless, sem consulta direta a domínio regulado, com MongoDB como fonte da verdade das specs e Redis como cache.
+Essas responsabilidades pertencem ao runtime do Composer, que deve permanecer stateless, sem consulta direta a domínio
+regulado, com MongoDB como fonte da verdade das specs e Redis como cache.
 
-Os agentes não devem criar uma nova camada arquitetural para “orquestrar agentes” dentro do `ms-sdui-composer`. Eles são ferramentas de desenvolvimento e revisão, não componentes do runtime.
+Os agentes não devem criar uma nova camada arquitetural para “orquestrar agentes” dentro do `ms-sdui-composer`. Eles são
+ferramentas de desenvolvimento e revisão, não componentes do runtime.

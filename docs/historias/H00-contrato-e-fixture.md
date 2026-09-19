@@ -1,9 +1,11 @@
 # H00 — Contrato e fixture canônicos
 
+> **Status:** concluída. Não reabrir como gate. O trabalho restante é a implementação produtiva de `H01`–`H18`.
+
 ## Objetivo
 
 Congelar o contrato de fio da Home iOS como fonte de teste do runtime. Transformar o JSON definitivo em fixture
-versionada e estabelecer a revisão humana obrigatória pelo dicionário do contrato antes de qualquer implementação.
+versionada antes de qualquer implementação.
 
 ## Critérios de aceite testáveis
 
@@ -16,8 +18,6 @@ versionada e estabelecer a revisão humana obrigatória pelo dicionário do cont
   `label`.
 - Revisão de contrato registra que não existem campos de geometria ou aparência no fio: cor, tipografia, margem,
   padding, tamanho, raio, orientação, shimmer ou variante visual.
-- Revisão pelo dicionário em `documentacao-contrato-sdui-home-v3.docx` confirma a semântica de cada campo usado na
-  fixture; divergência bloqueia a história seguinte.
 
 ## Fora de escopo
 
@@ -38,5 +38,4 @@ versionada e estabelecer a revisão humana obrigatória pelo dicionário do cont
 - Plano: §§ 0, 2, 4.2, 6.1, 6.2 e 6.4.
 - Contrato JSON: raízes `envelope`, `skeleton`, `sections`; paths `sections[].type`, `typeVersion`, `props`, `actions`,
   `analytics`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, dicionário campo a campo do contrato v3.
 - Skill: `skills/sdui-backend/`, contrato fechado, compatibilidade e validação de payload.

@@ -38,5 +38,4 @@ contexto negociado; a saída ainda não contém hidratação nem envelope final.
 - Plano: §§ 5.1, 5.2, 5.3 e 5.4.
 - Contrato JSON: `envelope.client`, `envelope.targeting`, `envelope.omitted`, `sections[].type`,
   `sections[].typeVersion`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, compatibilidade de schema, section e omitted.
 - Skill: `skills/sdui-backend/`, matriz de compatibilidade e omissão de section desconhecida.

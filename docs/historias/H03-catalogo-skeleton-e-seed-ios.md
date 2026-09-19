@@ -48,5 +48,4 @@ Esta história fecha a estrutura que o runtime pode selecionar, sem levar decis�
 - Plano: §§ 2, 6.1, 6.2, 6.3 e 6.4.
 - Contrato JSON: `skeleton.slots`, `sections[].slot`, `sections[].type`, `sections[].typeVersion`, `sections[].props`,
   `sections[].actions`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, definição de skeleton, section, props, actions e analytics.
 - Skill: `skills/sdui-backend/`, catálogo semântico e validação de spec.

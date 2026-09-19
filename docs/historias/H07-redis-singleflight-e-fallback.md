@@ -38,5 +38,4 @@ O cache não personaliza a Home nem transporta PII.
 
 - Plano: §§ 4.2 e 8.
 - Contrato JSON: `envelope.fallback`, `envelope.fallbackReason`, `envelope.omitted`, `envelope.channel`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, campos de fallback e envelope.
 - Skill: `skills/sdui-backend/references/fallback-e-versao.md` e demais diretrizes de cache, versão e degradação.

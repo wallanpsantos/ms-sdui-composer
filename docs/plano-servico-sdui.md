@@ -4,16 +4,19 @@
 do contexto do cliente e das capabilities, devolvendo um envelope pronto e seguro para o app.
 
 Documento de engenharia para implementar o **ms-sdui-composer**, desenhado para atender múltiplos times e superfícies de
-produto (tendo a `home` como primeira surface). Destinado a implementação posterior, não é código.
+produto (tendo a `home` como primeira surface). Este arquivo é a especificação, não o código. A implementação produtiva
+de `H01`–`H18` está em curso e não espera novo ciclo de planejamento, de Gradle ou de testes.
 
-> **Baseline atualizada em 16/09/2026.** Java 25 LTS, Spring Framework 7.0.9+, Spring Boot 4.1.1, Gradle 9.7.1 - Kotlin+, MongoDB
+> **Baseline atualizada em 16/09/2026.** Java 25 LTS, Spring Framework 7.0.9+, Spring Boot 4.1.1, Gradle 9.7.1 -
+> Kotlin+, MongoDB
 > 8.3+ e Redis. Kafka permanece opcional e somente para auditoria/evento assíncrono real. Spring Cloud não faz parte da
 > baseline e só entra com módulo concreto e requisito comprovado. Testcontainers, Springdoc, Micrometer, OpenTelemetry,
-> ArchUnit e demais bibliotecas devem usar as versões gerenciadas pelo Spring Boot ou a versão mais recente verificada no
+> ArchUnit e demais bibliotecas devem usar as versões gerenciadas pelo Spring Boot ou a versão mais recente verificada
+> no
 > repositório corporativo/Maven Central.
 
 Papel: Staff/Principal Kotlin/Spring.
-Stack fechada pelo projeto: Kotlin 2.3.21, JVM Java 25 LTS,
+Stack fechada pelo projeto: Kotlin 2.4.20, JVM Java 25 LTS,
 Spring Framework 7.0.9+, Spring Boot 4.1.1, Gradle 9.7.1 com Kotlin DSL,
 MongoDB 8.3+ (ou DocumentDB compatível), Redis na mesma AZ e Kafka 4.2+
 opcional para auditoria assíncrona.
@@ -328,7 +331,6 @@ Regras do envelope:
 - Dinheiro só como string formatada (`valueDisplay` / `valueDisplayRevealed`). Olho é gesto local do app.
 - Actions: `navigate` | `open_bottom_sheet` | `track` | `noop`. CTA visível leva `label`. Rota = `payload.route`
   `app://…`.
-- Dicionário campo a campo: `documentacao-contrato-sdui-home-v3.docx`.
 
 Não expor CRUD de spec neste mesmo host no MVP de runtime. Authoring pode ser o mesmo binário com perfil `admin` e path
 `/admin/v1/**`, ou um segundo deploy. Preferência: **mesmo código, perfil separado**, para não duplicar o modelo.
@@ -1198,8 +1200,7 @@ Decisões já tomadas neste plano (para não reabrir em PR):
 8. Sem personalização por usuário neste MS.
 9. Catálogo Home MVP fechado: `top_bar`, `shortcut_shelf`, `account_card`, `card_product`, `credit_offer`,
    `coverage_card`, `decision_card` @1.
-10. Fio canônico iOS: `artifacts/contrato-sdui-home-definitivo.json`. Dicionário:
-    `documentacao-contrato-sdui-home-v3.docx`.
+10. Fio canônico iOS: `artifacts/contrato-sdui-home-definitivo.json`.
 11. `Component-Capabilities` é recomendado (delta); matriz servidor é a fonte.
 12. Actions fechadas: `navigate` | `open_bottom_sheet` | `track` | `noop`; rota `app://`; CTA com `label`.
 13. Jackson 3 (`tools.jackson`) no contrato; Jackson 2 não entra (ADR-005).
@@ -1249,7 +1250,6 @@ Qualquer PR que comece por “framework de widget genérico” está fora deste 
 Consultar, não copiar:
 
 - `artifacts/contrato-sdui-home-definitivo.json` — fio iOS (envelope + skeleton + sections).
-- `artifacts/documentacao-contrato-sdui-home-v3.docx` — dicionário campo a campo com exemplos práticos.
 - `artifacts/resumos-server-driven-ui.md` — síntese cruzada (Airbnb section, Joud quê/como, Fowler toggles).
 - `artifacts/instrucoes-projeto.md` — stack, envelope, SLO, proibições.
 - Skill `skills/sdui-backend/` — fallback 0–7, actions, versionamento.

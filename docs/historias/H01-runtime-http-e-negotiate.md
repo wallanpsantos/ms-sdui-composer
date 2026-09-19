@@ -39,5 +39,4 @@ pipeline de compose. Separar explicitamente a versão HTTP da versão de schema 
 
 - Plano: §§ 3, 4.1, 4.2 e 5.
 - Contrato JSON: `envelope.client`, `envelope.platform`, `envelope.schemaVersion`, `envelope.locale`.
-- Dicionário: `documentacao-contrato-sdui-home-v3.docx`, campos do envelope e regras de request.
 - Skill: `skills/sdui-backend/`, negociação e versão de API/schema.
