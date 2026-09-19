@@ -140,7 +140,7 @@ class AdminGovernanceWebTest(
                     revision = specStore.nextRevision("spec_home_ios_gov"),
                     specRevisionId = "rev_gov_${UUID.randomUUID()}",
                     status = SpecStatus.DRAFT,
-                    parentRevision = 1,
+                    parentRevision = null,
                 ),
             ),
         )

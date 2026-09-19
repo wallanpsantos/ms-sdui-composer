@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package br.com.empresa.sdui.api
 
 import br.com.empresa.sdui.SduiAppTestConfiguration
@@ -41,13 +43,13 @@ class HomeCompatibilityWebTest(
         assertThat(header.get("actions").size()).isGreaterThan(0)
         assertThat(header.toString()).doesNotContain("sec_foryou_1")
 
-        (treeCache as InMemoryHydratedScreenCache).clear()
+        treeCache.clear()
         val current = getHome(CanonicalHeaders.ios())
         assertThat(current.status).isEqualTo(200)
         assertThat(jsonMapper.readTree(current.body).get("envelope").get("specRevisionId").asText())
             .isEqualTo("rev_01K8HOMEMAIN")
 
-        (treeCache as InMemoryHydratedScreenCache).clear()
+        treeCache.clear()
         val next = getHome(CanonicalHeaders.ios() + ("Client-Version" to "8.21.0"))
         assertThat(next.status).isEqualTo(200)
         assertThat(jsonMapper.readTree(next.body).get("envelope").get("specRevisionId").asText())

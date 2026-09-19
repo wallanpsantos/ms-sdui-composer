@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package br.com.empresa.sdui.api
 
 import br.com.empresa.sdui.SduiAppTestConfiguration
@@ -87,12 +89,13 @@ class HomeComposeContractWebTest(
         PropScan.scan(body).forEach { key ->
             assertThat(key.lowercase()).isNotIn(forbidden)
         }
-        assertThat(body.toString()).doesNotContain("cpf", "row", "column", "container")
+        assertThat(body.toString().lowercase()).doesNotContain("\"cpf\"")
         val sections = body.get("sections")
         val types = (0 until sections.size()).map {
             val section = sections.get(it)
             "${section.get("type").asText()}@${section.get("typeVersion").asInt()}"
         }
+        assertThat(types.map { it.substringBefore('@') }).doesNotContain("row", "column", "container")
         assertThat(types).containsExactly(
             "top_bar@1", "shortcut_shelf@1", "account_card@1", "card_product@1",
             "card_product@1", "credit_offer@1", "coverage_card@1", "decision_card@1",

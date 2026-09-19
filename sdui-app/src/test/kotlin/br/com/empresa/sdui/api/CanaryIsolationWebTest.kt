@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package br.com.empresa.sdui.api
 
 import br.com.empresa.sdui.SduiAppTestConfiguration

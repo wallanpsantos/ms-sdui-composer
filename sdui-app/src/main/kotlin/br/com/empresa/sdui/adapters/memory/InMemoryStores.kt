@@ -151,7 +151,7 @@ class InMemoryDiffStore : DiffStore {
     private val items = ConcurrentHashMap<String, SpecDiff>()
 
     override fun save(diff: SpecDiff): SpecDiff {
-        items["${diff.specId}:${diff.fromRevision}:${diff.toRevision}"] = diff
+        items["${diff.specId}:${diff.fromRevision ?: 0}:${diff.toRevision}"] = diff
         return diff
     }
 

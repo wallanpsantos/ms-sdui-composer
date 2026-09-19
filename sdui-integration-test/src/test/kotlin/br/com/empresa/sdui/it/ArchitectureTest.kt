@@ -51,8 +51,11 @@ class ArchitectureTest {
 
     @Test
     fun `nenhuma classe de producao declara Transactional`() {
-        noMethods().that().areAnnotatedWith("org.springframework.transaction.annotation.Transactional")
-            .should().beDeclaredInClassesThat().resideInAnyPackage("br.com.empresa.sdui..")
+        noMethods().that().areDeclaredInClassesThat().resideInAnyPackage("br.com.empresa.sdui..")
+            .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
+            .check(importedClasses)
+        noClasses().that().resideInAnyPackage("br.com.empresa.sdui..")
+            .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
             .check(importedClasses)
     }
 
