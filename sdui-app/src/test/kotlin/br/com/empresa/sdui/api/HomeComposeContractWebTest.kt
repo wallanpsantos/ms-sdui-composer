@@ -4,7 +4,7 @@ import br.com.empresa.sdui.SduiAppTestConfiguration
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
@@ -125,8 +125,8 @@ class HomeComposeContractWebTest(
     }
 
     private fun assertSemanticallyEqual(actual: JsonNode, expected: JsonNode) {
-        val actualCopy = actual.deepCopy<ObjectNode>()
-        val expectedCopy = expected.deepCopy<ObjectNode>()
+        val actualCopy = actual.deepCopy() as ObjectNode
+        val expectedCopy = expected.deepCopy() as ObjectNode
         (actualCopy.get("envelope") as ObjectNode).remove("generatedAt")
         (expectedCopy.get("envelope") as ObjectNode).remove("generatedAt")
         assertThat(actualCopy).isEqualTo(expectedCopy)

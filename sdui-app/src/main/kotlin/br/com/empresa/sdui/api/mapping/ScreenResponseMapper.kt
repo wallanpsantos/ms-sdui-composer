@@ -126,7 +126,7 @@ class ScreenResponseMapper(
 
             is Map<*, *> -> {
                 val obj: ObjectNode = mapper.nodeFactory.objectNode()
-                value.forEach { (k, v) -> obj.set<JsonNode>(k.toString(), toNode(v)) }
+                value.forEach { (k, v) -> obj.set(k.toString(), toNode(v)) }
                 obj
             }
 

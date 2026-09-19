@@ -21,6 +21,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.DiffStore
 import br.com.empresa.sdui.orchestrator.port.outbound.HydratedScreenCache
 import br.com.empresa.sdui.orchestrator.port.outbound.IdempotencyStore
 import br.com.empresa.sdui.orchestrator.port.outbound.LastGoodScreenStore
+import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import br.com.empresa.sdui.orchestrator.port.outbound.PointerStore
 import br.com.empresa.sdui.orchestrator.port.outbound.ProjectionStore
 import br.com.empresa.sdui.orchestrator.port.outbound.PublishRequestStore

@@ -99,7 +99,7 @@ class ComposeScreenService(
                 composeFresh(request, context, channel, caps, treeKey, tags)
             }
         } catch (_: Exception) {
-            fallbackOrUnavailable(context.platform, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
+            return fallbackOrUnavailable(context.platform, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
         }
         return when (outcome) {
             is SingleflightOutcome.Leader -> outcome.value
@@ -108,7 +108,7 @@ class ComposeScreenService(
                 outcome.value
             }
 
-            is SingleflightOutcome.WaitTimeout<*> -> {
+            is SingleflightOutcome.WaitTimeout -> {
                 metrics.increment("compose.singleflight.wait", tags)
                 fallbackOrUnavailable(context.platform, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
             }

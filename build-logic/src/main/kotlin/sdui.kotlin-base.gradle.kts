@@ -20,7 +20,6 @@ fun lib(alias: String) = libs.findLibrary(alias).get()
 kotlin {
     jvmToolchain(25)
     compilerOptions {
-        freeCompilerArgs.add("-Xannotation-default-target=param-property")
         allWarningsAsErrors.set(true)
     }
 }

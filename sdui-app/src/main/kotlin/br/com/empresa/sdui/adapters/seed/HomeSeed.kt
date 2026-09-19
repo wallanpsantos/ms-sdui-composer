@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package br.com.empresa.sdui.adapters.seed
 
 import br.com.empresa.sdui.core.model.Action

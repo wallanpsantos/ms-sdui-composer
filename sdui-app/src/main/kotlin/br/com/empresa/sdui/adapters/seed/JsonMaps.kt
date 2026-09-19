@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package br.com.empresa.sdui.adapters.seed
 
 import tools.jackson.databind.JsonNode
@@ -44,7 +46,7 @@ object JsonMaps {
 
             is Map<*, *> -> {
                 val obj: ObjectNode = mapper.nodeFactory.objectNode()
-                value.forEach { (k, v) -> obj.set<JsonNode>(k.toString(), toNode(mapper, v)) }
+                value.forEach { (k, v) -> obj.set(k.toString(), toNode(mapper, v)) }
                 obj
             }
 

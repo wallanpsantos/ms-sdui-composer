@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package br.com.empresa.sdui.api
 
 import br.com.empresa.sdui.SduiAppTestConfiguration
@@ -23,7 +25,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.test.annotation.DirtiesContext
@@ -213,7 +215,7 @@ class AdminGovernanceWebTest(
                 reason = "restore",
             ),
         )
-        (treeCache as InMemoryHydratedScreenCache).clear()
+        treeCache.clear()
         val composed = mockMvc.get("/v1/surfaces/home") {
             CanonicalHeaders.ios().forEach { (n, v) -> header(n, v) }
         }.andReturn()
