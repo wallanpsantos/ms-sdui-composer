@@ -2,25 +2,23 @@
 
 ## Modo operacional vigente
 
-O bootstrap Gradle e a H00 (contrato + fixture) estão concluídos.
+O bootstrap Gradle, o escopo completo do MVP (`H00`–`H18`) e o ciclo de revisão técnica multidimensional
+(`code-review-and-quality`) estão **concluídos com Quality Gate APROVADO (PASS)**.
 
-**Foco a partir de agora:** implementação direta e completa de todo o código produtivo necessário para o MVP (`H01`–
-`H18` e dependências de código), em `src/main/kotlin`, com os testes correspondentes escritos em `src/test/kotlin`.
+As 7 correções de qualidade e concorrência foram implementadas e verificadas no código produtivo e de testes
+(Singleflight timeout sem cancel compartilhado, blindagem de SemVer contra overflow, eliminação da dupla
+serialização no hot path, ordenação estável em Filter, pré-cálculo de guards, limpeza de chaves e `.use` em streams).
+
+**Foco a partir de agora:** Manutenção, evolução de features pós-MVP, observabilidade operacional e suporte à
+homologação com clientes móveis.
 
 Regras deste modo:
 
-- Implementar o recorte pedido por inteiro numa única passada de código. Se o pedido for o serviço/MVP, implementar o
-  código produtivo de `H01`–`H18` de uma vez, sem fatiar por história com gate intermediário.
-- As dependências entre histórias orientam a ordem de *escrita* (Negotiate existe no código antes de Filter). Não são
-  gates de build, de teste executado nem de ciclo de papéis.
-- Escrever produção e testes como fontes. Não deixar esqueleto vazio, `TODO`/`FIXME` nem stub no lugar de comportamento
-  especificado.
+- Qualquer alteração pontual deve manter estritamente a conformidade com as regras de pureza do `sdui-core`, o isolamento
+  de camadas do ArchUnit e a ausência de warnings (`allWarningsAsErrors = true`).
 - **Não** executar `gradlew`, `gradlew.bat`, `clean`, `build`, `test`, `check` nem qualquer tarefa Gradle de forma
   repetitiva.
 - **Não** interromper a escrita para esperar compilação ou resultado de testes.
-- **Não** entregar uma história, rodar build, esperar e só então começar a próxima.
-- **Não** encadear `architect → implementer → tester → contract-guard → reviewer` como pré-requisito para continuar
-  implementando.
 - Papel padrão: `sdui-implementer`. Os demais papéis só entram quando o operador pedir explicitamente.
 - Gradle, `clean build` ou suíte de testes só correm se o operador humano pedir, e nesse caso **uma única vez, no
   final**, sem repetir o ciclo.
@@ -122,14 +120,13 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 - **H00:** Concluída. Gates de contrato e fixture verdes (identidade da fixture, catálogo, actions, sem visual,
   round-trip Jackson 3).
-- **H01–H13:** Código produtivo e testes escritos (Negotiate→Envelope, persistência em memória, admin, cache/fallback,
-  canary iOS, métricas). Execução Gradle só se o operador pedir.
-- **H14–H18:** Isolamento Android implementado (pointer/cache/select). Fixture
-  `contrato-sdui-home-android-proposto.json` ausente — conteúdo Android não inventado.
-- Dependências documentadas em `docs/historias/` (ex.: H04 depende de H01+H03) definem ordem de composição do código,
-  não ciclos de verificação.
-- Não antecipar escopo fora do MVP (Fragment, CMS, CSS no payload, gRPC, coroutines). Dentro do MVP, não adiar
-  implementação.
+- **H01–H13:** Concluídas. Código produtivo e testes completos (Negotiate→Envelope, persistência em memória e MongoDB,
+  admin maker-checker, cache/fallback escalonado, canary iOS e métricas Micrometer). Quality Gate APROVADO.
+- **H14–H18:** Concluídas no servidor. Isolamento Android integralmente implementado (pointer/cache/select independentes,
+  matriz de capabilities e canary Android). Fixture `contrato-sdui-home-android-proposto.json` aguarda definição formal
+  da equipe Android — conteúdo não inferido a partir do iOS.
+- **Pós-H18:** Auditoria multidimensional (`code-review-and-quality`) e auditoria de performance
+  (`performance-optimization`) realizadas e consolidadas. 7 correções de qualidade e resiliência aplicadas.
 
 ## 11. Lacunas Documentais Registradas
 
@@ -139,12 +136,14 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
   `docs/adr/ADR-XXX-*.md` ainda não foram extraídos; o diretório tem só `README.md`.
 - Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em
   `sdui-contract/src/test/resources/fixtures/`). Fonte de verdade do contrato Home iOS.
+- Presente: `docs/MEMORIA-PROJETO-MS-SDUI-COMPOSER.md` — memória operacional e arquitetural consolidada do serviço.
+- Presente: `docs/relatorio-revisao-e-otimizacao-performance.md` — relatório executivo da auditoria de qualidade e performance.
 - `documentacao-contrato-sdui-home-v3.docx`: removido de propósito. Não recriar. Semântica de campo vive no JSON
   canônico e nos testes de `sdui-contract`.
-- Ausentes: `contrato-sdui-home-android-proposto.json` (H14) e `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`.
+- Ausente: `contrato-sdui-home-android-proposto.json` (H14 pendente de fornecimento pela equipe mobile).
 - Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`. A skill ausente não
   bloqueia o que já está especificado nas histórias, no plano, na pré-arquitetura, nos ADRs e no contrato.
-- Presente: `docs/historias/README.md` — backlog de implementação direta de `H01`–`H18`.
+- Presente: `docs/historias/README.md` — backlog de implementação do MVP (`H01`–`H18`).
 
 ## 12. Decisões Provisórias
 
@@ -189,3 +188,24 @@ java -version
 .\gradlew.bat clean build --warning-mode=fail
   BUILD SUCCESSFUL
 ```
+
+## 17. Diretrizes de Qualidade e Concorrência Consolidadas (Pós-Review)
+
+Regras inegociáveis resultantes do ciclo de auditoria técnica (`code-review-and-quality` e `performance-optimization`):
+
+1. **Singleflight Concorrente:** Waiters que sofrem timeout local no `ComposeSingleflight` **nunca** executam
+   `existing.cancel(true)`. Devem retornar `WaitTimeout()` deixando o líder concluir a computação normalmente.
+2. **Parsing SemVer Seguro:** Todo parsing de números em SemVer (`SemVer.kt`) deve utilizar `.toIntOrNull() ?: return null`.
+   Proibido lançar `NumberFormatException` que possa vazar como HTTP 500 no `Negotiate`.
+3. **Serialização de Passo Único no Hot Path:** O `HomeController` deve retornar o `byte[]` pré-serializado diretamente
+   com `MediaType.APPLICATION_JSON`. Nunca repassar instâncias de objeto de resposta para o Spring re-serializar.
+4. **Constantes Pré-calculadas em Validações:** Em classes de guardas (`Guards.kt`), sets de chaves restritas
+   (`LOWER_VISUAL_KEYS`, `LOWER_PII_KEYS`) devem ser `private val` pré-calculados, evitando alocações no loop recursivo.
+5. **Estabilidade de Ordenação em Filter:** A ordenação de seções em `Filter.kt` deve utilizar `sortedBy` sobre a ordem de
+   slots do skeleton. Não introduzir comparadores secundários com busca linear O(N) (`indexOf`), aproveitando a estabilidade
+   do TimSort.
+6. **Limpeza de Chaves Redis:** Assinaturas de métodos geradores de chaves (`RedisKeyspace.kt`) devem conter apenas
+   parâmetros efetivamente interpolados na chave, e garantir `!RedisKeys.containsUserId(key)`.
+7. **Fechamento de Recursos:** Qualquer leitura de stream de arquivo ou classpath (`ClassPathResource`) deve ser envolvida
+   por `.use { }` para garantir encerramento do recurso e evitar vazamentos de file descriptors.
+

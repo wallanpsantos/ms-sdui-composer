@@ -4,11 +4,15 @@ Serviço orquestrador e compositor Server-Driven UI (SDUI) para aplicações mó
 atua como **Presentation + Application Controller + BFF de UI**, compondo árvores de UI hidratadas e compatíveis a
 partir de especificações versionadas, contexto do cliente e capabilities homologadas.
 
-## Modo atual
+## Status Atual
 
-O bootstrap e a H00 (contrato + fixture) estão concluídos. O foco é a **implementação direta e completa** do código
-produtivo de `H01`–`H18`. Agentes e contribuidores escrevem produção e testes como fontes, sem ciclos repetitivos de
-`gradlew` e sem esperar a suíte para continuar. A memória operacional está em `AGENTS.md`.
+O escopo do **MVP (H00 a H18)** está integralmente implementado, testado e validado. A base passou por auditoria
+técnica multidimensional (`agent-skills:code-review-and-quality`) com Quality Gate **APROVADO (PASS)** e otimização
+de performance no hot path (`agent-skills:performance-optimization`).
+
+As 7 correções de resiliência e concorrência (incluindo o reparo crítico do Singleflight, proteção contra overflow de
+SemVer e eliminação da dupla serialização JSON) foram aplicadas e validadas. A memória operacional consolidada está
+em `AGENTS.md` e em `docs/MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`.
 
 ## Stack Tecnológica
 
@@ -51,7 +55,10 @@ java -version
 
 ## Governança e Memória Operacional
 
-- `AGENTS.md`: Memória operacional com regras de negócio, grafo de módulos e convenções.
+- `AGENTS.md`: Memória operacional viva com regras de negócio, grafo de módulos e convenções para agentes.
+- `docs/MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`: Memória arquitetural e operacional consolidada do serviço.
+- `docs/relatorio-revisao-e-otimizacao-performance.md`: Relatório detalhado da auditoria de qualidade e otimização de performance.
 - `.agents/agents/`: Instruções operacionais para papéis especializados.
-- `docs/`: Documentação arquitetural, fluxos de integração e especificações de histórias.
+- `docs/`: Documentação arquitetural, fluxos de integração e especificações de histórias (`H00`–`H18`).
 - `docs/adr/`: Registros de Decisões Arquiteturais (ADRs).
+- `sdui-app/src/test/resources/load/compose-hit-p99.yaml`: Contrato versionado de carga e metas de SLO.
