@@ -40,7 +40,7 @@ Precedência:
 5. `docs/historias/H*.md`.
 6. `docs/artifacts/*.json`.
 7. `docs/resumos-server-driven-ui.md`.
-8. `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`, se existir.
+8. `docs/memoria-projeto-ms-sdui-composer.md`, se existir.
 
 Se um documento existir com nome legado (por exemplo `pre-arquitetura-sdui-home.md` ou
 `fluxos-integracao-ms-sdui-home.md`), use-o na mesma posição de precedência e registre a divergência de nome no

@@ -136,7 +136,7 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
   `docs/adr/ADR-XXX-*.md` ainda não foram extraídos; o diretório tem só `README.md`.
 - Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em
   `sdui-contract/src/test/resources/fixtures/`). Fonte de verdade do contrato Home iOS.
-- Presente: `docs/MEMORIA-PROJETO-MS-SDUI-COMPOSER.md` — memória operacional e arquitetural consolidada do serviço.
+- Presente: `docs/memoria-projeto-ms-sdui-composer.md` — memória operacional e arquitetural consolidada do serviço.
 - Presente: `docs/relatorio-revisao-e-otimizacao-performance.md` — relatório executivo da auditoria de qualidade e performance.
 - `documentacao-contrato-sdui-home-v3.docx`: removido de propósito. Não recriar. Semântica de campo vive no JSON
   canônico e nos testes de `sdui-contract`.
