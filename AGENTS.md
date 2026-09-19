@@ -72,7 +72,8 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 ## 11. Lacunas Documentais Registradas
 - `docs/fluxos-integracao-ms-sdui-composer.md`: o arquivo real contém `\u200b` (Zero Width Space) no nome. Mantido intacto conforme regra de verdade.
 - ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/pre-arquitetura-ms-sdui-composer.md`. Arquivos individuais `docs/adr/ADR-XXX-*.md` ainda não foram extraídos; o diretório tem só `README.md`.
-- Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em `sdui-contract/src/test/resources/fixtures/`).
+- Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em `sdui-contract/src/test/resources/fixtures/`). Fonte de verdade do contrato Home iOS.
+- `documentacao-contrato-sdui-home-v3.docx`: removido de propósito. Não recriar. Semântica de campo vive no JSON canônico e nos testes de `sdui-contract`.
 - Ausentes: `contrato-sdui-home-android-proposto.json` (H14) e `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`.
 - Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`.
 

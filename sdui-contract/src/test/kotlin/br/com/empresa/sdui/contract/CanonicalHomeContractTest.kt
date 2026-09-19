@@ -6,7 +6,6 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.JsonNode
-import tools.jackson.databind.json.JsonMapper
 
 class CanonicalHomeContractTest {
 
@@ -16,13 +15,7 @@ class CanonicalHomeContractTest {
         @JvmStatic
         @BeforeAll
         fun loadFixture() {
-            val json = CanonicalHomeContractTest::class.java.getResourceAsStream("/fixtures/contrato-sdui-home-definitivo.json")
-                ?.bufferedReader()
-                ?.readText()
-                ?: error("Fixture /fixtures/contrato-sdui-home-definitivo.json não encontrada")
-
-            val mapper = JsonMapper.builder().build()
-            rootNode = mapper.readTree(json)
+            rootNode = CanonicalHomeFixture.loadClasspathTree()
         }
     }
 
