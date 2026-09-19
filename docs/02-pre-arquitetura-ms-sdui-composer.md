@@ -1829,7 +1829,7 @@ referencia o §11 para o veto ao `ScopedValue`. A decisão de `ThreadLocal` vive
 
 ### ADR-003 — Transação de publish: porta `TransactionalUnitOfWork`
 
-**Status:** `ACEITO`
+**Status:** `SUPERSEDIDO pelo ADR-013` (A porta `TransactionalUnitOfWork` permanece; o mecanismo de `@Transactional` foi substituído por `TransactionTemplate` programático).
 
 **Contexto.** O plano §7.5 é explícito: `@Transactional` não vai em controller, o serviço de publish é o único que abre
 transação, e compose não abre transação. A regra do orchestrator (§4.2) é não ter Spring,
@@ -2225,8 +2225,7 @@ modelo inteiro, não uma parte dele.
 
 ### ADR-013 — `TransactionalUnitOfWork` com `TransactionTemplate`
 
-**Status:** `PROPOSTO` — alternativa ao mecanismo do ADR-003. Não vale para o código até ser aceito; enquanto isso,
-vale o ADR-003.
+**Status:** `ACEITO` — supersedendo o mecanismo de anotação do ADR-003. Validação arquitetural sem exceções nominais.
 
 **Contexto.** O ADR-003 implementa a porta com uma classe anotada com `@Transactional`, o que exige proxy AOP, classe
 aberta (em Kotlin, via `plugin.spring`) e uma exceção nominal na regra ArchUnit que proíbe `@Transactional` em adapters.

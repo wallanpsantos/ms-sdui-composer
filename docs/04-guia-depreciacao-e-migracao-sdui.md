@@ -219,18 +219,14 @@ engenheiros.
 
 ## 8. Débito Técnico e Migrações Arquiteturais Internas
 
-### 8.1 Caso Canônico: Migração ADR-003 → ADR-013 (Transação de Publish)
+### 8.1 Caso Canônico: Migração ADR-003 → ADR-013 (Transação de Publish Concluída)
 
-- **Situação Atual (ADR-003):** `MongoTransactionalUnitOfWork` utiliza `@Transactional` do Spring, exigindo proxy
-  dinâmico CGLIB, classe `open` e uma exceção explícita na suíte do ArchUnit (`ArchitectureTest.kt`).
-- **Alternativa Proposta (ADR-013):** Implementar a porta `TransactionalUnitOfWork` utilizando `TransactionTemplate`
-  programático ou injeção de `MongoTransactionManager`.
-- **Roteiro de Migração:**
-    1. Implementar `MongoTemplateTransactionalUnitOfWork` sem anotações de transação na classe.
-    2. Substituir o bean em `SduiConfiguration.kt`.
-    3. Remover a exceção de `@Transactional` em `ArchitectureTest.kt`, fortalecendo a regra para "nenhuma classe de
-       produção declara `@Transactional` fora da infraestrutura de banco pura".
-    4. Atualizar o ADR-013 para status `ACEITO` e marcar o ADR-003 como `SUPERSEDIDO`.
+- **Histórico (ADR-003):** `MongoTransactionalUnitOfWork` utilizava `@Transactional` do Spring, exigindo proxy
+  dinâmico CGLIB, classe `open` e uma exceção nominal na suíte do ArchUnit (`ArchitectureTest.kt`).
+- **Implementação Consolidada (ADR-013):** A porta `TransactionalUnitOfWork` foi migrada para execução programática com
+  `TransactionTemplate`. O mecanismo dispensa proxies AOP, elimina classes abertas desnecessárias e permitiu fortalecer a
+  regra do ArchUnit para "nenhuma classe de produção declara `@Transactional`" (sem exceções nominais).
+- **Status da Migração:** `CONCLUÍDA / APROVADA`. ADR-013 promovido a `ACEITO` e ADR-003 marcado como `SUPERSEDIDO`.
 
 ---
 

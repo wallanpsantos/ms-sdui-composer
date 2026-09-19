@@ -50,9 +50,9 @@ class ArchitectureTest {
     }
 
     @Test
-    fun `Transactional so existe em MongoTransactionalUnitOfWork`() {
+    fun `nenhuma classe de producao declara Transactional`() {
         noMethods().that().areAnnotatedWith("org.springframework.transaction.annotation.Transactional")
-            .should().beDeclaredInClassesThat().resideOutsideOfPackage("..adapters.mongo.tx..")
+            .should().beDeclaredInClassesThat().resideInAnyPackage("br.com.empresa.sdui..")
             .check(importedClasses)
     }
 
