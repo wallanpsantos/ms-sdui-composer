@@ -29,13 +29,13 @@ O bootstrap e a H00 estão concluídos. O foco é a implementação direta e com
 
 ## Divisão correta de responsabilidades
 
-| Agente                  | Pergunta que responde                                  | Responsabilidade                 |
-| ----------------------- | ------------------------------------------------------ | -------------------------------- |
-| `sdui-architect`      | “Como esta mudança deve ser desenhada?”             | Decisão e decomposição        |
-| `sdui-implementer`    | “Como transformar a decisão em código?”            | Implementação                  |
-| `sdui-tester`         | “O comportamento funciona nos cenários relevantes?” | Testes e evidências             |
-| `sdui-contract-guard` | “A mudança viola o contrato?”                       | Validação objetiva do contrato |
-| `sdui-reviewer`       | “A mudança está pronta para integração?”         | Revisão final                   |
+| Agente                  | Quando entra                                              | Responsabilidade                          |
+| ----------------------- | --------------------------------------------------------- | ----------------------------------------- |
+| `sdui-implementer`    | Sempre (papel padrão)                                     | Código produtivo e testes como fontes     |
+| `sdui-architect`      | Só se o operador pedir decisão estrutural nova            | Decisão e decomposição                    |
+| `sdui-tester`         | Só se o operador pedir autoria extra de testes            | Fontes de teste; sem execução Gradle      |
+| `sdui-contract-guard` | Só se o operador pedir inspeção de contrato               | Validação objetiva do contrato por leitura |
+| `sdui-reviewer`       | Só se o operador pedir revisão                            | Revisão por leitura, sem build            |
 
 A responsabilidade mais importante do `contract-guard` é **detectar e reportar violações**. As verificações repetíveis devem ser implementadas em testes, validadores ou gates de CI. O agente não deve ser a única barreira contra uma alteração inválida.
 
@@ -214,7 +214,7 @@ Informar:
 
 # `sdui-tester.md`
 
-O tester só atua quando pedido. Autorava fontes de teste; não executa Gradle e não é gate da implementação. Não corrige a produção sem solicitação.
+O tester só atua quando pedido. Autora fontes de teste; não executa Gradle e não é gate da implementação. Não corrige a produção sem solicitação.
 
 ```markdown
 # SDUI Tester

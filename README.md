@@ -2,6 +2,10 @@
 
 Serviço orquestrador e compositor Server-Driven UI (SDUI) para aplicações móveis (iOS e Android). O `ms-sdui-composer` atua como **Presentation + Application Controller + BFF de UI**, compondo árvores de UI hidratadas e compatíveis a partir de especificações versionadas, contexto do cliente e capabilities homologadas.
 
+## Modo atual
+
+O bootstrap e a H00 (contrato + fixture) estão concluídos. O foco é a **implementação direta e completa** do código produtivo de `H01`–`H18`. Agentes e contribuidores escrevem produção e testes como fontes, sem ciclos repetitivos de `gradlew` e sem esperar a suíte para continuar. A memória operacional está em `AGENTS.md`.
+
 ## Stack Tecnológica
 
 - **Linguagem:** Kotlin 2.3.21

@@ -1,8 +1,12 @@
 # Prompt único — Inicialização do repositório `ms-sdui-composer`
 
-> **Como usar:** salve este arquivo na raiz de um repositório novo. Abra-o na sua IA CLI e peça: **“Execute integralmente o arquivo `iniciar-prompt.md`.”**
+> **Estado:** bootstrap **concluído**. Este arquivo é o prompt histórico de inicialização. **Não reexecutar.**
 >
-> Este prompt cria o bootstrap do repositório e os papéis especializados em `.agents/agents/`. Depois da execução, `AGENTS.md` será a memória operacional curta do repositório.
+> O modo operacional vigente está em `AGENTS.md`: implementação direta e completa de todo o código produtivo necessário (`H01`–`H18`), sem ciclos repetitivos de Gradle e sem espera de testes.
+>
+> **Como usar (somente em repositório novo, já executado aqui):** salve este arquivo na raiz. Abra-o na sua IA CLI e peça: **“Execute integralmente o arquivo `iniciar-prompt.md`.”**
+>
+> Este prompt criou o bootstrap do repositório e os papéis especializados em `.agents/agents/`. A memória operacional curta vigente é o `AGENTS.md`.
 
 ## Papel
 
@@ -13,7 +17,7 @@ O projeto é multi-módulo, usa Gradle Kotlin DSL e todo código de produção f
 testes ficam em `src/test/kotlin`.
 Não criar fontes Java, exceto quando estritamente exigido por uma integração externa.
 
-O projeto é greenfield. Prepare a fundação Gradle, a documentação operacional, a estrutura de módulos, os papéis especializados e os testes mínimos para iniciar H00. Não implemente H01–H18.
+O projeto é greenfield. Prepare a fundação Gradle, a documentação operacional, a estrutura de módulos, os papéis especializados e os testes mínimos para iniciar H00. Não implemente H01–H18 **neste prompt de bootstrap** (já executado). Depois do bootstrap, o modo vigente em `AGENTS.md` é implementar `H01`–`H18` de forma direta e completa, sem ciclos de Gradle nem espera de testes.
 
 ## Regra de verdade
 
@@ -574,31 +578,33 @@ Se o arquivo não existir, informar o caminho ausente, não reconstruir o papel 
 
 ### Fluxos
 
-Alteração de implementação:
+Estes fluxos valiam para o bootstrap. **Depois do bootstrap, o fluxo padrão é só `sdui-implementer`.** Os demais papéis só entram se o operador os pedir. Não encadear papéis nem Gradle entre histórias.
+
+Alteração de implementação (legado do bootstrap):
 
 ```text
 sdui-architect → sdui-implementer → sdui-tester → sdui-contract-guard → sdui-reviewer
 ```
 
-Alteração sem impacto de contrato:
+Alteração sem impacto de contrato (legado):
 
 ```text
 sdui-implementer → sdui-tester → sdui-reviewer
 ```
 
-Alteração de contrato:
+Alteração de contrato (legado):
 
 ```text
 sdui-architect → sdui-contract-guard → sdui-implementer → sdui-tester → sdui-contract-guard → sdui-reviewer
 ```
 
-H00:
+H00 (concluída):
 
 ```text
 sdui-contract-guard → sdui-tester → sdui-reviewer
 ```
 
-Não executar todos os papéis automaticamente em toda tarefa. Usar somente os papéis necessários.
+Não executar todos os papéis automaticamente em toda tarefa. Usar somente os papéis necessários. No modo vigente, o necessário é o implementer.
 
 ## Skill ausente
 
@@ -653,9 +659,11 @@ A proteção primária de pureza de `sdui-core` e `sdui-contract` é a task `ver
 
 Não incluir Testcontainers, WireMock, Mongo, Redis ou mocks até uma história exigir.
 
-## Comandos obrigatórios
+## Comandos obrigatórios (somente no bootstrap; já executados)
 
-Executar e reportar no shell disponível.
+Estes comandos valem para a inicialização do repositório. **Não** reexecutá-los como rotina depois do bootstrap. No modo vigente, a implementação escreve código e não espera Gradle.
+
+Executar e reportar no shell disponível **apenas ao criar o repositório**.
 
 Windows PowerShell:
 
@@ -724,8 +732,9 @@ Listar arquivos (incluindo nomes legados encontrados), skills, ADRs ou decisões
 
 ### Próximo passo
 
-```text
-Executar H00 — contrato e fixture.
-```
+Bootstrap e H00 concluídos. A partir daqui:
 
-Não iniciar H01 automaticamente.
+```text
+Implementar de forma direta e completa o código produtivo de H01–H18,
+sem ciclos repetitivos de Gradle e sem espera de testes.
+```
