@@ -40,4 +40,26 @@ class SemVerAndNegotiateTest {
         assertThat(Negotiate.negotiate(base.copy(acceptLanguage = null))).isInstanceOf(ContextValidation.Invalid::class.java)
         assertThat(Negotiate.negotiate(base.copy(uiSchemaVersion = null))).isInstanceOf(ContextValidation.Invalid::class.java)
     }
+
+    @Test
+    fun `semver com componente maior que Int MAX_VALUE retorna null e negotiate retorna Invalid`() {
+        assertThat(SemVer.parse("99999999999.0.0")).isNull()
+        assertThat(SemVer.parse("1.99999999999.0")).isNull()
+        assertThat(SemVer.parse("1.0.99999999999")).isNull()
+        assertThat(SemVer.parseThreePart("99999999999.0.0")).isNull()
+        assertThat(SemVer.parse("99999999999")).isNull()
+        assertThat(SemVer.parse("99999999999.0")).isNull()
+
+        val headers = NegotiateHeaders(
+            uiSchemaVersion = "3",
+            clientPlatform = "ios",
+            clientVersion = "99999999999.0.0",
+            clientBuild = "81420",
+            acceptLanguage = "pt-BR",
+            apiVersion = "1",
+            osVersion = "18.1",
+            componentCapabilities = "top_bar@1",
+        )
+        assertThat(Negotiate.negotiate(headers)).isInstanceOf(ContextValidation.Invalid::class.java)
+    }
 }
