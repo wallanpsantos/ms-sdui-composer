@@ -4,17 +4,18 @@
 O `ms-sdui-composer` é o serviço responsável por compor a árvore de UI de uma surface (a primeira surface é `home`) a partir de uma spec versionada, contexto do cliente e capabilities declaradas, entregando um envelope REST/JSON pronto para clientes iOS e Android.
 - **Papel Arquitetural:** Presentation + Application Controller + BFF de UI (Fowler).
 - **Runtime:** Estritamente stateless no hot path. Não consulta domínios de negócio regulados diretamente e não persiste árvores hidratadas de usuário no banco.
+- **Endpoint MVP:** `GET /v1/surfaces/home`.
 
 ## 2. Stack Tecnológica e Baseline
 - **Linguagem:** Kotlin 2.3.21 (`allWarningsAsErrors = true`, `-Xannotation-default-target=param-property`).
-- **Plataforma:** JVM com Java 25 LTS via Gradle toolchain (`jvmToolchain(25)`).
-- **Framework:** Spring Boot 4.1.1 (Spring Framework 7.0.x gerenciado pelo BOM).
-- **Build:** Gradle 9.7.1 com Kotlin DSL, configuration cache e build cache ativados.
-- **JSON:** Jackson 3 (`tools.jackson.core:jackson-databind`, `tools.jackson.module:jackson-module-kotlin`, `com.fasterxml.jackson.core:jackson-annotations`).
-- **Testes e Arquitetura:** JUnit Jupiter, AssertJ e ArchUnit 1.5.0 (`com.tngtech.archunit:archunit`).
-- **Persistência e Cache:** MongoDB 8.3+ (fonte da verdade de specs) e Redis (cache).
-- **Concorrência:** Spring MVC + Virtual Threads ativadas (`spring.threads.virtual.enabled: true`).
-- **REGRA INEGOCIÁVEL DE DEPENDÊNCIAS:** Versões gerenciadas pelo Spring Boot NUNCA são fixadas no catálogo ou nos arquivos de build. Apenas bibliotecas fora do BOM (ArchUnit, Foojay, plugins) possuem versões explícitas. Proibido o uso do plugin `io.spring.dependency-management`.
+- **Plataforma:** JVM com Java 25 LTS via Gradle toolchain (`jvmToolchain(25)`). Foojay resolver `1.0.0` (latest estável verificada no Plugin Portal).
+- **Framework:** Spring Boot 4.1.1 (Spring Framework 7.0.9 gerenciado pelo BOM).
+- **Build:** Gradle 9.7.1 com Kotlin DSL, version catalog, convention plugins, configuration cache e build cache.
+- **JSON:** Jackson 3 (`tools.jackson.core:jackson-databind` 3.1.5, `tools.jackson.module:jackson-module-kotlin` 3.1.5, `com.fasterxml.jackson.core:jackson-annotations` 2.21).
+- **Testes e Arquitetura:** JUnit Jupiter e AssertJ na versão do BOM; ArchUnit 1.5.0 (`com.tngtech.archunit:archunit`).
+- **Persistência e Cache:** MongoDB 8.3+ (fonte da verdade de specs) e Redis (cache). Starters ainda não entram no bootstrap.
+- **Concorrência:** Spring MVC + Virtual Threads (`spring.threads.virtual.enabled: true`).
+- **REGRA INEGOCIÁVEL DE DEPENDÊNCIAS:** Versões gerenciadas pelo Spring Boot NUNCA são fixadas no catálogo ou nos arquivos de build. Apenas bibliotecas fora do BOM (ArchUnit, Foojay, plugins Kotlin/Boot) possuem versões explícitas. Proibido o plugin `io.spring.dependency-management`.
 
 ## 3. Módulos e Grafo de Dependências (ADR-001)
 ```text
@@ -29,7 +30,7 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 - `sdui-app` reúne `orchestrator`, `adapters` e `api`, isolados por pacotes e garantidos via ArchUnit.
 
 ## 4. Convention Plugins (`build-logic/`)
-- `sdui.kotlin-base`: JVM toolchain 25, compilador Kotlin, BOM do Boot, JUnit 5/AssertJ e `verifyForbiddenDependencies`.
+- `sdui.kotlin-base`: JVM toolchain 25, compilador Kotlin, BOM do Boot, JUnit Jupiter/AssertJ e `verifyForbiddenDependencies`.
 - `sdui.kotlin-library`: Aplica `sdui.kotlin-base` + task `verifyPureClasspath`.
 - `sdui.spring-library`: Aplica `sdui.kotlin-base` + plugin Spring Kotlin + `kotlin-reflect`.
 - `sdui.spring-app`: Aplica `sdui.spring-library` + plugin `org.springframework.boot`.
@@ -65,26 +66,26 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 - Escada de fallback (ADR-007): 200 OK -> 200 OK com omissão -> 200 Cache -> 200 Last Good -> 503 Retry-After.
 
 ## 10. Ordem e Status das Histórias
-- **H00:** Contrato e Fixture (Pronta para iniciar após bootstrap).
+- **H00:** Contrato e fixture. Fixture canônica e tipos Kotlin presentes em `sdui-contract`. Aceite final bloqueado pelos documentos ausentes da §11.
 - **H01–H18:** Bloqueadas até a conclusão das etapas precedentes. Não antecipar implementação.
 
 ## 11. Lacunas Documentais Registradas
-- `docs/fluxos-integracao-ms-sdui-composer.md`: Contém caractere oculto `\u200b` (Zero Width Space) no nome original. Mantido intacto conforme regra de verdade.
-- `docs/adr/`: Diretório criado no bootstrap com `README.md`.
-- `docs/artifacts/`: Diretório criado no bootstrap.
-- Arquivos de contrato ausentes: `contrato-sdui-home-definitivo.json`, `contrato-sdui-home-android-proposto.json`, `documentacao-contrato-sdui-home-v3.docx` e `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`. Devem ser formalizados antes da validação da H00.
-- Skill `sdui-backend`: Não disponível no repositório; marcador criado em `.agents/skills/sdui-backend/README.md`.
+- `docs/fluxos-integracao-ms-sdui-composer.md`: o arquivo real contém `\u200b` (Zero Width Space) no nome. Mantido intacto conforme regra de verdade.
+- ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/pre-arquitetura-ms-sdui-composer.md`. Arquivos individuais `docs/adr/ADR-XXX-*.md` ainda não foram extraídos; o diretório tem só `README.md`.
+- Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em `sdui-contract/src/test/resources/fixtures/`).
+- Ausentes: `contrato-sdui-home-android-proposto.json` (H14), `documentacao-contrato-sdui-home-v3.docx` (dicionário da H00) e `MEMORIA-PROJETO-MS-SDUI-COMPOSER.md`.
+- Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`.
 
 ## 12. Decisões Provisórias
 - **Pacote Base Canônico:** `br.com.empresa.sdui`, estruturado por camadas (`.contract`, `.core`, `.orchestrator`, `.adapters`, `.api`, `.bootstrap`, `.it`).
 
 ## 13. Pendências Temporárias
-- **`allowEmptyShould(true)` no ArchUnit:** Habilitado temporariamente nas regras de isolamento de `sdui-integration-test` enquanto `core`, `orchestrator`, `adapters`, `api` e `contract` não contiverem classes de produção. Será removido gradualmente de H00 a H04.
+- **`allowEmptyShould(true)` no ArchUnit:** permanece nas regras de `core`, `orchestrator`, `adapters` e `api` enquanto essas camadas não tiverem classes de produção. Remover gradualmente de H01 a H04. A regra de `contract` já verifica classes reais.
 
 ## 14. Regra para ADRs
 Novas decisões estruturais exigem ADR em `docs/adr/ADR-XXX-<slug>.md` seguindo o padrão documentado em `docs/adr/README.md`.
 
-## 15. Papéis Especializados
+## 15. Papéis especializados
 
 Os papéis estão em `.agents/agents/`.
 
@@ -96,3 +97,15 @@ Mapeamento:
 - Testes: `.agents/agents/sdui-tester.md`
 - Guarda de Contrato: `.agents/agents/sdui-contract-guard.md`
 - Revisão: `.agents/agents/sdui-reviewer.md`
+
+## 16. Comandos executados no bootstrap
+```text
+java -version
+  OpenJDK 25.0.4.1 Temurin (build 25.0.4.1+1-LTS)
+
+.\gradlew.bat --version
+  Gradle 9.7.1 | Launcher JVM 25.0.4.1 | Kotlin do Gradle 2.4.0 (runtime do wrapper, não o Kotlin do projeto)
+
+.\gradlew.bat clean build --warning-mode=fail
+  BUILD SUCCESSFUL
+```
