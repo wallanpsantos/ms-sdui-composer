@@ -24,7 +24,7 @@ Todo ADR deve conter:
 
 ## ADRs Canônicos Documentados na Pré-Arquitetura
 
-Os ADRs fundamentais da pré-arquitetura (`docs/03-pre-arquitetura-ms-sdui-composer.md`) são:
+Os ADRs fundamentais da pré-arquitetura (`docs/02-pre-arquitetura-ms-sdui-composer.md`) são:
 
 - **ADR-001:** Divisão em 4 módulos de produção (`contract`, `core`, `app`, `bootstrap`) e 1 de teste
   (`integration-test`). (`ACEITO`)

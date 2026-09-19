@@ -12,7 +12,7 @@ de performance no hot path (`agent-skills:performance-optimization`).
 
 As 7 correções de resiliência e concorrência (incluindo o reparo crítico do Singleflight, proteção contra overflow de
 SemVer e eliminação da dupla serialização JSON) foram aplicadas e validadas. A memória operacional consolidada está
-em `AGENTS.md` e em `docs/06-memoria-projeto-ms-sdui-composer.md`.
+em `AGENTS.md` e em `docs/03-memoria-projeto-ms-sdui-composer.md`.
 
 ## Stack Tecnológica
 
@@ -56,10 +56,11 @@ java -version
 ## Governança e Memória Operacional
 
 - `AGENTS.md`: Memória operacional viva com regras de negócio, grafo de módulos e convenções para agentes.
-- `docs/README.md`: Índice sequencial completo da documentação do projeto.
-- `docs/06-memoria-projeto-ms-sdui-composer.md`: Memória arquitetural e operacional consolidada do serviço.
-- `docs/07-relatorio-revisao-e-otimizacao-performance.md`: Relatório detalhado da auditoria de qualidade e otimização de performance.
+- `docs/README.md`: Índice e catálogo da documentação técnica do projeto.
+- `docs/01-iniciar-prompt.md`: Prompt de inicialização, setup de baseline e regras de execução.
+- `docs/02-pre-arquitetura-ms-sdui-composer.md`: Pré-arquitetura canônica, Clean Architecture e ADRs 001 a 013.
+- `docs/03-memoria-projeto-ms-sdui-composer.md`: Memória operacional consolidada, regras inegociáveis e métricas de SLO.
 - `.agents/agents/`: Instruções operacionais para papéis especializados.
-- `docs/`: Documentação arquitetural, fluxos de integração e especificações de histórias (`H00`–`H18`).
+- `docs/historias/`: Backlog e especificações de histórias de desenvolvimento (`H00`–`H18`).
 - `docs/adr/`: Registros de Decisões Arquiteturais (ADRs).
 - `sdui-app/src/test/resources/load/compose-hit-p99.yaml`: Contrato versionado de carga e metas de SLO.

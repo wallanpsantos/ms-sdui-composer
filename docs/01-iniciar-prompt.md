@@ -33,15 +33,11 @@ Antes de alterar qualquer arquivo, localize e leia os documentos disponíveis em
 
 Precedência:
 
-1. `docs/04-plano-servico-sdui.md`.
-2. ADRs em `docs/adr/` e ADRs explícitos em `docs/03-pre-arquitetura-ms-sdui-composer.md`.
-3. `docs/03-pre-arquitetura-ms-sdui-composer.md`.
-4. `docs/05-fluxos-integracao-ms-sdui-composer.md`.
-5. `docs/historias/H*.md`.
-6. `docs/artifacts/*.json`.
-7. `docs/02-resumos-server-driven-ui.md`.
-8. `docs/06-memoria-projeto-ms-sdui-composer.md`.
-9. `docs/07-relatorio-revisao-e-otimizacao-performance.md`.
+1. `docs/02-pre-arquitetura-ms-sdui-composer.md`.
+2. ADRs em `docs/adr/` e ADRs explícitos em `docs/02-pre-arquitetura-ms-sdui-composer.md`.
+3. `docs/03-memoria-projeto-ms-sdui-composer.md`.
+4. `docs/historias/H*.md`.
+5. `docs/artifacts/*.json`.
 
 Se um documento existir com nome legado (por exemplo `pre-arquitetura-sdui-home.md` ou
 `fluxos-integracao-ms-sdui-home.md`), use-o na mesma posição de precedência e registre a divergência de nome no

@@ -130,15 +130,12 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 ## 11. Lacunas Documentais Registradas
 
-- `docs/05-fluxos-integracao-ms-sdui-composer.md`: o caractere invisível `\u200b` (Zero Width Space) foi removido na
-  renomeação e ordenação sequencial da pasta `docs/`.
-- ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/03-pre-arquitetura-ms-sdui-composer.md`. Arquivos individuais
+- ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/02-pre-arquitetura-ms-sdui-composer.md`. Arquivos individuais
   `docs/adr/ADR-XXX-*.md` ainda não foram extraídos; o diretório tem só `README.md`.
-- Presente: `docs/README.md` — índice sequencial e catálogo de toda a documentação raiz e subdiretórios.
+- Presente: `docs/README.md` — índice sequencial e catálogo da documentação em 3 arquivos canônicos (`01`, `02`, `03`).
 - Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em
   `sdui-contract/src/test/resources/fixtures/`). Fonte de verdade do contrato Home iOS.
-- Presente: `docs/06-memoria-projeto-ms-sdui-composer.md` — memória operacional e arquitetural consolidada do serviço.
-- Presente: `docs/07-relatorio-revisao-e-otimizacao-performance.md` — relatório executivo da auditoria de qualidade e performance.
+- Presente: `docs/03-memoria-projeto-ms-sdui-composer.md` — memória operacional e arquitetural consolidada do serviço.
 - `documentacao-contrato-sdui-home-v3.docx`: removido de propósito. Não recriar. Semântica de campo vive no JSON
   canônico e nos testes de `sdui-contract`.
 - Ausente: `contrato-sdui-home-android-proposto.json` (H14 pendente de fornecimento pela equipe mobile).
