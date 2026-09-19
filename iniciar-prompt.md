@@ -68,10 +68,11 @@ Versões exatas vivem em `gradle/libs.versions.toml`. Este bloco define pisos e 
 - Spring Framework, Jackson 3, JUnit Jupiter, AssertJ, Mockito, Testcontainers, driver MongoDB e Lettuce usam **sempre** a versão do BOM. Nunca fixar versão dessas bibliotecas.
 - Gradle 9.7.1 com Kotlin DSL, version catalog (`gradle/libs.versions.toml`) e convention plugins em `build-logic/`. Proibido `allprojects {}` e `subprojects {}`. Configuration cache e build cache habilitados.
 - Plugins por papel de módulo (aplicados somente via convention plugins):
-  - `sdui.kotlin-library` (`sdui-core`, `sdui-contract`): `kotlin("jvm")` apenas.
-  - `sdui.spring-library` (`sdui-orchestrator`, `sdui-adapters`, `sdui-api`): `sdui.kotlin-library` + `kotlin("plugin.spring")` + BOM do Boot.
+  - `sdui.kotlin-base` (aplicado indiretamente por todos): `kotlin("jvm")`, `java-library`, toolchain 25, flags do compilador, BOM do Boot como `platform`, JUnit Jupiter/AssertJ e `verifyForbiddenDependencies`.
+  - `sdui.kotlin-library` (`sdui-core`, `sdui-contract`): `sdui.kotlin-base` + `verifyPureClasspath`.
+  - `sdui.spring-library` (`sdui-app`, `sdui-integration-test`): `sdui.kotlin-base` + `kotlin("plugin.spring")` + `kotlin-reflect`.
   - `sdui.spring-app` (`sdui-bootstrap`): `sdui.spring-library` + `org.springframework.boot`.
-  - `sdui-integration-test` usa `sdui.spring-library` e somente dependências de teste.
+  - Detalhes e esboços em `docs/pre-arquitetura-ms-sdui-composer.md` §8–§9.
 - Compilador Kotlin: `-Xannotation-default-target=param-property` e `allWarningsAsErrors = true`.
 - `kotlin-reflect` nos módulos Spring, pois a aplicação depende de reflexão Kotlin.
 - JSON: Jackson 3 gerenciado pelo Boot. Onde houver serialização de `data class`, declarar `tools.jackson.module:jackson-module-kotlin` (groupId do Jackson 3; nunca `com.fasterxml.jackson.module`).
@@ -100,7 +101,8 @@ Não usar preview, incubating ou `--enable-preview`.
 - Código de produção em `src/main/kotlin`; testes em `src/test/kotlin`.
 - Não criar fontes em Java, salvo necessidade comprovada de integração.
 - `kotlin("plugin.spring")` somente nos módulos que têm classes Spring, via convention plugin.
-- Pacotes seguem `<pacote-base>.<modulo>` (ex.: `<pacote-base>.core`, `<pacote-base>.contract`, `<pacote-base>.orchestrator`, `<pacote-base>.adapters`, `<pacote-base>.api`, `<pacote-base>.bootstrap`). Se os documentos não definirem o pacote base, escolha um, registre-o como decisão provisória no `AGENTS.md` e no relatório.
+- O pacote base é `br.com.empresa.sdui`, conforme a pré-arquitetura. Pacotes seguem a **camada**, não o módulo: `br.com.empresa.sdui.core`, `.contract`, `.orchestrator`, `.adapters`, `.api`, `.bootstrap`. `orchestrator`, `adapters` e `api` compartilham o módulo `sdui-app`, separados por pacote. Se a pré-arquitetura não estiver disponível, escolha um pacote base, registre-o como decisão provisória no `AGENTS.md` e no relatório.
+- Portas ficam em `orchestrator.port.inbound` e `orchestrator.port.outbound` (`in` é palavra reservada em Kotlin).
 
 ## Regras inegociáveis
 
@@ -131,9 +133,11 @@ Não colocar PII, dado regulado, valor financeiro individual, credencial, token 
 - Não usar `synchronized` envolvendo I/O. Desde o Java 24 (JEP 491) `synchronized` não prende mais a virtual thread ao carrier, mas segurar lock durante I/O continua gerando contenção e latência. Quando exclusão mútua for necessária, preferir `ReentrantLock` com escopo mínimo.
 - Não deixar `CompletableFuture` sem `.handle()` ou `.exceptionally()`.
 - Não usar `StructuredTaskScope` (preview no Java 25).
+- Não usar coroutines, `suspend fun` nem repositórios reativos (ADR-012 da pré-arquitetura): o modelo é Spring MVC + virtual threads + drivers bloqueantes.
 - Não usar `ScopedValue`. Ele é final no Java 25; a exclusão é decisão arquitetural (sem consumidor concreto no MVP) e só pode ser revista via ADR.
 - Todo I/O externo deve ter timeout explícito.
-- Fan-out deve ter limite de concorrência (ex.: `Semaphore`) e orçamento total de tempo; virtual threads não limitam carga por si só.
+- Fan-out deve ter limite de concorrência compartilhado por instância/dependência (ex.: `Semaphore` de vida longa, não um por request) e orçamento total de tempo; virtual threads não limitam carga por si só.
+- Timeout em `Future.get(timeout)` exige `future.cancel(true)`; sem isso a tarefa continua rodando depois da resposta.
 - Falha tolerável de section deve omitir a section.
 - Não fazer N+1.
 - Não adicionar Resilience4j no bootstrap.
@@ -162,6 +166,8 @@ ms-sdui-composer/
 │   ├── settings.gradle.kts
 │   ├── build.gradle.kts
 │   └── src/main/kotlin/
+│       ├── VerifyDependencies.kt
+│       ├── sdui.kotlin-base.gradle.kts
 │       ├── sdui.kotlin-library.gradle.kts
 │       ├── sdui.spring-library.gradle.kts
 │       └── sdui.spring-app.gradle.kts
@@ -188,9 +194,7 @@ ms-sdui-composer/
 │           └── README.md
 ├── sdui-contract/
 ├── sdui-core/
-├── sdui-orchestrator/
-├── sdui-adapters/
-├── sdui-api/
+├── sdui-app/
 ├── sdui-bootstrap/
 └── sdui-integration-test/
 ```
@@ -201,22 +205,20 @@ Arquivos de `docs/` marcados como "somente se existir" não são criados por est
 
 ## Grafo de dependências
 
-```text
-sdui-bootstrap
-├── sdui-api
-├── sdui-adapters
-├── sdui-orchestrator
-└── sdui-contract
+Quatro módulos de produção e um de teste (ADR-001 da pré-arquitetura, `ACEITO`):
 
-sdui-api → sdui-orchestrator, sdui-contract
-sdui-adapters → sdui-orchestrator, sdui-core
-sdui-orchestrator → sdui-core
-sdui-contract → JDK, stdlib Kotlin e serialização estritamente necessária
-sdui-core → JDK, stdlib Kotlin e bibliotecas puras estritamente necessárias
-sdui-integration-test → sdui-bootstrap (+ testImplementation dos demais módulos para testes de arquitetura)
+```text
+sdui-bootstrap        → sdui-app (implementation)
+sdui-app              → sdui-core (api), sdui-contract (implementation)
+sdui-contract         → JDK, stdlib Kotlin e Jackson estritamente necessário
+sdui-core             → JDK e stdlib Kotlin
+sdui-integration-test → testImplementation de sdui-bootstrap, sdui-app, sdui-core e sdui-contract
 ```
 
-Somente `sdui-bootstrap` é executável e contém `@SpringBootApplication`.
+- `sdui-app` declara `api(project(":sdui-core"))` porque portas e casos de uso expõem tipos do core nas assinaturas públicas.
+- Dentro de `sdui-app`, a direção entre camadas é garantida por ArchUnit: `api → orchestrator ← adapters`; `orchestrator` sem Spring, sem `contract` e sem as bordas; `api` sem `adapters`; `adapters` sem `api` e sem `contract`.
+
+Somente `sdui-bootstrap` é executável e contém `@SpringBootApplication`. Slices de teste em `sdui-app` (`@WebMvcTest`, `@DataMongoTest`) usam uma classe de teste anotada com `@SpringBootConfiguration` + `@EnableAutoConfiguration`, nunca `@SpringBootApplication`.
 
 O grafo é garantido primeiro pelo Gradle (declaração de dependências + verificação de classpath) e depois pelo ArchUnit. O ArchUnit não substitui a verificação de classpath.
 
@@ -226,7 +228,7 @@ O grafo é garantido primeiro pelo Gradle (declaração de dependências + verif
 
 - `pluginManagement { includeBuild("build-logic") }`.
 - Plugin `org.gradle.toolchains.foojay-resolver-convention`.
-- `rootProject.name = "ms-sdui-composer"` e `include` dos sete módulos.
+- `rootProject.name = "ms-sdui-composer"` e `include` dos cinco projetos (`sdui-contract`, `sdui-core`, `sdui-app`, `sdui-bootstrap`, `sdui-integration-test`).
 - `dependencyResolutionManagement` com `repositoriesMode` em `FAIL_ON_PROJECT_REPOS` e `mavenCentral()`.
 
 ### `build-logic/`
@@ -238,8 +240,9 @@ O grafo é garantido primeiro pelo Gradle (declaração de dependências + verif
 
 ### Verificações de classpath (ligadas à task `check`)
 
-- `verifyPureClasspath`, registrada em `sdui.kotlin-library` e ativa somente em `sdui-core` e `sdui-contract`: falha se o `runtimeClasspath` resolvido contiver módulos dos grupos `org.springframework*`, `org.mongodb`, `io.lettuce`, `jakarta.servlet`.
-- `verifyForbiddenDependencies`, registrada em todos os módulos: falha se o `runtimeClasspath` contiver `io.grpc`, `com.google.protobuf`, `org.springframework.grpc`, `com.graphql-java`, `org.springframework.graphql`, `org.mapstruct` ou `org.apache.kafka` (este último até existir ADR de auditoria assíncrona).
+- Ambas usam a task `VerifyDependencies` (em `build-logic/src/main/kotlin/`, esboço na pré-arquitetura §8.5), que **ignora componentes de plataforma**: sem isso, o próprio BOM `spring-boot-dependencies` seria acusado como dependência Spring em `sdui-core`.
+- `verifyPureClasspath`, registrada em `sdui.kotlin-library` (portanto ativa somente em `sdui-core` e `sdui-contract`): falha se o `runtimeClasspath` resolvido contiver módulos dos grupos `org.springframework*`, `org.mongodb`, `io.lettuce`, `jakarta.servlet`.
+- `verifyForbiddenDependencies`, registrada em `sdui.kotlin-base` (portanto em todos os módulos): falha se o `runtimeClasspath` contiver `io.grpc`, `com.google.protobuf`, `org.springframework.grpc`, `com.graphql-java`, `org.springframework.graphql`, `org.mapstruct` ou `org.apache.kafka` (este último até existir ADR de auditoria assíncrona).
 - As duas tasks devem ser compatíveis com configuration cache: receber o resultado da resolução como input (`incoming.resolutionResult.rootComponent` via `Provider`), sem acessar `project` na execução.
 
 ### `gradle.properties`
@@ -270,7 +273,7 @@ Incluir no mínimo: `build/`, `.gradle/`, `.kotlin/`, `.idea/`, `*.iml`, `out/`,
 Criar:
 
 1. `settings.gradle.kts`, `build.gradle.kts` raiz (vazio ou apenas `apply false`; sem lógica compartilhada) e `build.gradle.kts` de cada módulo aplicando um único convention plugin.
-2. `build-logic/` com os três convention plugins e as duas verificações de classpath.
+2. `build-logic/` com os quatro convention plugins, a task `VerifyDependencies` e as duas verificações de classpath.
 3. `gradle/libs.versions.toml` e `gradle.properties`.
 4. Gradle Wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`) com checksum.
 5. Diretórios dos módulos.
@@ -394,6 +397,8 @@ Ler `AGENTS.md`, a história, os artefatos relacionados, as decisões arquitetur
 - Tratar terminalmente operações assíncronas.
 - Não usar `synchronized` envolvendo I/O; se precisar de exclusão mútua, `ReentrantLock` com escopo mínimo.
 - Usar Virtual Threads somente para I/O bound e limitar fan-out explicitamente.
+- Não usar coroutines nem `suspend fun` (ADR-012).
+- Respeitar as camadas dentro de `sdui-app`: `orchestrator` sem Spring e sem `contract`; `api` sem `adapters`.
 - Não adicionar dependências sem justificativa; versões gerenciadas pelo Spring Boot nunca são fixadas.
 - Adicionar dependência sempre via `gradle/libs.versions.toml` e convention plugins; nunca `allprojects {}`/`subprojects {}`.
 - Manter o Composer stateless.
@@ -631,20 +636,16 @@ Antes de executar uma tarefa especializada, carregar `AGENTS.md` e o arquivo do 
 Criar somente:
 
 1. Teste de contexto Spring Boot em `sdui-bootstrap` (`@SpringBootTest`), que sobe sem Mongo nem Redis.
-2. Testes ArchUnit em `sdui-integration-test`, usando `ClassFileImporter` sobre `<pacote-base>` e o artefato `archunit` dentro de testes JUnit Jupiter comuns:
-   - classes de `<pacote-base>.core..` não dependem de:
+2. Testes ArchUnit em `sdui-integration-test`, usando `ClassFileImporter` sobre `br.com.empresa.sdui` (sem classes de teste) e o artefato `archunit` dentro de testes JUnit Jupiter comuns:
+   - `..sdui.core..` não depende de `org.springframework..`, `org.mongodb..`, `com.mongodb..`, `io.lettuce..`, `jakarta.servlet..`, `tools.jackson..`, `com.fasterxml.jackson..` nem de outras camadas;
+   - `..sdui.orchestrator..` não depende de `org.springframework..`, `jakarta.servlet..`, Jackson, `..sdui.contract..`, `..sdui.adapters..` nem `..sdui.api..`;
+   - `..sdui.api..` não depende de `..sdui.adapters..`;
+   - `..sdui.adapters..` não depende de `..sdui.api..` nem de `..sdui.contract..`;
+   - `..sdui.contract..` não depende de `..sdui.core..` nem de `org.springframework..`;
+   - somente `..sdui.bootstrap..` contém classes anotadas com `@SpringBootApplication`;
+   - nenhuma classe de produção depende de `kotlinx.coroutines..`.
 
-     ```text
-     org.springframework..
-     org.mongodb..
-     com.mongodb..
-     io.lettuce..
-     jakarta.servlet..
-     ```
-
-   - classes de `<pacote-base>.contract..` não dependem de `<pacote-base>.core..` nem de `org.springframework..`;
-   - classes de `<pacote-base>.api..` não dependem de `<pacote-base>.adapters..`;
-   - somente `<pacote-base>.bootstrap..` contém classes anotadas com `@SpringBootApplication`.
+Com `orchestrator`, `adapters` e `api` no mesmo módulo, essas regras são a única proteção entre as três camadas; não são opcionais.
 
 Enquanto os módulos estiverem vazios, as regras ArchUnit falhariam por não verificarem nenhuma classe. Use `.allowEmptyShould(true)` apenas nessas regras, com comentário apontando a história que removerá a exceção, e registre a pendência no `AGENTS.md`.
 
@@ -680,7 +681,7 @@ Se algum comando falhar, informar a falha exata e não declarar o projeto valida
 
 Somente considerar concluído quando:
 
-- os sete módulos existirem e estiverem no `settings.gradle.kts`;
+- os cinco projetos (`sdui-contract`, `sdui-core`, `sdui-app`, `sdui-bootstrap`, `sdui-integration-test`) existirem e estiverem no `settings.gradle.kts`;
 - cada módulo aplicar exatamente um convention plugin e não houver `allprojects {}`/`subprojects {}`;
 - nenhuma versão gerenciada pelo Spring Boot estiver fixada no catálogo ou nos builds;
 - o wrapper apontar para Gradle 9.7.1 com `distributionSha256Sum`;

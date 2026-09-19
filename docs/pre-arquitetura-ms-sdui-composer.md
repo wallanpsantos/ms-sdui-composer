@@ -3,19 +3,25 @@
 **ms-sdui-composer** = o serviço que, a cada request, compõe a árvore de UI da surface a partir de uma spec versionada,
 do contexto do cliente e das capabilities, devolvendo um envelope pronto e seguro para o app.
 
-## Gradle, Clean Architecture e estratégia de testes
+## Kotlin, Gradle, Clean Architecture pragmática e estratégia de testes
 
-**Baseline:** Java 25 LTS, Spring Framework 7.0.9+, Spring Boot 4.1.1, Gradle 9.7.1 - Kotlin e multi-módulo.
+**Baseline:** Kotlin 2.3.21 sobre JVM Java 25 LTS, Spring Boot 4.1.1 (que gerencia Spring Framework 7.0.x), Gradle 9.7.1
+com Kotlin DSL, multi-projeto.
 
 **Objetivo:** estruturar o **ms-sdui-composer** para suportar composição de surfaces por múltiplos times, evolução de
-telas, fragments estáticos, hidratação dinâmica por squads e testes com níveis claros de isolamento (tendo a `home` como
-primeira surface).
+telas, hidratação dinâmica por squads e testes com níveis claros de isolamento (tendo a `home` como primeira surface).
 
-
-> **Atualização tecnológica — 18/09/2026.** Esta revisão consolida o baseline em Java 25 LTS, Spring Boot 4.1.1, Spring Framework 7.0.9+ e Gradle 9.7.1. O gerenciamento de dependências passa a ser centralizado pelo plugin/BOM do Spring Boot; não fixe manualmente no build as versões de starters, Testcontainers (2.0.5), JUnit 5, Mockito (5.23.0), AssertJ (3.27.7) ou drivers já gerenciados pelo ecossistema. ArchUnit permanece padronizado na versão 1.5.0 (com archunit-junit5:1.5.0 quando necessário).
+> **Atualização tecnológica — 18/09/2026.** Esta revisão migra o documento de Maven/Java para Gradle/Kotlin e fecha o
+> ADR-001 em **quatro módulos de produção** (`sdui-contract`, `sdui-core`, `sdui-app`, `sdui-bootstrap`) mais o módulo de
+> teste `sdui-integration-test`.
+>
+> O gerenciamento de versões é centralizado no BOM do Spring Boot, importado como `platform(...)` nos convention plugins.
+> **Não fixar** no build versões de Spring Framework, starters, Jackson, JUnit Jupiter, AssertJ, Mockito, Testcontainers,
+> driver MongoDB ou Lettuce. Bibliotecas fora do BOM (ArchUnit 1.5.0, MockK, springmockk, WireMock) têm versão explícita
+> em `gradle/libs.versions.toml`, verificada antes de entrar.
+>
 > O projeto permanece sem Kafka e sem Spring Cloud por padrão. Kafka exige fluxo assíncrono real com contrato,
-> consumidores, idempotência, retry, DLQ, retenção e owner operacional. Spring Cloud só entra com caso concreto de
-> Config
+> consumidores, idempotência, retry, DLQ, retenção e owner operacional. Spring Cloud só entra com caso concreto de Config
 > Client, Discovery, client-side LoadBalancer ou Circuit Breaker. MongoDB permanece porque esta pré-arquitetura o define
 > como store de specs; RestClient/WireMock continuam condicionais à existência de hidratação HTTP real.
 
@@ -23,180 +29,175 @@ primeira surface).
 
 ## 1. Decisão arquitetural
 
-A proposta de modularização faz sentido, mas precisa de alguns ajustes para não criar acoplamento entre contrato, core,
-orquestrador e adaptadores.
+O serviço é um **build Gradle multi-projeto** (Kotlin DSL), com `settings.gradle.kts` na raiz, version catalog em
+`gradle/libs.versions.toml` e convention plugins em `build-logic/`. O único artefato executável é `sdui-bootstrap`; os
+demais produzem JARs internos.
 
-O serviço será um **Gradle multi-módulo** (Kotlin DSL), com `build.gradle.kts` raiz e subprojetos declarados em `settings.gradle.kts`. O único artefato executável será o módulo `sdui-bootstrap`; os demais produzirão JARs internos.
+Toda a produção é escrita em **Kotlin** (`src/main/kotlin`), e todos os testes também (`src/test/kotlin`). Não há fontes
+Java, salvo exigência comprovada de integração externa.
 
-A organização seguirá uma **Clean Architecture pragmática**:
+A organização segue uma **Clean Architecture pragmática**, com fronteiras em dois níveis:
 
-- `sdui-core` contém regras puras de domínio e não depende de Spring, MongoDB, Redis ou HTTP.
-- `sdui-orchestrator` contém casos de uso e coordena o pipeline de composição.
-- `sdui-contract` contém DTOs do contrato REST/JSON e catálogo público do SDUI.
-- `sdui-adapters` contém integrações externas, persistência, cache e clients HTTP.
-- `sdui-api` contém a entrada HTTP/MVC e a conversão entre HTTP e casos de uso.
-- `sdui-bootstrap` monta a aplicação, configura propriedades, segurança, observabilidade e beans.
+| Fronteira                                   | Mecanismo                                   | Por quê                                                     |
+|---------------------------------------------|---------------------------------------------|-------------------------------------------------------------|
+| Pureza do domínio (`sdui-core`)             | Módulo Gradle + `verifyPureClasspath`       | É onde Spring e infraestrutura vazam com mais facilidade    |
+| Contrato público (`sdui-contract`)          | Módulo Gradle                               | Única fronteira que outro processo pode consumir            |
+| Executável (`sdui-bootstrap`)               | Módulo Gradle                               | Só um lugar tem `@SpringBootApplication` e wiring final     |
+| orchestrator × adapters × api (`sdui-app`)  | Pacotes + ArchUnit                          | Um engenheiro, sem ownership separado; fronteira por pacote |
 
-A proposta não deve introduzir Hexagonal Architecture como um framework adicional. O uso de portas/interfaces será
-limitado aos contratos que o caso de uso realmente precisa: stores, cache, singleflight e hydrators.
+Camadas lógicas:
 
-Também não devem ser introduzidos CQRS, Event Sourcing, command bus ou uma camada `common` genérica. O projeto é um
+- **core** (`sdui-core`): regras puras de domínio; não depende de Spring, MongoDB, Redis, HTTP nem Jackson.
+- **orchestrator** (pacote em `sdui-app`): casos de uso, portas e o pipeline de composição; sem Spring.
+- **contract** (`sdui-contract`): DTOs do contrato REST/JSON e catálogo público do SDUI.
+- **adapters** (pacote em `sdui-app`): persistência, cache e clients HTTP.
+- **api** (pacote em `sdui-app`): entrada HTTP/MVC e conversão entre HTTP e casos de uso.
+- **bootstrap** (`sdui-bootstrap`): monta a aplicação, configura propriedades, segurança, observabilidade e beans.
+
+A proposta não introduz Hexagonal Architecture como framework adicional. Portas/interfaces existem só onde o caso de uso
+realmente precisa: stores, cache, singleflight, unidade transacional e hydrators.
+
+Também não são introduzidos CQRS, Event Sourcing, command bus ou uma camada `common` genérica. O projeto é um
 composer/BFF de UI stateless, não um sistema de domínio transacional.
 
 O plano do projeto define que o MS entrega uma árvore de UI hidratada, não acessa contratos, apólices ou domínios de
 negócio diretamente, usa MongoDB como fonte de specs e Redis para árvore, spec, projeções, `lastgood` e singleflight.
-Ele também proíbe N+1 por widget e exige que uma section degradada possa ser omitida sem derrubar a Home. [file:8]
+Ele também proíbe N+1 por widget e exige que uma section degradada possa ser omitida sem derrubar a Home
+(`plano-servico-sdui.md`).
 
 > **Decisões fechadas:** as escolhas que divergem do `plano-servico-sdui.md` ou que não estavam explícitas nele estão
 > registradas como ADRs no **§16**. Toda divergência em relação ao plano precisa de um ADR antes de virar código.
 
 ---
 
-## 2. Estrutura de módulos ajustada
+## 2. Estrutura de módulos
 
 ```text
 ms-sdui-composer/
-├── build.gradle.kts
 ├── settings.gradle.kts
+├── build.gradle.kts                 (vazio ou apenas `apply false`)
+├── gradle.properties
 ├── README.md
 ├── gradlew
 ├── gradlew.bat
 ├── gradle/
+│   ├── libs.versions.toml
 │   └── wrapper/
 │       ├── gradle-wrapper.jar
 │       └── gradle-wrapper.properties
 │
+├── build-logic/
+│   ├── settings.gradle.kts
+│   ├── build.gradle.kts
+│   └── src/main/kotlin/
+│       ├── sdui.kotlin-library.gradle.kts
+│       ├── sdui.spring-library.gradle.kts
+│       └── sdui.spring-app.gradle.kts
+│
 ├── sdui-contract/
 │   ├── build.gradle.kts
 │   └── src/
-│       ├── main/java/br/com/empresa/sdui/contract/
-│       └── test/java/br/com/empresa/sdui/contract/
+│       ├── main/kotlin/br/com/empresa/sdui/contract/
+│       └── test/kotlin/br/com/empresa/sdui/contract/
 │
 ├── sdui-core/
 │   ├── build.gradle.kts
 │   └── src/
-│       ├── main/java/br/com/empresa/sdui/core/
-│       └── test/java/br/com/empresa/sdui/core/
+│       ├── main/kotlin/br/com/empresa/sdui/core/
+│       └── test/kotlin/br/com/empresa/sdui/core/
 │
-├── sdui-orchestrator/
+├── sdui-app/
 │   ├── build.gradle.kts
 │   └── src/
-│       ├── main/java/br/com/empresa/sdui/orchestrator/
-│       └── test/java/br/com/empresa/sdui/orchestrator/
-│
-├── sdui-adapters/
-│   ├── build.gradle.kts
-│   └── src/
-│       ├── main/java/br/com/empresa/sdui/adapters/
-│       │   ├── mongo/
-│       │   ├── redis/
-│       │   └── http/
-│       └── test/java/br/com/empresa/sdui/adapters/
-│
-├── sdui-api/
-│   ├── build.gradle.kts
-│   └── src/
-│       ├── main/java/br/com/empresa/sdui/api/
-│       └── test/java/br/com/empresa/sdui/api/
+│       ├── main/kotlin/br/com/empresa/sdui/
+│       │   ├── orchestrator/
+│       │   ├── adapters/
+│       │   │   ├── mongo/
+│       │   │   ├── redis/
+│       │   │   └── http/          (somente quando houver hidratação HTTP real)
+│       │   └── api/
+│       └── test/kotlin/br/com/empresa/sdui/
+│           ├── orchestrator/
+│           ├── adapters/
+│           └── api/
 │
 ├── sdui-bootstrap/
 │   ├── build.gradle.kts
 │   └── src/
-│       ├── main/java/br/com/empresa/sdui/bootstrap/
+│       ├── main/kotlin/br/com/empresa/sdui/bootstrap/
 │       ├── main/resources/
-│       │   ├── application.yml
-│       │   ├── application-local.yml
-│       │   └── application-test.yml
-│       └── test/java/br/com/empresa/sdui/bootstrap/
+│       │   ├── application.yaml
+│       │   ├── application-local.yaml
+│       │   └── application-test.yaml
+│       └── test/kotlin/br/com/empresa/sdui/bootstrap/
 │
 └── sdui-integration-test/
     ├── build.gradle.kts
-    └── src/test/java/br/com/empresa/sdui/it/
+    └── src/test/kotlin/br/com/empresa/sdui/it/
 ```
+
+O pacote base é `br.com.empresa.sdui`. Cada camada vive em `br.com.empresa.sdui.<camada>`
+(`core`, `contract`, `orchestrator`, `adapters`, `api`, `bootstrap`), inclusive as três que compartilham o módulo
+`sdui-app`. Isso mantém as regras ArchUnit estáveis e torna mecânica uma futura separação de `sdui-app` em módulos.
 
 ### Papel dos módulos
 
-| Módulo                  | Responsabilidade                                           | Spring em produção? | Executável? |
-|-------------------------|------------------------------------------------------------|--------------------:|------------:|
-| `sdui-contract`         | Envelopes, responses, catálogo e DTOs REST/JSON            |                 Não |         Não |
-| `sdui-core`             | Regras puras do motor SDUI                                 |                 Não |         Não |
-| `sdui-orchestrator`     | Casos de uso e pipeline de composição                      |                 Não |         Não |
-| `sdui-adapters`         | MongoDB, Redis, clients HTTP e implementações de hydrators |                 Sim |         Não |
-| `sdui-api`              | Controllers MVC, headers, validação e exception mapping    |                 Sim |         Não |
-| `sdui-bootstrap`        | Main, wiring, properties, segurança e observabilidade      |                 Sim |         Sim |
-| `sdui-integration-test` | Testes HTTP/infra com MongoDB e Redis reais                |     Apenas em teste |         Não |
+| Módulo                  | Camadas                           | Spring em produção?           | Executável? |
+|-------------------------|-----------------------------------|------------------------------:|------------:|
+| `sdui-contract`         | contract                          |                           Não |         Não |
+| `sdui-core`             | core                              |                           Não |         Não |
+| `sdui-app`              | orchestrator + adapters + api     | Sim (exceto em `orchestrator`) |         Não |
+| `sdui-bootstrap`        | bootstrap                         |                           Sim |         Sim |
+| `sdui-integration-test` | testes HTTP/infra e ArchUnit      |               Apenas em teste |         Não |
 
-### Observação sobre adapters
+### Quando dividir `sdui-app`
 
-Manter `sdui-adapters` como um módulo único no início é aceitável porque o projeto ainda está definindo suas
-integrações. Porém, ele deve ser internamente dividido por pacote e regras de dependência:
+Separar `sdui-app` em `sdui-orchestrator`, `sdui-adapters` e `sdui-api` (ou adapters por tecnologia) é uma evolução
+mecânica, porque os pacotes já seguem a fronteira. Gatilhos: ownership distinto por squad, ciclo de deploy distinto, ou
+uma regra ArchUnit que precise ser violada repetidamente para o código compilar. Não dividir por simetria.
 
-```text
-sdui-adapters
-├── mongo
-├── redis
-└── http
-```
-
-Se o volume crescer, separar em `sdui-adapter-mongo`, `sdui-adapter-redis` e `sdui-adapter-http` é uma evolução
-mecânica. Não criar três módulos apenas por simetria antes de haver necessidade operacional ou ownership distinto.
-
-O mesmo vale para `sdui-contract`: ele é uma fronteira pública do processo, não um lugar para acumular qualquer DTO
-interno.
+O mesmo vale para `sdui-contract`: é uma fronteira pública do processo, não um lugar para acumular qualquer DTO interno.
 
 ---
 
 ## 3. Grafo de dependências
 
-A estrutura proposta pelo usuário precisa ser corrigida para evitar que adapters dependam do `contract` diretamente como
-dependência de implementação, e para deixar o bootstrap como composição final.
-
 ```text
-                         +----------------------+
-                         |    sdui-bootstrap    |
-                         | Spring Boot runnable |
-                         +----------+-----------+
-                                    |
-                +-------------------+-------------------+
-                |                                       |
-        +-------v--------+                      +-------v--------+
-        |    sdui-api    |                      |  sdui-adapters |
-        | MVC / REST     |                      | Mongo/Redis/HTTP|
-        +-------+--------+                      +-------+--------+
-                |                                       |
-                |                                       |
-        +-------v---------------------------------------v--------+
-        |                 sdui-orchestrator                    |
-        |             application use cases                    |
-        +-------------------------+----------------------------+
-                                  |
-                         +--------v---------+
-                         |     sdui-core     |
-                         | domain rules pure |
-                         +-------------------+
+                    +----------------------+
+                    |    sdui-bootstrap    |
+                    | Spring Boot runnable |
+                    +----------+-----------+
+                               |
+                    +----------v-----------------------------+
+                    |               sdui-app                 |
+                    |  api ─────────► orchestrator ◄── adapters
+                    |   │                  │                 |
+                    +---│------------------│-----------------+
+                        │                  │
+               +--------v-------+  +-------v--------+
+               | sdui-contract  |  |   sdui-core    |
+               | DTOs públicos  |  | domínio puro   |
+               +----------------+  +----------------+
 
-sdui-contract é usado por sdui-api e, se necessário, por bootstrap/adapters apenas
-para conversões explicitamente definidas; o core não depende dele.
-
-sdui-integration-test depende do bootstrap em escopo de teste.
+Setas internas de sdui-app são regras ArchUnit, não dependências Gradle.
+sdui-integration-test depende de sdui-bootstrap (e dos demais, em teste, para ArchUnit).
 ```
 
-### Dependências Maven permitidas
+### Declaração no Gradle
 
-| Módulo                  | Pode depender de                                                                    |
-|-------------------------|-------------------------------------------------------------------------------------|
-| `sdui-core`             | JDK, bibliotecas puras pequenas e JUnit/AssertJ/Mockito em teste                    |
-| `sdui-orchestrator`     | `sdui-core`; JDK; bibliotecas puras pequenas; testes                                |
-| `sdui-contract`         | JDK e Jackson somente para contrato/serialização, se necessário                     |
-| `sdui-adapters`         | `sdui-orchestrator`, `sdui-core`, Spring Data, Redis/Lettuce, Spring HTTP client    |
-| `sdui-api`              | `sdui-orchestrator`, `sdui-core`, `sdui-contract`, Spring MVC/Validation            |
-| `sdui-bootstrap`        | `sdui-api`, `sdui-adapters`, `sdui-orchestrator`, `sdui-contract`, starters de Boot |
-| `sdui-integration-test` | `sdui-bootstrap` e dependências de teste                                            |
+| Módulo                  | Dependências de projeto                                           | Observação                                                                                   |
+|-------------------------|-------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `sdui-core`             | nenhuma                                                           | stdlib Kotlin apenas; `verifyPureClasspath` ativo                                            |
+| `sdui-contract`         | nenhuma                                                           | Jackson somente para contrato/serialização; `verifyPureClasspath` ativo                      |
+| `sdui-app`              | `api(project(":sdui-core"))`, `implementation(project(":sdui-contract"))` | `api` porque portas e casos de uso expõem tipos do core nas assinaturas públicas     |
+| `sdui-bootstrap`        | `implementation(project(":sdui-app"))`                            | recebe `sdui-core` transitivamente; não enxerga `sdui-contract` diretamente                   |
+| `sdui-integration-test` | `testImplementation` de `sdui-bootstrap`, `sdui-app`, `sdui-core`, `sdui-contract` | nada em `main`                                                               |
 
 ### Regra importante sobre o `contract`
 
-O `sdui-core` não deve depender de `sdui-contract`. O core representa regras e modelos internos; o contrato REST
-representa a forma pública do payload.
+O `sdui-core` não depende de `sdui-contract`, e isso é garantido pelo Gradle: não há declaração de dependência e o
+classpath do core não contém o contrato. Dentro de `sdui-app`, o pacote `orchestrator` também não pode depender de
+`contract` — essa regra é do ArchUnit. Só `api` converte entre modelos do core/orchestrator e DTOs do contrato.
 
 Essa separação evita que o domínio fique preso a nomes JSON, annotations de Jackson, envelopes HTTP e decisões de
 compatibilidade externa.
@@ -210,144 +211,176 @@ compatibilidade externa.
 ```text
 br.com.empresa.sdui.core
 ├── context/
-│   ├── ClientContext.java
-│   ├── ClientPlatform.java
-│   ├── ClientVersion.java
-│   ├── ClientBuild.java
-│   ├── OsVersion.java
-│   ├── UiSchemaVersion.java
-│   ├── Channel.java
-│   └── ComponentCapability.java
+│   ├── ClientContext.kt
+│   ├── ClientPlatform.kt
+│   ├── ClientVersion.kt
+│   ├── ClientBuild.kt
+│   ├── OsVersion.kt
+│   ├── UiSchemaVersion.kt
+│   ├── Channel.kt
+│   └── ComponentCapability.kt
 ├── model/
-│   ├── Screen.java
-│   ├── Fragment.java
-│   ├── Section.java
-│   ├── Action.java
-│   ├── Skeleton.java
-│   ├── Slot.java
-│   ├── Spec.java
-│   ├── SpecRevisionId.java
-│   ├── Pointer.java
-│   └── HydratedScreen.java
+│   ├── Screen.kt
+│   ├── Section.kt
+│   ├── Action.kt
+│   ├── Skeleton.kt
+│   ├── Slot.kt
+│   ├── Spec.kt
+│   ├── SpecRevisionId.kt
+│   ├── Pointer.kt
+│   └── HydratedScreen.kt
 ├── policy/
-│   ├── CapabilityCompatibilityPolicy.java
-│   ├── SpecSelectionPolicy.java
-│   ├── FragmentResolutionPolicy.java
-│   ├── OmissionPolicy.java
-│   └── FallbackPolicy.java
+│   ├── CapabilityCompatibilityPolicy.kt
+│   ├── SpecSelectionPolicy.kt
+│   ├── OmissionPolicy.kt
+│   └── FallbackPolicy.kt
 ├── result/
-│   ├── SelectionResult.java
-│   ├── OmittedFragment.java
-│   ├── OmittedSection.java
-│   └── FallbackReason.java
-└── exception/
-    ├── InvalidClientContextException.java
-    ├── InvalidSpecException.java
-    └── UnsupportedSchemaException.java
+│   ├── ContextValidation.kt
+│   ├── SelectionResult.kt
+│   ├── OmittedSection.kt
+│   └── FallbackReason.kt
+└── error/
+    └── InvariantViolation.kt
 ```
 
-O core deve ser Java puro, sem Spring, Mongo, Redis, HTTP ou Jakarta. Pode usar records, enums, sealed classes e
-`java.time`.
+O core é **Kotlin puro**: sem Spring, Mongo, Redis, HTTP, Jakarta ou Jackson. Usa apenas a stdlib Kotlin e `java.time`.
 
-### 4.2 `sdui-orchestrator`: Application
+Convenções de modelagem:
+
+- `data class` para entidades imutáveis e resultados; `sealed interface` para hierarquias fechadas; `enum class` para
+  conjuntos estáveis (`ClientPlatform`, `Channel`).
+- `@JvmInline value class` para identificadores e versões (`ClientVersion`, `ClientBuild`, `OsVersion`,
+  `UiSchemaVersion`, `SpecRevisionId`), com validação no `init`. Value classes circulam apenas entre core e
+  orchestrator; adapters e contract convertem para tipos primitivos, porque o suporte de Jackson e Spring Data a value
+  classes exige cuidado e não deve vazar para as bordas.
+- Resultado esperado não é exceção. Validação de contexto devolve um resultado selado:
+
+```kotlin
+sealed interface ContextValidation {
+    data class Valid(val context: ClientContext) : ContextValidation
+    data class Invalid(val violations: List<ContextViolation>) : ContextValidation
+}
+```
+
+- Exceção fica reservada a violação de invariante (`InvariantViolation`), ou seja, bug — nunca a fluxo de negócio.
+- Sem `!!`, sem `Optional`; ausência é `T?` somente quando for válida no domínio.
+
+`Fragment`, `FragmentResolutionPolicy` e `OmittedFragment` **não** fazem parte do core no MVP (ADR-004).
+
+### 4.2 `orchestrator` (em `sdui-app`): Application
 
 ```text
 br.com.empresa.sdui.orchestrator
 ├── compose/
-│   ├── ComposeScreenService.java
-│   ├── ComposeRequest.java
-│   ├── ComposeResult.java
-│   ├── ContextValidator.java
-│   ├── SpecResolver.java
-│   ├── FragmentResolver.java
-│   ├── CapabilityFilter.java
-│   ├── HydrationCoordinator.java
-│   ├── FallbackResolver.java
-│   └── ResponseAssembler.java
+│   ├── ComposeScreenService.kt
+│   ├── ComposeRequest.kt
+│   ├── ComposeResult.kt
+│   ├── ContextValidator.kt
+│   ├── SpecResolver.kt
+│   ├── CapabilityFilter.kt
+│   ├── HydrationCoordinator.kt
+│   ├── FallbackResolver.kt
+│   └── ResponseAssembler.kt
 ├── port/
-│   ├── in/
-│   │   ├── ComposeScreenUseCase.java
-│   │   ├── PublishSpecUseCase.java
-│   │   └── RollbackPointerUseCase.java
-│   └── out/
-│       ├── SpecStore.java
-│       ├── FragmentStore.java
-│       ├── PointerStore.java
-│       ├── HydratedScreenCache.java
-│       ├── LastGoodScreenStore.java
-│       ├── ProjectionStore.java
-│       ├── ComposeSingleflight.java
-│       ├── AuditLogStore.java
-│       ├── IdempotencyStore.java
-│       └── TransactionalUnitOfWork.java
+│   ├── inbound/
+│   │   ├── ComposeScreenUseCase.kt
+│   │   ├── PublishSpecUseCase.kt
+│   │   └── RollbackPointerUseCase.kt
+│   └── outbound/
+│       ├── SpecStore.kt
+│       ├── PointerStore.kt
+│       ├── HydratedScreenCache.kt
+│       ├── LastGoodScreenStore.kt
+│       ├── ProjectionStore.kt
+│       ├── ComposeSingleflight.kt
+│       ├── AuditLogStore.kt
+│       ├── IdempotencyStore.kt
+│       └── TransactionalUnitOfWork.kt
 ├── hydration/
-│   ├── SectionHydrator.java
-│   ├── HydrationContext.java
-│   ├── HydrationResult.java
-│   └── HydratorRegistry.java
+│   ├── SectionHydrator.kt
+│   ├── HydrationContext.kt
+│   ├── HydrationResult.kt
+│   └── HydratorRegistry.kt
 └── support/
-    ├── ClockProvider.java
-    └── MetricsRecorder.java
+    └── MetricsRecorder.kt
 ```
+
+O orchestrator é Kotlin sem Spring, mesmo compartilhando o módulo com adapters e api: nenhuma annotation Spring, nenhum
+import `org.springframework..` (regra ArchUnit). Suas classes são instanciadas por `@Bean` no bootstrap. Tempo é
+injetado como `java.time.Clock`; não criar `ClockProvider` próprio.
+
+Os pacotes de portas se chamam `port.inbound` e `port.outbound` (e não `port.in`/`port.out`) porque `in` é palavra
+reservada em Kotlin e exigiria crases em todo `package` e `import`.
 
 #### SPI `SectionHydrator`
 
-A SPI para hydrators de squads faz sentido, desde que seja definida pelo orquestrador e não pelo adapter HTTP:
+A SPI para hydrators de squads é definida pelo orquestrador, não pelo adapter HTTP:
 
-```java
-public interface SectionHydrator {
+```kotlin
+interface SectionHydrator {
 
-    boolean supports(ComponentType type, int typeVersion);
+    fun supports(type: ComponentType, typeVersion: Int): Boolean
 
-    HydrationResult hydrate(HydrationContext context, Section section);
+    fun hydrate(context: HydrationContext, section: Section): HydrationResult
 }
 ```
+
+A SPI é **bloqueante** (sem `suspend`); ver ADR-012.
 
 Regras importantes:
 
 - O orchestrator não conhece cada squad.
-- Cada hydrator deve declarar os tipos que suporta.
-- A hidratação deve ser bounded, com timeout e tratamento terminal.
+- Cada hydrator declara os tipos que suporta.
+- A hidratação é bounded, com timeout e tratamento terminal.
 - Falha de uma hidratação pode omitir a section, conforme contrato.
-- Não permitir que cada squad faça seu próprio acesso irrestrito ao Redis ou Mongo.
-- O hydrator não deve inserir cor, tipografia, padding, tamanho, raio ou tokens de aparência no payload.
-- O registro de hydrators deve ser determinístico quando houver mais de um candidato para o mesmo `type@version`.
+- Nenhuma squad faz acesso irrestrito ao Redis ou Mongo.
+- O hydrator não insere cor, tipografia, padding, tamanho, raio ou tokens de aparência no payload.
+- O registro de hydrators é determinístico quando houver mais de um candidato para o mesmo `type@version`.
 
-Uma decisão que precisa ser fechada: se hydrators forem módulos externos no futuro, a SPI deve ser um artefato pequeno e
-estável, por exemplo `sdui-orchestrator-spi`, em vez de forçar squads consumidoras a depender de todo o módulo de casos
-de uso.
+Se hydrators virarem artefatos externos no futuro, a SPI deve sair para um módulo pequeno e estável
+(`sdui-hydrator-spi`), em vez de forçar squads a depender de `sdui-app`.
+
+#### Porta `TransactionalUnitOfWork`
+
+```kotlin
+interface TransactionalUnitOfWork {
+    fun <T> execute(work: () -> T): T
+}
+```
+
+Ver ADR-003 (decisão vigente) e ADR-013 (alternativa proposta).
 
 ### 4.3 `sdui-contract`: contrato
 
 ```text
 br.com.empresa.sdui.contract
 ├── screen/
-│   ├── ScreenResponse.java
-│   ├── FragmentResponse.java
-│   ├── ScreenEnvelope.java
-│   ├── FragmentEnvelope.java
-│   ├── SkeletonResponse.java
-│   ├── SectionResponse.java
-│   └── OmittedItemResponse.java
+│   ├── ScreenResponse.kt
+│   ├── ScreenEnvelope.kt
+│   ├── SkeletonResponse.kt
+│   ├── SectionResponse.kt
+│   └── OmittedItemResponse.kt
 ├── component/
-│   ├── ComponentData.java
-│   ├── ComponentResponse.java
-│   ├── Action.java
-│   └── ActionPayload.java
+│   ├── ComponentResponse.kt
+│   ├── ActionResponse.kt
+│   └── ActionPayload.kt
 ├── client/
-│   └── ClientResponse.java
+│   └── ClientResponse.kt
 ├── admin/
-│   ├── PublishSpecRequest.java
-│   └── RollbackRequest.java
+│   ├── PublishSpecRequest.kt
+│   └── RollbackRequest.kt
 └── error/
-    └── ApiErrorResponse.java
+    └── ApiErrorResponse.kt
 ```
+
+DTOs são `data class` com propriedades `val`, sem lógica. Os nomes de campo Kotlin são os nomes JSON; `@JsonProperty`
+só quando o nome JSON não puder ser um identificador Kotlin idiomático.
 
 #### Sobre `@JsonTypeInfo`
 
-Contratos polimórficos podem fazer sentido para `ComponentData`, mas não devem ser adicionados por padrão.
+Contratos polimórficos podem fazer sentido para os dados de section, mas não são adicionados por padrão.
 
-A recomendação é preferir um envelope estável e semântico:
+A recomendação é um envelope estável e semântico:
 
 ```json
 {
@@ -362,20 +395,20 @@ A recomendação é preferir um envelope estável e semântico:
 }
 ```
 
-`@JsonTypeInfo` é adequado somente se houver necessidade real de desserializar subclasses conhecidas no servidor. Para
-um servidor que principalmente **produz** JSON, um `type` explícito e um `JsonNode`/mapa validado pode ser mais simples
-e menos acoplado.
+`@JsonTypeInfo` só é adequado se houver necessidade real de desserializar subclasses conhecidas no servidor. Para um
+servidor que principalmente **produz** JSON, um `type` explícito e um `JsonNode` (Jackson 3,
+`tools.jackson.databind.JsonNode`) validado é mais simples e menos acoplado.
 
-Evitar usar o valor de `type` como nome de classe Java. O contrato deve ser semanticamente versionado
-(`account_card@1`), e não uma hierarquia polimórfica exposta.
+Evitar usar o valor de `type` como nome de classe. O contrato é semanticamente versionado (`account_card@1`), não uma
+hierarquia polimórfica exposta. Hierarquias `sealed` do core **não** são expostas no contrato.
 
-O contrato deve respeitar a tríade do projeto:
+O contrato respeita a tríade do projeto:
 
 - **Sections:** blocos autocontidos com `id`, `type`, `typeVersion` e data.
-- **Screens:** composição ordenada de sections/fragments em uma surface.
+- **Screens:** composição ordenada de sections em uma surface.
 - **Actions:** intenções serializadas encaminhadas por dispatcher central do cliente.
 
-### 4.4 `sdui-adapters`: Infrastructure
+### 4.4 `adapters` (em `sdui-app`): Infrastructure
 
 ```text
 br.com.empresa.sdui.adapters
@@ -384,6 +417,7 @@ br.com.empresa.sdui.adapters
 │   ├── repository/
 │   ├── mapper/
 │   ├── store/
+│   ├── tx/
 │   └── configuration/
 ├── redis/
 │   ├── key/
@@ -391,13 +425,16 @@ br.com.empresa.sdui.adapters
 │   ├── store/
 │   ├── script/
 │   └── configuration/
-└── http/
+└── http/                (somente quando houver hidratação HTTP real)
     ├── client/
     ├── dto/
     ├── mapper/
     ├── hydrator/
     └── configuration/
 ```
+
+Mapeamento entre camadas é feito com **funções de extensão Kotlin** (`fun SpecDocument.toDomain(): Spec`,
+`fun Spec.toDocument(): SpecDocument`), explícitas e testáveis. Sem MapStruct e sem `kapt`.
 
 #### Mongo
 
@@ -406,33 +443,35 @@ Responsável por:
 - Specs publicadas e imutáveis.
 - Catálogo de componentes.
 - Skeletons.
-- Fragments estáticos persistidos.
 - Pointers.
 - Publish requests.
 - Diffs.
 - Audit log append-only.
 - Idempotency records.
 
-`@Document` e repositories Spring Data ficam apenas neste módulo. O orchestrator recebe objetos do core por meio das
-interfaces de `port.out`.
+`@Document` e repositories Spring Data ficam apenas em `..adapters.mongo..`. Documentos são `data class` com `val`,
+instanciados pelo construtor pelo Spring Data (que depende de `kotlin-reflect`). `pointers` usa `@Version` para
+compare-and-set, o que também cobre o caminho sem transação multi-documento previsto no ADR-003.
+
+A representação de UUID precisa ser explícita no Boot 4 (`spring.mongodb.representation.uuid`, §10); o Spring Data
+MongoDB 5 não define mais um default.
+
+O orchestrator recebe objetos do core por meio das portas de `port.outbound`.
 
 #### Redis
 
 Responsável por:
 
 - Spec materializada.
-- Screen/fragment hidratado.
+- Screen hidratada (`tree`).
 - Projeções de section.
 - `lastgood`.
 - Singleflight distribuído.
 - Rate limit distribuído, se essa implementação for escolhida.
 
-TTL estático e dinâmico devem ser separados. Exemplos:
+TTL da árvore e do `lastgood` são separados:
 
 ```text
-sdui:fragment:static:{fragmentId}:{revision}:{platform}
-  TTL maior, alterado somente após publish/invalidate
-
 sdui:tree:{surface}:{platform}:{schema}:{appMajorMinor}:{capsHash}:{channel}
   TTL curto, por exemplo 30–90 s
 
@@ -440,16 +479,19 @@ sdui:lastgood:{surface}:{platform}:{channel}
   TTL longo, conforme política de fallback
 ```
 
-Não colocar `userId`, PII, mídia binária ou credenciais em chaves/valores de cache compartilhado.
+A chave `sdui:fragment:static:{...}` não existe no MVP (ADR-004).
+
+Não colocar `userId`, PII, mídia binária ou credenciais em chaves/valores de cache compartilhado. O codec usa o mesmo
+`JsonMapper` (Jackson 3) configurado pelo Boot.
 
 #### HTTP clients
 
-Usar clients HTTP somente se existir hidratação dinâmica real. Não adicionar WireMock, RestClient ou `@HttpExchange`
-apenas por antecipação.
+Usar clients HTTP somente se existir hidratação dinâmica real. Não adicionar WireMock, `RestClient` ou `@HttpExchange`
+por antecipação.
 
-Quando houver client HTTP, `RestClient` + `@HttpExchange` é adequado para este serviço síncrono. Spring Framework
+Quando houver client HTTP, `RestClient` + `@HttpExchange` é adequado para este serviço síncrono: o Spring Framework
 oferece `RestClient` como API síncrona e `HttpServiceProxyFactory` para criar proxies a partir de interfaces anotadas
-com `@HttpExchange`. [web:52]
+com `@HttpExchange`.
 
 O client deve possuir:
 
@@ -462,42 +504,41 @@ O client deve possuir:
 - Circuit breaker somente se telemetria justificar.
 - Tratamento terminal de toda execução concorrente.
 
-Exemplo de SPI de client fora do core:
+Exemplo de interface de client, definida no pacote do hydrator e implementada no adapter:
 
-```java
-public interface CoverageHydrationClient {
-    CoverageProjection fetch(CoverageHydrationRequest request);
+```kotlin
+fun interface CoverageHydrationClient {
+    fun fetch(request: CoverageHydrationRequest): CoverageProjection
 }
 ```
 
 O `SectionHydrator` usa a interface; a implementação concreta usa `RestClient` ou `@HttpExchange`. Assim, o teste do
-orchestrator usa Mockito e o teste do adapter usa WireMock.
+orchestrator usa MockK (ou um fake) e o teste do adapter usa WireMock.
 
-### 4.5 `sdui-api`: Interface Adapters
+### 4.5 `api` (em `sdui-app`): Interface Adapters
 
 ```text
 br.com.empresa.sdui.api
 ├── compose/
-│   ├── ScreenController.java
-│   ├── FragmentController.java
-│   ├── RequestHeaders.java
-│   └── ResponseMapper.java
+│   ├── ScreenController.kt
+│   ├── RequestHeaders.kt
+│   └── ResponseMapper.kt
 ├── admin/
-│   ├── SpecAdminController.java
-│   ├── PublishAdminController.java
-│   └── PointerAdminController.java
+│   ├── SpecAdminController.kt
+│   ├── PublishAdminController.kt
+│   └── PointerAdminController.kt
 ├── validation/
-│   ├── ClientHeadersValidator.java
-│   └── ApiVersionValidator.java
+│   ├── ClientHeadersValidator.kt
+│   └── ApiVersionValidator.kt
 ├── advice/
-│   └── ApiExceptionHandler.java
+│   └── ApiExceptionHandler.kt
 ├── interceptor/
-│   ├── CorrelationIdInterceptor.java
-│   └── RateLimitInterceptor.java
+│   ├── CorrelationIdInterceptor.kt
+│   └── RateLimitInterceptor.kt
 ├── context/
-│   └── ComposeTraceContext.java
+│   └── ComposeTraceContext.kt
 └── security/
-    └── AdminAuthorization.java
+    └── AdminAuthorization.kt
 ```
 
 O controller só deve:
@@ -505,43 +546,53 @@ O controller só deve:
 1. Ler headers.
 2. Validar formato HTTP e encaminhar para a aplicação.
 3. Chamar o caso de uso.
-4. Mapear resultado para response DTO.
+4. Mapear resultado para DTO do contrato (`ResponseMapper`, funções de extensão).
 5. Aplicar `ETag` e decidir 200/304.
 
 Ele não acessa banco/cache, não executa hidratação e não implementa seleção de spec.
+
+`FragmentController` não existe no MVP (ADR-004).
 
 ### 4.6 `sdui-bootstrap`
 
 ```text
 br.com.empresa.sdui.bootstrap
-├── SduiApplication.java
+├── SduiApplication.kt
 ├── configuration/
-│   ├── ApplicationWiringConfiguration.java
-│   ├── AdapterConfiguration.java
-│   ├── HydratorConfiguration.java
-│   ├── WebConfiguration.java
-│   ├── SecurityConfiguration.java
-│   └── ObservabilityConfiguration.java
+│   ├── ApplicationWiringConfiguration.kt
+│   ├── AdapterConfiguration.kt
+│   ├── HydratorConfiguration.kt
+│   ├── WebConfiguration.kt
+│   ├── SecurityConfiguration.kt
+│   └── ObservabilityConfiguration.kt
 └── properties/
-    ├── ComposeProperties.java
-    ├── CacheProperties.java
-    ├── FragmentProperties.java
-    ├── HydrationProperties.java
-    └── RateLimitProperties.java
+    ├── ComposeProperties.kt
+    ├── CacheProperties.kt
+    ├── HydrationProperties.kt
+    └── RateLimitProperties.kt
 ```
 
-É o único módulo que contém `@SpringBootApplication` e faz o wiring final.
+É o único módulo que contém `@SpringBootApplication` e faz o wiring final. As classes do orchestrator viram beans aqui,
+via `@Bean` em `ApplicationWiringConfiguration`, sem annotations no próprio orchestrator.
+
+```kotlin
+@SpringBootApplication
+@ConfigurationPropertiesScan
+class SduiApplication
+
+fun main(args: Array<String>) {
+    runApplication<SduiApplication>(*args)
+}
+```
 
 ---
 
 ## 5. Fragmentos estáticos e telas dinâmicas
 
 > **Status: proposta, fora do MVP (ADR-004).** "Fragment" não existe no vocabulário do `plano-servico-sdui.md` §2 e
-> nenhuma fonte do projeto o define. Esta seção fica como registro da ideia; `Fragment.java`, `FragmentStore`,
-> `FragmentResolver`, `FragmentController`, a chave `sdui:fragment:static:{...}` e o endpoint
-> `GET /v1/fragments/{fragmentId}` **não entram no primeiro PR**. Reabrir só quando existir uma segunda surface reusando
-> o
-> mesmo bloco.
+> nenhuma fonte do projeto o define. Esta seção é **leitura de proposta, não especificação**: nenhuma classe, porta,
+> store, controller, endpoint, chave Redis, propriedade YAML, métrica ou teste de fragment entra no MVP. Reabrir só
+> quando existir uma segunda surface reusando o mesmo bloco.
 
 A ideia de fragmentos estáticos e dinâmicos faz sentido, mas a separação precisa ser feita por **semântica e política de
 cache**, não por classes que bypassam o pipeline.
@@ -617,146 +668,119 @@ Se for necessário override, definir uma operação fechada e validada no publis
 qualquer JSON no request quente.
 
 ---
-
 ## 6. Estratégia de testes
 
-A estratégia proposta pelo usuário faz sentido e deve ser incorporada, com uma correção: **não usar Testcontainers em
-testes unitários**. Testcontainers pertence aos testes de adapter e integração.
+Testes são escritos em Kotlin, com JUnit Jupiter e AssertJ na versão do BOM. **Testcontainers não entra em teste
+unitário**: pertence aos testes de adapter e de integração.
 
 ### 6.1 Matriz de testes
 
-| Camada                    | Ferramentas                               | Escopo                                          |                Infra real? |
-|---------------------------|-------------------------------------------|-------------------------------------------------|---------------------------:|
-| Unitário core/application | JUnit 5 + AssertJ + Mockito               | Regras, casos de uso e falhas                   |                        Não |
-| Adapter Mongo/Redis       | JUnit 5 + Testcontainers                  | Mapeamento, TTL, índices, comandos e integração |                        Sim |
-| Client HTTP               | JUnit 5 + WireMock                        | Status, timeout, payload, retry e erro remoto   | Simulado por servidor HTTP |
-| API MVC                   | `@WebMvcTest` + `MockMvc`/`MockMvcTester` | Controller, headers, status, JSON e advice      |                        Não |
-| Arquitetura               | ArchUnit                                  | Dependências e package rules                    |                        Não |
-| Integração/E2E leve       | `@SpringBootTest` + Testcontainers        | Fluxo HTTP com Mongo + Redis                    |                        Sim |
-| Carga/performance         | Ferramenta de carga da plataforma         | P99, payload, cache, singleflight               |          Ambiente dedicado |
+| Camada                        | Ferramentas                                          | Módulo                          | Escopo                                          |                Infra real? |
+|-------------------------------|------------------------------------------------------|---------------------------------|-------------------------------------------------|---------------------------:|
+| Unitário core                 | JUnit Jupiter + AssertJ                              | `sdui-core`                     | Regras, políticas e invariantes                 |                        Não |
+| Unitário orchestrator         | JUnit Jupiter + AssertJ + MockK/fakes                | `sdui-app`                      | Casos de uso, ordem de chamadas e falhas        |                        Não |
+| Adapter Mongo/Redis           | JUnit Jupiter + Testcontainers                       | `sdui-app`                      | Mapeamento, TTL, índices, comandos e integração |                        Sim |
+| Client HTTP                   | JUnit Jupiter + WireMock                             | `sdui-app`                      | Status, timeout, payload, retry e erro remoto   | Simulado por servidor HTTP |
+| API MVC                       | `@WebMvcTest` + MockMvc (DSL Kotlin) + `@MockkBean`  | `sdui-app`                      | Controller, headers, status, JSON e advice      |                        Não |
+| Serialização do contrato      | `JsonMapper` autoconfigurado pelo Boot               | `sdui-app`                      | JSON de fio exatamente como sai em produção     |                        Não |
+| Contexto                      | `@SpringBootTest`                                    | `sdui-bootstrap`                | Wiring sobe                                     |                        Não |
+| Arquitetura                   | ArchUnit (`ClassFileImporter`)                       | `sdui-integration-test`         | Dependências entre pacotes e camadas            |                        Não |
+| Integração/E2E leve           | `@SpringBootTest` + Testcontainers                   | `sdui-integration-test`         | Fluxo HTTP com Mongo + Redis                    |                        Sim |
+| Carga/performance             | Ferramenta de carga da plataforma                    | fora do build                   | P99, payload, cache, singleflight               |          Ambiente dedicado |
 
-`@WebMvcTest` limita o contexto aos componentes MVC e auto-configura MockMvc; no Boot 4, o módulo de testes MVC é
-`spring-boot-starter-webmvc-test`. `MockMvcTester`, baseado em AssertJ, também pode ser usado quando estiver disponível
-no classpath. [web:56][web:62]
+`@WebMvcTest` limita o contexto aos componentes MVC e auto-configura MockMvc. No Boot 4, o suporte vem do starter
+`spring-boot-starter-webmvc-test`; os pacotes das annotations de teste mudaram com a modularização do Boot 4, então os
+imports devem ser os desse starter, nunca os da linha 3.x. `MockMvcTester`, baseado em AssertJ, também pode ser usado.
 
-### 6.2 Unitários: `sdui-core` e `sdui-orchestrator`
+**Configuração de teste em `sdui-app`.** Slices como `@WebMvcTest` e `@DataMongoTest` procuram uma
+`@SpringBootConfiguration` subindo a árvore de pacotes. Como `@SpringBootApplication` só existe em `sdui-bootstrap`,
+`sdui-app` precisa de uma classe **somente de teste** em `src/test/kotlin/br/com/empresa/sdui/`:
 
-Dependências:
-
-```xml
-
-<dependency>
-    <groupId>org.junit.jupiter</groupId>
-    <artifactId>junit-jupiter</artifactId>
-    <scope>test</scope>
-</dependency>
-<dependency>
-<groupId>org.assertj</groupId>
-<artifactId>assertj-core</artifactId>
-<scope>test</scope>
-</dependency>
-<dependency>
-<groupId>org.mockito</groupId>
-<artifactId>mockito-junit-jupiter</artifactId>
-<scope>test</scope>
-</dependency>
+```kotlin
+@SpringBootConfiguration
+@EnableAutoConfiguration
+class SduiAppTestConfiguration
 ```
 
-JUnit 5 é o framework de execução; AssertJ melhora as asserções; Mockito é reservado para dependências externas do caso
-de uso. Não mockar records, value objects ou políticas puras.
+Ela não usa `@SpringBootApplication` e fica fora do escopo das regras ArchUnit, que importam apenas classes de produção.
+
+### 6.2 Unitários: `sdui-core` e `orchestrator`
+
+MockK é reservado para dependências externas do caso de uso. Para portas de store, **preferir fakes em memória** a
+mocks: são mais legíveis, testam comportamento em vez de interação e sobrevivem a refactor. Não mockar `data class`,
+value classes ou políticas puras.
+
+Mockito não é usado. Se algum dia for necessário, entra com `mockito-kotlin` e agente configurado na task de teste.
 
 #### Testes do `sdui-core`
 
-- `ClientContext` válido e inválido.
-- Comparação semver inclusiva de `min`/`max`.
+- `ClientContext` válido e inválido (resultado `ContextValidation`, não exceção).
+- Comparação semver inclusiva de `min`/`max`, não lexicográfica.
 - `schemaVersion` compatível/incompatível.
 - União da matriz de capabilities com delta do header.
 - Omissão de `type@version` desconhecido.
-- Resolução de fragmentos obrigatórios/opcionais.
-- Proibição de fragmento incompatível com slot.
-- Ações permitidas e payloads fechados.
-- Rejeição de campos de aparência no catálogo.
+- Slot `required` não pode ficar vazio (ADR-009).
+- Ações permitidas e payloads fechados (ADR-011).
+- Rejeição de campos de aparência e de seleção de variação de renderização no catálogo (ADR-010).
 
-#### Testes do `sdui-orchestrator`
+#### Testes do `orchestrator`
 
 - Cache hit não acessa `SpecStore` nem hydrator.
 - Cache miss consulta pointer e spec na ordem esperada.
 - Apenas um líder de singleflight executa a composição.
 - Falha de hydrator omite section quando permitido.
-- Falha de hydrator em section obrigatória aciona fallback.
+- Falha de hydrator em section de slot `required` aciona fallback.
+- Timeout de hydrator **cancela** a tarefa (nenhuma tarefa órfã; ver §11).
 - Falta de spec compatível usa `lastgood`.
 - Fallback contém `fallback=true` e motivo correto.
 - Árvore válida grava cache e lastgood.
 - Capabilities incompatíveis não causam 4xx.
-- Nenhuma cadeia assíncrona fica sem tratamento terminal.
+- Sem árvore e sem `lastgood` produz o resultado que a api traduz em `503` (ADR-007).
 
 Exemplo de teste de caso de uso:
 
-```java
-
-@ExtendWith(MockitoExtension.class)
+```kotlin
 class ComposeScreenServiceTest {
 
-    @Mock
-    SpecStore specStore;
-    @Mock
-    FragmentStore fragmentStore;
-    @Mock
-    HydratedScreenCache cache;
-    @Mock
-    LastGoodScreenStore lastGood;
-    @Mock
-    ComposeSingleflight singleflight;
+    private val specStore = InMemorySpecStore()
+    private val cache = InMemoryHydratedScreenCache()
+    private val lastGood = InMemoryLastGoodScreenStore()
+    private val singleflight = mockk<ComposeSingleflight>()
 
     @Test
-    void deveUsarLastGoodQuandoNaoHouverSpecCompativel() {
+    fun `usa lastgood quando nao ha spec compativel`() {
         // Arrange: cache miss, nenhuma spec aplicável, lastgood disponível.
-        // Act: executa caso de uso.
+        // Act: executa o caso de uso.
         // Assert: fallback=true e motivo NoCompatibleSpec.
     }
 }
 ```
 
+Nomes de teste usam crases e frases em português, sem acentos para evitar problemas de encoding em relatórios.
+
 ### 6.3 Adapter Mongo
 
 Usar Testcontainers para validar o comportamento contra Mongo real:
 
-- Mapeamento `Document <-> domain`.
+- Mapeamento `Document <-> domain` (funções de extensão).
 - Índices de specs, pointers e audit log.
 - Query de candidatas por plataforma/status.
-- Semver ordinal + confirmação em Java.
+- Semver ordinal na query + confirmação em Kotlin.
 - Imutabilidade de spec PUBLISHED.
-- Transação de approve/rollback em replica set.
-- Compare-and-set de pointer.
+- Transação de approve/rollback em replica set (o container de MongoDB do Testcontainers sobe como replica set de um
+  nó).
+- Compare-and-set de pointer via `@Version`.
+- Representação de UUID configurada explicitamente.
 
-Não usar mock de `MongoTemplate` para validar query, índice ou comportamento transacional.
-
-Dependências típicas no módulo de adapter:
-
-```xml
-
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-data-mongodb</artifactId>
-</dependency>
-<dependency>
-<groupId>org.springframework.boot</groupId>
-<artifactId>spring-boot-starter-test</artifactId>
-<scope>test</scope>
-</dependency>
-<dependency>
-<groupId>org.testcontainers</groupId>
-<artifactId>mongodb</artifactId>
-<scope>test</scope>
-</dependency>
-```
+Não usar mock de `MongoTemplate` para validar query, índice ou comportamento transacional. A imagem do container é a
+mesma versão de servidor do ambiente produtivo.
 
 ### 6.4 Adapter Redis
 
 Usar Testcontainers Redis para validar:
 
-- Codec do JSON armazenado.
-- TTL de árvore, fragmento estático e lastgood.
+- Codec do JSON armazenado (mesmo `JsonMapper` do runtime).
+- TTL de árvore e lastgood.
 - Chaves normalizadas.
 - Hash de capabilities ordenadas.
 - `SET NX` e lease do singleflight.
@@ -765,33 +789,28 @@ Usar Testcontainers Redis para validar:
 - Comportamento quando Redis está indisponível.
 - Rate limit atômico, se implementado neste adapter.
 
-Não validar TTL ou script Lua com mock de `RedisTemplate`.
+Container: `GenericContainer` com `@ServiceConnection(name = "redis")`, sem a dependência de terceiros
+`com.redis:testcontainers-redis`. Não validar TTL ou script Lua com mock de `RedisTemplate`.
 
 ### 6.5 API: `@WebMvcTest` + MockMvc
 
-Para controllers, preferir `@WebMvcTest`:
+```kotlin
+@WebMvcTest(controllers = [ScreenController::class])
+class ScreenControllerTest(@Autowired private val mockMvc: MockMvc) {
 
-```java
-
-@WebMvcTest(controllers = ScreenController.class)
-class ScreenControllerTest {
-
-    @Autowired
-    MockMvc mockMvc;
-
-    @MockitoBean
-    ComposeScreenUseCase composeScreenUseCase;
+    @MockkBean
+    private lateinit var composeScreenUseCase: ComposeScreenUseCase
 
     @Test
-    void deveExigirHeadersDeNegociacao() throws Exception {
-        mockMvc.perform(get("/v1/surfaces/home"))
-                .andExpect(status().isBadRequest());
+    fun `exige headers de negociacao`() {
+        mockMvc.get("/v1/surfaces/home")
+            .andExpect { status { isBadRequest() } }
     }
 }
 ```
 
-O uso de `@MockitoBean` deve seguir a API de testes disponível no Spring Boot 4.1.1. Se a versão efetivamente adotada do
-starter expuser outra annotation de substituição, seguir a API daquela versão; não misturar APIs de Boot 3 e Boot 4.
+`@MockkBean` vem de `springmockk`, com versão verificada como compatível com Spring Boot 4.1 antes de entrar no
+catálogo. Não misturar `@MockitoBean` e `@MockkBean` no projeto.
 
 Testar no slice MVC:
 
@@ -800,17 +819,28 @@ Testar no slice MVC:
 - `Client-Platform`, `Client-Version`, `Client-Build`, `OS-Version` e capabilities.
 - Resposta 200.
 - Resposta 304 quando `If-None-Match` casar.
+- `503` + `Retry-After` com corpo estável (ADR-007).
 - JSON do envelope.
 - Erros de validação.
 - `ApiExceptionHandler`.
 - Rotas administrativas e autorização, com configuração de segurança apropriada.
 
 `REST Assured` pode ser adicionado depois para testes de contrato HTTP contra servidor real. Não é necessário para
-começar se `MockMvc` cobre o comportamento do controller.
+começar se MockMvc cobre o comportamento do controller.
 
-### 6.6 WireMock: somente se houver client HTTP
+### 6.6 Serialização do contrato
 
-WireMock deve entrar apenas quando existir um adapter HTTP real de hidratação. Ele deve testar:
+Os testes de serialização validam o JSON de fio com o **mesmo `JsonMapper` que o Boot autoconfigura** (ADR-005). Por
+isso eles vivem em `sdui-app` (slice de JSON do Boot, ou `@WebMvcTest` verificando o corpo), não em `sdui-contract`,
+que não tem Boot. Um mapper construído à mão no teste pode passar enquanto a resposta HTTP sai diferente.
+
+Cobertura mínima: nomes de campo, ausência de campos nulos conforme contrato, datas ISO-8601, ausência de campos
+proibidos (aparência, geometria, variação de renderização) e ausência de `required` (ADR-009) no payload.
+
+### 6.7 WireMock: somente se houver client HTTP
+
+WireMock entra apenas quando existir um adapter HTTP real de hidratação, com versão explícita no catálogo (não é
+gerenciado pelo BOM). Ele deve testar:
 
 - Resposta 2xx e mapeamento.
 - 4xx/5xx.
@@ -824,26 +854,39 @@ WireMock deve entrar apenas quando existir um adapter HTTP real de hidratação.
 
 Se o serviço não tiver client HTTP no MVP, não adicionar WireMock ao projeto. Mongo e Redis não precisam dele.
 
-### 6.7 Integração/E2E leve
+### 6.8 Integração/E2E leve
 
-Usar `@SpringBootTest` com Testcontainers Mongo + Redis para validar o caminho completo:
-
-```java
-
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+```kotlin
+@SpringBootTest(
+    classes = [SduiApplication::class],
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+)
+@Testcontainers
 class ComposeHomeIntegrationTest {
 
+    companion object {
+        @Container
+        @ServiceConnection
+        @JvmField
+        val mongo = MongoDBContainer("mongo:<versao-de-producao>")
+
+        @Container
+        @ServiceConnection(name = "redis")
+        @JvmField
+        val redis = GenericContainer<Nothing>("redis:<versao-de-producao>").apply { withExposedPorts(6379) }
+    }
+
     @Test
-    void deveComporHomeComMongoEประRedisReais() {
+    fun `compoe home com mongo e redis reais`() {
         // Request HTTP real contra porta aleatória.
-        // Mongo e Redis reais em containers.
         // Assert de status, envelope, ETag, cache e fallback.
     }
 }
 ```
 
-O trecho acima é apenas esqueleto conceitual; o identificador do método deve ser escrito em Java válido
-(`deveComporHomeComMongoERedisReais`).
+`@JvmField` no `companion object` é obrigatório: a extensão do Testcontainers e o `@ServiceConnection` procuram campos
+estáticos. No Testcontainers 2.x o pacote de `MongoDBContainer` mudou junto com os artefatos (`testcontainers-mongodb`);
+usar os imports da versão do BOM.
 
 Cobertura mínima:
 
@@ -851,628 +894,503 @@ Cobertura mínima:
 - Segundo request: hit de árvore.
 - `If-None-Match`: 304.
 - Redis indisponível: lastgood, conforme política.
+- Redis vazio e sem lastgood: `503` + `Retry-After`, nunca `500` (ADR-007).
 - Spec incompatível: fallback 200, não 404.
 - Section desconhecida: omitted.
 - Publish: revisão, pointer e auditoria.
 - Rollback: pointer anterior sem alteração da revisão publicada.
 
-`@SpringBootTest` por padrão não precisa abrir uma porta real; para E2E leve com HTTP real, usar `RANDOM_PORT`. Para
-testes sem servidor real, `@SpringBootTest` + `@AutoConfigureMockMvc` é suficiente. [web:56]
+Para testes sem servidor real, `@SpringBootTest` + `@AutoConfigureMockMvc` é suficiente.
 
 ---
 
 ## 7. ArchUnit e regras arquiteturais
 
-Adicionar ArchUnit é uma decisão correta. As regras devem proteger a direção das dependências e os limites do projeto,
-não impor nomenclatura sem valor.
+As regras protegem a direção das dependências e os limites do projeto, não impõem nomenclatura sem valor. Com
+`orchestrator`, `adapters` e `api` no mesmo módulo, **o ArchUnit é a única proteção entre essas três camadas** — por
+isso as regras abaixo são obrigatórias, não recomendações.
 
-ArchUnit possui integração para testes JUnit e é obtido pelo Maven Central. [web:63][web:64]
+### 7.1 Dependência e forma de uso
 
-### 7.1 Dependência
+No módulo `sdui-integration-test`, que enxerga todas as classes de produção:
 
-No módulo `sdui-integration-test` ou em um módulo dedicado de arquitetura:
-
-```xml
-
-<dependency>
-    <groupId>com.tngtech.archunit</groupId>
-    <artifactId>archunit</artifactId>
-    <version>1.5.0</version>
-    <scope>test</scope>
-</dependency>
-<dependency>
-<groupId>com.tngtech.archunit</groupId>
-<artifactId>archunit-junit5</artifactId>
-<version>1.5.0</version>
-<scope>test</scope>
-</dependency>
-```
-
-A versão deve ser validada no repositório corporativo/Maven Central antes de fixar; não declarar uma versão sem
-verificar disponibilidade no ambiente de build.
-
-### 7.2 Regras mínimas
-
-```java
-
-@AnalyzeClasses(packages = "br.com.empresa.sdui")
-class ArchitectureTest {
-
-    @ArchTest
-    static final ArchRule core_must_not_depend_on_frameworks =
-            noClasses()
-                    .that().resideInAnyPackage("..sdui.core..")
-                    .should().dependOnClassesThat()
-                    .resideInAnyPackage(
-                            "org.springframework..",
-                            "org.mongodb..",
-                            "com.mongodb..",
-                            "io.lettuce..",
-                            "jakarta.servlet.."
-                    );
-
-    @ArchTest
-    static final ArchRule controllers_must_not_access_adapters =
-            noClasses()
-                    .that().resideInAnyPackage("..sdui.api..")
-                    .should().dependOnClassesThat()
-                    .resideInAnyPackage("..sdui.adapters..mongo..", "..sdui.adapters..redis..");
-
-    @ArchTest
-    static final ArchRule domain_must_not_depend_on_contract =
-            noClasses()
-                    .that().resideInAnyPackage("..sdui.core..")
-                    .should().dependOnClassesThat()
-                    .resideInAnyPackage("..sdui.contract..");
-
-    @ArchTest
-    static final ArchRule only_bootstrap_starts_spring_boot =
-            classes()
-                    .that().areAnnotatedWith(SpringBootApplication.class)
-                    .should().resideInAnyPackage("..sdui.bootstrap..");
-
-    @ArchTest
-    static final ArchRule controllers_should_reside_in_api =
-            classes()
-                    .that().areAnnotatedWith(RestController.class)
-                    .should().resideInAnyPackage("..sdui.api..");
+```kotlin
+// sdui-integration-test/build.gradle.kts
+dependencies {
+    testImplementation(libs.archunit)          // com.tngtech.archunit:archunit:1.5.0
 }
 ```
 
-### 7.3 Regras adicionais recomendadas
+Usar o artefato `archunit` dentro de testes JUnit Jupiter comuns, com `ClassFileImporter`. Não usar o engine
+`archunit-junit5`: ele depende da compatibilidade de um TestEngine extra com a versão de JUnit do BOM, e
+`@ArchTest static final` não existe em Kotlin (exigiria `@JvmField` em `companion object` para cada regra).
+
+### 7.2 Regras mínimas
+
+```kotlin
+class ArchitectureTest {
+
+    private val classes = ClassFileImporter()
+        .withImportOption(ImportOption.DoNotIncludeTests())
+        .importPackages("br.com.empresa.sdui")
+
+    @Test
+    fun `core nao depende de frameworks nem de jackson`() {
+        noClasses().that().resideInAPackage("..sdui.core..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                "org.springframework..", "org.mongodb..", "com.mongodb..", "io.lettuce..",
+                "jakarta.servlet..", "tools.jackson..", "com.fasterxml.jackson..",
+                "..sdui.contract..", "..sdui.orchestrator..", "..sdui.adapters..", "..sdui.api..",
+            )
+            .check(classes)
+    }
+
+    @Test
+    fun `orchestrator nao depende de spring, contrato nem bordas`() {
+        noClasses().that().resideInAPackage("..sdui.orchestrator..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                "org.springframework..", "jakarta.servlet..", "tools.jackson..", "com.fasterxml.jackson..",
+                "..sdui.contract..", "..sdui.adapters..", "..sdui.api..",
+            )
+            .check(classes)
+    }
+
+    @Test
+    fun `api nao acessa adapters`() {
+        noClasses().that().resideInAPackage("..sdui.api..")
+            .should().dependOnClassesThat().resideInAPackage("..sdui.adapters..")
+            .check(classes)
+    }
+
+    @Test
+    fun `adapters nao dependem de api nem do contrato`() {
+        noClasses().that().resideInAPackage("..sdui.adapters..")
+            .should().dependOnClassesThat().resideInAnyPackage("..sdui.api..", "..sdui.contract..")
+            .check(classes)
+    }
+
+    @Test
+    fun `somente bootstrap inicia spring boot`() {
+        classes().that().areAnnotatedWith(SpringBootApplication::class.java)
+            .should().resideInAPackage("..sdui.bootstrap..")
+            .check(classes)
+    }
+
+    @Test
+    fun `controllers somente em api`() {
+        classes().that().areAnnotatedWith(RestController::class.java)
+            .should().resideInAPackage("..sdui.api..")
+            .check(classes)
+    }
+}
+```
+
+Enquanto os pacotes estiverem vazios (bootstrap/H00), regras que não encontram classes falham por padrão. Usar
+`.allowEmptyShould(true)` somente nessas regras, com comentário apontando a história que remove a exceção, e registrar
+a pendência no `AGENTS.md`.
+
+Regras do tipo "só pode depender de X" (listas de permissão) precisam liberar `kotlin..`, `org.jetbrains.annotations..`
+e `java..`. As regras acima são listas de proibição e não têm esse problema. Classes sintéticas geradas pelo Kotlin
+(`*Kt`, `$Companion`, `$WhenMappings`) residem no mesmo pacote do fonte e são cobertas normalmente.
+
+### 7.3 Regras adicionais
 
 - Classes `@Document` só em `..adapters.mongo.document..`.
 - `MongoTemplate` e `RedisTemplate` só em `..adapters..`.
-- `@Transactional` não deve aparecer em controllers, filters ou adapters, **com uma única exceção nominal**:
-  `..adapters.mongo.tx.MongoTransactionalUnitOfWork`, que implementa a porta `TransactionalUnitOfWork` do
-  publish/rollback (ver ADR-003 no §16). A exceção é por nome de classe, não por pacote.
-- Nenhuma classe de `..sdui.core..` ou `..sdui.orchestrator..` pode depender de `org.springframework.transaction..`.
-- Nenhuma classe fora de `..adapters.mongo.tx..` pode implementar `TransactionalUnitOfWork`.
-- `@SpringBootApplication` somente em bootstrap.
-- Classes de `core` não devem usar `ResponseEntity`, `HttpHeaders` ou tipos servlet.
-- `SectionHydrator` deve residir em application/orchestrator ou em um SPI definido para isso.
-- DTOs públicos devem residir em `contract`; documentos de banco em adapters.
+- `@Transactional` não aparece em controllers, filters ou adapters, **com uma única exceção nominal**:
+  `..adapters.mongo.tx.MongoTransactionalUnitOfWork`, que implementa a porta `TransactionalUnitOfWork` (ADR-003). A
+  exceção é por nome de classe, não por pacote. Se o ADR-013 for aceito, a exceção desaparece e a regra vira "nenhum
+  `@Transactional` no projeto".
+- Nenhuma classe de `..sdui.core..` ou `..sdui.orchestrator..` depende de `org.springframework.transaction..`.
+- Nenhuma classe fora de `..adapters.mongo.tx..` implementa `TransactionalUnitOfWork`.
+- Nenhuma classe de `..core..` ou `..orchestrator..` referencia `ComposeTraceContext` (ADR-002).
+- `SectionHydrator` reside em `..orchestrator.hydration..`; implementações residem em `..adapters..`.
+- DTOs públicos residem em `contract`; documentos de banco em `..adapters.mongo..`.
 - Classes terminadas em `Controller` só em `api`.
-- Implementações de gateways devem residir em adapters.
-- Nenhuma dependência entre módulos de adapter.
+- Nenhuma dependência entre `..adapters.mongo..`, `..adapters.redis..` e `..adapters.http..`.
+- Nenhuma classe de produção declara `suspend fun` nem depende de `kotlinx.coroutines..` (ADR-012).
 
-### 7.4 ArchUnit e módulos Maven
+### 7.4 ArchUnit e fronteiras Gradle
 
-ArchUnit verifica dependências entre classes no bytecode carregado, mas não substitui a separação Maven. Usar os dois
-níveis:
+ArchUnit verifica dependências no bytecode, mas não substitui a separação de módulos. Os dois níveis são usados:
 
-- Maven impede que uma dependência seja necessária/compilada indevidamente.
-- ArchUnit impede violações de package e acoplamentos indiretos dentro do grafo permitido.
+- **Gradle** impede que uma dependência exista no classpath: `sdui-core` e `sdui-contract` não enxergam Spring, e a task
+  `verifyPureClasspath` falha o build se isso mudar. `verifyForbiddenDependencies` impede gRPC, Protobuf, GraphQL,
+  MapStruct e Kafka em qualquer módulo.
+- **ArchUnit** impede violações entre pacotes dentro do grafo permitido, principalmente dentro de `sdui-app`.
 
-Não tentar resolver todos os limites apenas com packages se a dependência Maven puder ser removida.
-
----
-
-## 8. POM raiz
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-
-    <modelVersion>4.0.0</modelVersion>
-
-    <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.1</version>
-        <relativePath/>
-    </parent>
-
-    <groupId>br.com.empresa.sdui</groupId>
-    <artifactId>ms-sdui-composer-parent</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
-    <packaging>pom</packaging>
-
-    <name>ms-sdui-composer-parent</name>
-
-    <modules>
-        <module>sdui-contract</module>
-        <module>sdui-core</module>
-        <module>sdui-orchestrator</module>
-        <module>sdui-adapters</module>
-        <module>sdui-api</module>
-        <module>sdui-bootstrap</module>
-        <module>sdui-integration-test</module>
-    </modules>
-
-    <properties>
-        <java.version>25</java.version>
-        <maven.compiler.release>25</maven.compiler.release>
-        <archunit.version>1.5.0</archunit.version>
-    </properties>
-
-    <!--
-        Resilience4j removido do MVP - ver ADR-006 no §16.
-        Motivo curto: (1) nenhum módulo declarava artefato resilience4j, o BOM
-        era peso morto; (2) o `resilience4j-bom:2.4.0` não gerencia o artefato
-        `resilience4j-spring-boot4`, então a versão teria de ser explícita de
-        qualquer forma; (3) sem client HTTP de hidratação no MVP não há
-        consumidor de circuit breaker. Timeout e bounded fan-out saem de
-        `Semaphore` + `Future.get(timeout)`; timeout de Mongo/Redis sai da
-        configuração do driver; rate limit do compose é distribuído no Redis
-        e não seria atendido pelo RateLimiter in-process do Resilience4j.
-
-        Gatilho de reintrodução: primeiro `SectionHydrator` com client HTTP
-        real. Nesse momento, adicionar com versão explícita (não via BOM)
-        e somar `spring-boot-starter-aspectj` - no Boot 4 o antigo
-        `spring-boot-starter-aop` foi renomeado.
-    -->
-
-    <build>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-enforcer-plugin</artifactId>
-                    <executions>
-                        <execution>
-                            <id>enforce-java-and-maven</id>
-                            <goals>
-                                <goal>enforce</goal>
-                            </goals>
-                            <configuration>
-                                <rules>
-                                    <requireJavaVersion>
-                                        <version>[25,26)</version>
-                                    </requireJavaVersion>
-                                    <requireMavenVersion>
-                                        <version>[3.9,)</version>
-                                    </requireMavenVersion>
-                                </rules>
-                            </configuration>
-                        </execution>
-                    </executions>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-compiler-plugin</artifactId>
-                    <configuration>
-                        <release>${maven.compiler.release}</release>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <configuration>
-                        <useModulePath>false</useModulePath>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-failsafe-plugin</artifactId>
-                    <configuration>
-                        <includes>
-                            <include>**/*IT.java</include>
-                            <include>**/*IntegrationTest.java</include>
-                        </includes>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
-    </build>
-</project>
-```
-
-O Spring Boot 4.1.1 gerencia Spring Framework 7+ e as versões dos starters. Não declarar manualmente artefatos
-individuais do Spring Framework.
+Se uma fronteira puder ser garantida pelo Gradle, ela não deve depender só do ArchUnit.
 
 ---
 
-## 9. POMs dos módulos
+## 8. Build Gradle
 
-### 9.1 `sdui-core/pom.xml`
+### 8.1 `settings.gradle.kts`
 
-```xml
+```kotlin
+pluginManagement {
+    includeBuild("build-logic")
+}
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "<versao-estavel-verificada>"
+}
 
-    <parent>
-        <groupId>br.com.empresa.sdui</groupId>
-        <artifactId>ms-sdui-composer-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        mavenCentral()
+    }
+}
 
-    <artifactId>sdui-core</artifactId>
+rootProject.name = "ms-sdui-composer"
 
-    <dependencies>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-</project>
+include(
+    "sdui-contract",
+    "sdui-core",
+    "sdui-app",
+    "sdui-bootstrap",
+    "sdui-integration-test",
+)
 ```
 
-### 9.2 `sdui-contract/pom.xml`
+O `build.gradle.kts` da raiz fica vazio (ou só com `apply false`). Não usar `allprojects {}` nem `subprojects {}`: o
+Gradle 9.6 deprecou lookups na hierarquia de projetos, e toda configuração compartilhada vive nos convention plugins.
 
-```xml
+### 8.2 `gradle/libs.versions.toml`
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+```toml
+[versions]
+kotlin = "2.3.21"
+spring-boot = "4.1.1"
+archunit = "1.5.0"
+# mockk = "<verificar>"                                  # entra quando uma história exigir
+# springmockk = "<verificar compatibilidade com Boot 4.1>"
+# wiremock = "<verificar>"                               # somente com client HTTP real
 
-    <parent>
-        <groupId>br.com.empresa.sdui</groupId>
-        <artifactId>ms-sdui-composer-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
+[libraries]
+# Plugins usados por build-logic
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-allopen = { module = "org.jetbrains.kotlin:kotlin-allopen", version.ref = "kotlin" }
+spring-boot-gradle-plugin = { module = "org.springframework.boot:spring-boot-gradle-plugin", version.ref = "spring-boot" }
 
-    <artifactId>sdui-contract</artifactId>
+# BOM
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
 
-    <dependencies>
-        <!--
-            Jackson 3 (ADR-005). No Boot 4 o Jackson 3 é a biblioteca padrão e
-            o groupId/pacote mudou de `com.fasterxml.jackson` para
-            `tools.jackson`. Exceção: `jackson-annotations` mantém o groupId
-            antigo. Declarar `com.fasterxml.jackson.core:jackson-databind`
-            aqui colocaria dois databinds no classpath e faria os testes de
-            serialização validarem um mapper que não é o do runtime.
-        -->
-        <dependency>
-            <groupId>tools.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-</project>
+# Fora do BOM: versão explícita
+archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }
+
+# Gerenciadas pelo BOM: SEM versão
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect" }
+jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations" }
+jackson-databind = { module = "tools.jackson.core:jackson-databind" }
+jackson-module-kotlin = { module = "tools.jackson.module:jackson-module-kotlin" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+assertj-core = { module = "org.assertj:assertj-core" }
+spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
+spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
+spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
+spring-boot-starter-data-mongodb = { module = "org.springframework.boot:spring-boot-starter-data-mongodb" }
+spring-boot-starter-data-redis = { module = "org.springframework.boot:spring-boot-starter-data-redis" }
+spring-boot-starter-restclient = { module = "org.springframework.boot:spring-boot-starter-restclient" }
+spring-boot-starter-actuator = { module = "org.springframework.boot:spring-boot-starter-actuator" }
+spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
+spring-boot-testcontainers = { module = "org.springframework.boot:spring-boot-testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:testcontainers-junit-jupiter" }
+testcontainers-mongodb = { module = "org.testcontainers:testcontainers-mongodb" }
+micrometer-registry-prometheus = { module = "io.micrometer:micrometer-registry-prometheus" }
 ```
 
-### 9.3 `sdui-orchestrator/pom.xml`
+Os nomes de starters seguem a modularização do Spring Boot 4 e devem ser conferidos no BOM 4.1.1 antes do primeiro
+uso. Os artefatos de Testcontainers usam os nomes da linha 2.x (`testcontainers-*`).
 
-```xml
+### 8.3 `build-logic/`
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+`build-logic/settings.gradle.kts`:
 
-    <parent>
-        <groupId>br.com.empresa.sdui</groupId>
-        <artifactId>ms-sdui-composer-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
+```kotlin
+dependencyResolutionManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+    versionCatalogs {
+        create("libs") {
+            from(files("../gradle/libs.versions.toml"))
+        }
+    }
+}
 
-    <artifactId>sdui-orchestrator</artifactId>
-
-    <dependencies>
-        <dependency>
-            <groupId>br.com.empresa.sdui</groupId>
-            <artifactId>sdui-core</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-</project>
+rootProject.name = "build-logic"
 ```
 
-### 9.4 `sdui-adapters/pom.xml`
+`build-logic/build.gradle.kts`:
 
-```xml
+```kotlin
+plugins {
+    `kotlin-dsl`
+}
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-
-    <parent>
-        <groupId>br.com.empresa.sdui</groupId>
-        <artifactId>ms-sdui-composer-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
-
-    <artifactId>sdui-adapters</artifactId>
-
-    <dependencies>
-        <dependency>
-            <groupId>br.com.empresa.sdui</groupId>
-            <artifactId>sdui-orchestrator</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>br.com.empresa.sdui</groupId>
-            <artifactId>sdui-core</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-mongodb</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-redis</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-restclient</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>mongodb</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.redis</groupId>
-            <artifactId>testcontainers-redis</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.wiremock</groupId>
-            <artifactId>wiremock-standalone</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-</project>
+dependencies {
+    implementation(libs.kotlin.gradle.plugin)
+    implementation(libs.kotlin.allopen)
+    implementation(libs.spring.boot.gradle.plugin)
+}
 ```
 
-**Ajuste:** `spring-boot-starter-restclient` e WireMock só devem permanecer se houver hidratação HTTP. Se não houver
-client HTTP no MVP, remover ambos.
+Dentro de precompiled script plugins o acessor tipado `libs` não existe; usar
+`extensions.getByType<VersionCatalogsExtension>().named("libs")`.
 
-### 9.5 `sdui-api/pom.xml`
+### 8.4 Convention plugins
 
-```xml
+| Plugin                  | Aplica                                                                                     | Usado por                                  |
+|-------------------------|--------------------------------------------------------------------------------------------|--------------------------------------------|
+| `sdui.kotlin-base`      | `kotlin("jvm")`, `java-library`, toolchain 25, flags, BOM, JUnit, `verifyForbiddenDependencies` | todos, indiretamente                  |
+| `sdui.kotlin-library`   | `sdui.kotlin-base` + `verifyPureClasspath`                                                 | `sdui-core`, `sdui-contract`               |
+| `sdui.spring-library`   | `sdui.kotlin-base` + `kotlin("plugin.spring")` + `kotlin-reflect`                           | `sdui-app`, `sdui-integration-test`        |
+| `sdui.spring-app`       | `sdui.spring-library` + `org.springframework.boot`                                          | `sdui-bootstrap`                           |
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+`sdui.kotlin-base.gradle.kts` (esboço):
 
-    <parent>
-        <groupId>br.com.empresa.sdui</groupId>
-        <artifactId>ms-sdui-composer-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
+```kotlin
+plugins {
+    id("org.jetbrains.kotlin.jvm")
+    `java-library`
+}
 
-    <artifactId>sdui-api</artifactId>
+val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
+fun lib(alias: String) = libs.findLibrary(alias).get()
 
-    <dependencies>
-        <dependency>
-            <groupId>br.com.empresa.sdui</groupId>
-            <artifactId>sdui-orchestrator</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>br.com.empresa.sdui</groupId>
-            <artifactId>sdui-contract</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
+kotlin {
+    jvmToolchain(25)
+    compilerOptions {
+        freeCompilerArgs.add("-Xannotation-default-target=param-property")
+        allWarningsAsErrors.set(true)
+    }
+}
 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-</project>
+dependencies {
+    implementation(platform(lib("spring-boot-bom")))
+    testImplementation(platform(lib("spring-boot-bom")))
+    testImplementation(lib("junit-jupiter"))
+    testImplementation(lib("assertj-core"))
+    testRuntimeOnly(lib("junit-platform-launcher"))
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+}
+
+val verifyForbiddenDependencies by tasks.registering(VerifyDependencies::class) {
+    forbiddenGroupPrefixes.set(
+        listOf(
+            "io.grpc", "com.google.protobuf", "org.springframework.grpc",
+            "com.graphql-java", "org.springframework.graphql",
+            "org.mapstruct", "org.apache.kafka",
+        ),
+    )
+    rootComponent.set(configurations.named("runtimeClasspath").flatMap { it.incoming.resolutionResult.rootComponent })
+}
+
+tasks.named("check") { dependsOn(verifyForbiddenDependencies) }
 ```
 
-### 9.6 `sdui-bootstrap/pom.xml`
+`-Xannotation-default-target=param-property` faz annotations em parâmetros de construtor (`@JsonProperty`, `@Id`,
+`@field:...`) caírem no parâmetro e na propriedade, como o Spring e o Jackson esperam.
 
-```xml
+`sdui.kotlin-library.gradle.kts` acrescenta:
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+```kotlin
+plugins {
+    id("sdui.kotlin-base")
+}
 
-    <parent>
-        <groupId>br.com.empresa.sdui</groupId>
-        <artifactId>ms-sdui-composer-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
+val verifyPureClasspath by tasks.registering(VerifyDependencies::class) {
+    forbiddenGroupPrefixes.set(listOf("org.springframework", "org.mongodb", "io.lettuce", "jakarta.servlet"))
+    rootComponent.set(configurations.named("runtimeClasspath").flatMap { it.incoming.resolutionResult.rootComponent })
+}
 
-    <artifactId>sdui-bootstrap</artifactId>
-
-    <dependencies>
-        <dependency>
-            <groupId>br.com.empresa.sdui</groupId>
-            <artifactId>sdui-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>br.com.empresa.sdui</groupId>
-            <artifactId>sdui-adapters</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-actuator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-registry-prometheus</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <mainClass>br.com.empresa.sdui.bootstrap.SduiApplication</mainClass>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-</project>
+tasks.named("check") { dependsOn(verifyPureClasspath) }
 ```
 
-### 9.7 `sdui-integration-test/pom.xml`
+### 8.5 Task `VerifyDependencies`
 
-```xml
+Vive em `build-logic/src/main/kotlin/VerifyDependencies.kt`. Recebe o resultado da resolução como input (compatível com
+configuration cache) e **ignora componentes de plataforma** — sem isso, o próprio BOM
+`org.springframework.boot:spring-boot-dependencies` seria acusado como dependência Spring em `sdui-core`.
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+```kotlin
+abstract class VerifyDependencies : DefaultTask() {
 
-    <parent>
-        <groupId>br.com.empresa.sdui</groupId>
-        <artifactId>ms-sdui-composer-parent</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
+    @get:Input
+    abstract val forbiddenGroupPrefixes: ListProperty<String>
 
-    <artifactId>sdui-integration-test</artifactId>
+    @get:Input
+    abstract val rootComponent: Property<ResolvedComponentResult>
 
-    <dependencies>
-        <dependency>
-            <groupId>br.com.empresa.sdui</groupId>
-            <artifactId>sdui-bootstrap</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-testcontainers</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>mongodb</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.redis</groupId>
-            <artifactId>testcontainers-redis</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.tngtech.archunit</groupId>
-            <artifactId>archunit-junit5</artifactId>
-            <version>${archunit.version}</version>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+    @TaskAction
+    fun verify() {
+        val forbidden = forbiddenGroupPrefixes.get()
+        val seen = mutableSetOf<ComponentIdentifier>()
+        val violations = sortedSetOf<String>()
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-failsafe-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
-</project>
+        fun ResolvedComponentResult.isPlatform(): Boolean = variants.any { variant ->
+            val key = variant.attributes.keySet().firstOrNull { it.name == "org.gradle.category" }
+            val category = key?.let { variant.attributes.getAttribute(it)?.toString() }
+            category == "platform" || category == "enforced-platform"
+        }
+
+        fun visit(component: ResolvedComponentResult) {
+            if (!seen.add(component.id)) return
+            val id = component.id
+            if (id is ModuleComponentIdentifier && !component.isPlatform() &&
+                forbidden.any { id.group.startsWith(it) }
+            ) {
+                violations += id.displayName
+            }
+            component.dependencies
+                .filterIsInstance<ResolvedDependencyResult>()
+                .forEach { visit(it.selected) }
+        }
+
+        visit(rootComponent.get())
+        if (violations.isNotEmpty()) {
+            throw GradleException("Dependências proibidas no runtimeClasspath: $violations")
+        }
+    }
+}
 ```
+
+### 8.6 `gradle.properties` e wrapper
+
+```properties
+org.gradle.configuration-cache=true
+org.gradle.caching=true
+org.gradle.parallel=true
+kotlin.code.style=official
+```
+
+O wrapper é gerado por um Gradle instalado localmente, com checksum (ver `iniciar-prompt.md`), e o
+`gradle-wrapper.properties` contém `distributionSha256Sum`. O `gradle-wrapper.jar` nunca é escrito à mão.
+
+---
+
+## 9. `build.gradle.kts` dos módulos
+
+### 9.1 `sdui-core`
+
+```kotlin
+plugins {
+    id("sdui.kotlin-library")
+}
+```
+
+Nenhuma dependência de produção além da stdlib Kotlin.
+
+### 9.2 `sdui-contract`
+
+```kotlin
+plugins {
+    id("sdui.kotlin-library")
+}
+
+dependencies {
+    api(libs.jackson.annotations)
+    api(libs.jackson.databind)      // somente enquanto o envelope usar JsonNode para `data`
+}
+```
+
+Jackson 3 (ADR-005): `tools.jackson.core:jackson-databind` + `com.fasterxml.jackson.core:jackson-annotations`, que
+mantém o groupId antigo. Declarar `com.fasterxml.jackson.core:jackson-databind` colocaria dois databinds no classpath.
+
+### 9.3 `sdui-app`
+
+```kotlin
+plugins {
+    id("sdui.spring-library")
+}
+
+dependencies {
+    api(project(":sdui-core"))
+    implementation(project(":sdui-contract"))
+
+    implementation(libs.spring.boot.starter.webmvc)
+    implementation(libs.spring.boot.starter.validation)
+    implementation(libs.jackson.module.kotlin)
+
+    // Entram na história que implementa o adapter correspondente, não no bootstrap do repositório (H00):
+    // implementation(libs.spring.boot.starter.data.mongodb)
+    // implementation(libs.spring.boot.starter.data.redis)
+    // implementation(libs.spring.boot.starter.restclient)   // somente com hidratação HTTP real
+
+    testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.boot.starter.test)
+    // Com os adapters:
+    // testImplementation(libs.spring.boot.testcontainers)
+    // testImplementation(libs.testcontainers.junit.jupiter)
+    // testImplementation(libs.testcontainers.mongodb)
+    // Quando uma história exigir:
+    // testImplementation(libs.mockk)
+    // testImplementation(libs.springmockk)
+    // testImplementation(libs.wiremock)                     // somente com client HTTP real
+}
+```
+
+`api(project(":sdui-core"))` é obrigatório: portas e casos de uso expõem tipos do core nas assinaturas, e o bootstrap
+precisa enxergá-los para fazer o wiring. `sdui-contract` é `implementation` porque só a camada `api` o usa.
+
+`jackson-module-kotlin` é o que permite ao `JsonMapper` do Boot (de)serializar `data class` com construtor primário e
+nulabilidade Kotlin. Sem ele, a desserialização de fixtures e requests administrativos falha.
+
+### 9.4 `sdui-bootstrap`
+
+```kotlin
+plugins {
+    id("sdui.spring-app")
+}
+
+dependencies {
+    implementation(project(":sdui-app"))
+    implementation(libs.spring.boot.starter.actuator)
+    runtimeOnly(libs.micrometer.registry.prometheus)
+
+    testImplementation(libs.spring.boot.starter.test)
+}
+```
+
+O plugin do Boot detecta a classe principal. Se for preciso declará-la, lembrar que o `main` top-level de Kotlin é
+compilado em `SduiApplicationKt`: `springBoot { mainClass.set("br.com.empresa.sdui.bootstrap.SduiApplicationKt") }`.
+
+### 9.5 `sdui-integration-test`
+
+```kotlin
+plugins {
+    id("sdui.spring-library")
+}
+
+dependencies {
+    testImplementation(project(":sdui-bootstrap"))
+    testImplementation(project(":sdui-app"))
+    testImplementation(project(":sdui-core"))
+    testImplementation(project(":sdui-contract"))
+
+    testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.archunit)
+    // Com os adapters:
+    // testImplementation(libs.spring.boot.testcontainers)
+    // testImplementation(libs.testcontainers.junit.jupiter)
+    // testImplementation(libs.testcontainers.mongodb)
+}
+```
+
+Nada em `src/main`. Os testes de integração rodam na task `test` deste módulo; não há separação `*IT` como no Failsafe.
 
 ---
 
 ## 10. YAML e configuração
 
-### `sdui-bootstrap/src/main/resources/application.yml`
+### `sdui-bootstrap/src/main/resources/application.yaml`
 
 ```yaml
 spring:
@@ -1491,10 +1409,14 @@ spring:
       required: true
       supported: "1"
 
-  data:
-    mongodb:
-      uri: ${MONGODB_URI}
+  # Boot 4: propriedades de conexão do MongoDB saíram de `spring.data.mongodb.*` para `spring.mongodb.*`.
+  # Usar o prefixo antigo faz a aplicação cair silenciosamente no default `mongodb://localhost/test`.
+  mongodb:
+    uri: ${MONGODB_URI}
+    representation:
+      uuid: standard
 
+  data:
     redis:
       host: ${REDIS_HOST}
       port: ${REDIS_PORT:6379}
@@ -1525,10 +1447,6 @@ sdui:
     max-sections: ${SDUI_MAX_SECTIONS:20}
     max-payload-bytes: ${SDUI_MAX_PAYLOAD_BYTES:131072}
 
-  fragments:
-    static-ttl: ${SDUI_STATIC_FRAGMENT_TTL:15m}
-    dynamic-ttl: ${SDUI_DYNAMIC_FRAGMENT_TTL:30s}
-
   hydration:
     enabled: ${SDUI_HYDRATION_ENABLED:false}
     max-concurrency: ${SDUI_HYDRATION_MAX_CONCURRENCY:8}
@@ -1541,42 +1459,110 @@ sdui:
     refill-period: ${SDUI_RATE_LIMIT_REFILL_PERIOD:1m}
 ```
 
-As properties ficam somente em `.yml`. O binding deve usar `@ConfigurationProperties` tipado, não `@Value` espalhado.
+As chaves `spring.mongodb.*` e `spring.data.redis.*` só passam a ser lidas quando os starters de dados entrarem em
+`sdui-app`. No bootstrap do repositório (H00), o `application.yaml` pode conter apenas `spring.application.name`,
+`spring.threads.virtual.enabled` e o bloco `sdui` que já tenha consumidor.
 
-```java
+As properties ficam somente em `.yaml`. O binding usa `@ConfigurationProperties` tipado em `data class`, nunca `@Value`
+espalhado:
 
+```kotlin
 @ConfigurationProperties(prefix = "sdui.hydration")
-public record HydrationProperties(
-        boolean enabled,
-        int maxConcurrency,
-        Duration sectionTimeout
-) {
-}
+data class HydrationProperties(
+    val enabled: Boolean,
+    val maxConcurrency: Int,
+    val sectionTimeout: Duration,
+)
 ```
+
+Sem valores default no Kotlin: a fonte única de default é o YAML. Propriedade ausente e não-nula falha na subida, que é
+o comportamento desejado. As classes são registradas por `@ConfigurationPropertiesScan` na `SduiApplication`.
 
 ---
 
 ## 11. Regras para hidratação paralela
 
-A proposta menciona hidratação paralela. Ela faz sentido somente com escopo e orçamento claros.
+Hidratação paralela faz sentido somente com escopo e orçamento claros.
 
 ### Regras obrigatórias
 
-- O número máximo de hydrators concorrentes deve ser limitado.
-- O limite deve proteger a dependência, não apenas a CPU do processo.
-- Cada section tem timeout próprio, menor que o deadline total.
-- O compose espera apenas o escopo que iniciou; não deixar tarefas órfãs.
-- Falhas devem ser convertidas em resultado terminal: section omitida, fallback ou erro de compose conforme contrato.
+- O número máximo de hydrators concorrentes é limitado **por instância e por dependência**, não por request. Um
+  `Semaphore` criado dentro de cada compose não protege a API da squad quando cem requests chegam juntos.
+- Cada section tem timeout próprio, menor que o deadline total do compose.
+- O compose espera apenas o escopo que iniciou; nenhuma tarefa fica órfã.
+- Falhas viram resultado terminal: section omitida, fallback ou erro de compose conforme contrato.
 - Não usar `CompletableFuture` sem `handle`/`exceptionally`.
 - Não usar `Executors.newFixedThreadPool` para I/O de hydrators.
 - Virtual Threads não eliminam a necessidade de limitar concorrência na API externa.
-- `synchronized` não deve envolver chamadas de rede.
+- Não segurar lock durante I/O. Desde o Java 24 (JEP 491) `synchronized` não prende mais a virtual thread ao carrier,
+  mas lock segurado durante chamada de rede continua gerando contenção.
+- Sem coroutines e sem `suspend` (ADR-012).
+- Sem `StructuredTaskScope` (preview no Java 25).
 
-Em Java 25, usar `Executors.newVirtualThreadPerTaskExecutor()` para tarefas I/O-bound, com `Semaphore` limitando o
-fan-out. Não usar Structured Concurrency enquanto exigir preview. O executor deve estar em try-with-resources ou em um
-componente com ciclo de vida explícito.
+### Esboço em Kotlin
 
-O limite definido em `sdui.hydration.max-concurrency` deve ser validado contra o SLA e rate limit das APIs das squads.
+```kotlin
+class HydrationCoordinator(
+    private val registry: HydratorRegistry,
+    maxConcurrency: Int,
+    private val sectionTimeout: Duration,
+    private val clock: Clock,
+) {
+    // Compartilhado entre requests: protege a dependência, não só o request.
+    private val permits = Semaphore(maxConcurrency)
+
+    fun hydrateAll(context: HydrationContext, sections: List<Section>, deadline: Instant): List<HydrationOutcome> {
+        val sectionDeadline = minOf(clock.instant().plus(sectionTimeout), deadline)
+
+        return Executors.newVirtualThreadPerTaskExecutor().use { executor ->
+            val futures = sections.map { section ->
+                section to executor.submit<HydrationResult> {
+                    permits.acquire()
+                    try {
+                        registry.hydratorFor(section).hydrate(context, section)
+                    } finally {
+                        permits.release()
+                    }
+                }
+            }
+            futures.map { (section, future) -> awaitOrCancel(section, future, sectionDeadline) }
+        }
+    }
+
+    private fun awaitOrCancel(section: Section, future: Future<HydrationResult>, until: Instant): HydrationOutcome {
+        val remainingMillis = Duration.between(clock.instant(), until).toMillis().coerceAtLeast(0)
+        return try {
+            HydrationOutcome.Hydrated(section, future.get(remainingMillis, TimeUnit.MILLISECONDS))
+        } catch (e: TimeoutException) {
+            future.cancel(true)
+            HydrationOutcome.Omitted(section, OmissionReason.TIMEOUT)
+        } catch (e: ExecutionException) {
+            HydrationOutcome.Omitted(section, OmissionReason.ERROR)
+        } catch (e: InterruptedException) {
+            future.cancel(true)
+            Thread.currentThread().interrupt()
+            HydrationOutcome.Omitted(section, OmissionReason.INTERRUPTED)
+        }
+    }
+}
+```
+
+O coordenador recebe `maxConcurrency` e `sectionTimeout` como valores, não `HydrationProperties`: properties são do
+bootstrap, e o orchestrator não pode depender dele. O wiring em `ApplicationWiringConfiguration` faz a ponte.
+
+Três detalhes que o esboço torna explícitos:
+
+1. **`Future.get(timeout)` não cancela a tarefa.** Sem `future.cancel(true)` no `catch`, a hidratação continua rodando
+   depois que o compose já respondeu — exatamente a tarefa órfã que esta seção proíbe.
+2. **`use {}` espera todas as tarefas terminarem** (`ExecutorService.close()` aguarda término). Cancelar interrompe a
+   virtual thread, mas I/O que não responde a interrupção segura o request além do deadline. Por isso todo client usado
+   por hydrator tem timeout próprio de conexão e leitura **menor ou igual** ao `section-timeout`.
+3. **`acquire()` fica fora do `try`.** Se a tarefa for cancelada enquanto espera a permissão, não há `release()` de uma
+   permissão que nunca foi obtida.
+
+Se o limite precisar ser por dependência (squads diferentes com SLAs diferentes), o `Semaphore` passa para dentro do
+`HydratorRegistry`, um por hydrator. O valor de `sdui.hydration.max-concurrency` deve ser validado contra o SLA e o rate
+limit das APIs das squads.
 
 ---
 
@@ -1588,22 +1574,8 @@ O limite definido em `sdui.hydration.max-concurrency` deve ser validado contra o
 GET /v1/surfaces/{surface}
 ```
 
-### Endpoint de fragmento (fora do MVP — ADR-004)
-
-```text
-GET /v1/fragments/{fragmentId}
-```
-
-A existência do endpoint de fragmento separado precisa ser justificada pelo consumidor. Se o app sempre recebe o
-fragmento dentro da Screen e o fragmento não é reutilizado independentemente, manter apenas o endpoint de Screen reduz
-superfície operacional.
-
-Uma opção pragmática para MVP:
-
-- Expor `GET /v1/surfaces/home`.
-- Persistir fragments internamente.
-- Permitir rotas públicas de fragmento somente quando houver consumidor real ou necessidade de cache/entrega
-  independente.
+O endpoint é `GET /v1/surfaces/home` no MVP. Não existe endpoint de fragment (`GET /v1/fragments/{fragmentId}`) nem
+rota pública para blocos parciais; ver ADR-004 e §5.
 
 ### Headers
 
@@ -1636,7 +1608,7 @@ projeto.
   previsível, sem stacktrace. Nunca usar `500` nesse caso: o app precisa do sinal de retry.
 
 A Home não retorna 404 quando não há spec compatível; usa última árvore boa ou uma resposta de fallback definida pelo
-contrato. [file:8]
+contrato (`plano-servico-sdui.md`).
 
 Escada completa, do melhor para o pior caso:
 
@@ -1664,12 +1636,11 @@ sdui.compose.singleflight.wait
 sdui.compose.duration
 sdui.section.duration
 sdui.section.omitted
-sdui.fragment.cache.hit
-sdui.fragment.cache.miss
 sdui.payload.bytes
 sdui.serialize.duration
 sdui.hydration.timeout
 sdui.hydration.error
+sdui.hydration.permits.wait
 ```
 
 Tags permitidas e de baixa cardinalidade:
@@ -1682,7 +1653,6 @@ appMajorMinor
 channel
 outcome
 cache
-fragmentKind=static|dynamic
 componentType
 fallbackReason
 ```
@@ -1696,7 +1666,6 @@ compose
 ├── cache.tree
 ├── resolve.pointer
 ├── select.spec
-├── resolve.fragments
 ├── hydrate.sections
 │   ├── section.top_bar
 │   └── section.account_card
@@ -1704,72 +1673,66 @@ compose
 └── serialize.response
 ```
 
+Métricas, tags e spans de fragment não existem no MVP (ADR-004).
+
 ---
 
-## 14. Ajustes finais à proposta do usuário
+## 14. Ajustes consolidados à proposta original
 
-### O que faz sentido aprovar
+### O que foi aprovado
 
-- Modularização em `contract`, `core`, `orchestrator`, `adapters`, `api` e `bootstrap` — **com a ressalva do ADR-001**:
-  com um único engenheiro, sete módulos Maven provavelmente não pagam o custo; a recomendação é colapsar para três.
-- Fragmentos estáticos e dinâmicos com políticas de cache distintas — **adiado pelo ADR-004**, mantido aqui como
-  proposta.
-- SPI `SectionHydrator` para hidratação por squad.
-- JUnit 5 + AssertJ + Mockito para unitários.
-- Testcontainers para Mongo/Redis.
-- `@WebMvcTest` + MockMvc para controller.
-- ArchUnit para regras de dependência.
+- Separação lógica em `contract`, `core`, `orchestrator`, `adapters`, `api` e `bootstrap`, materializada em **quatro
+  módulos** (ADR-001).
+- SPI `SectionHydrator` para hidratação por squad, bloqueante e bounded.
+- JUnit Jupiter + AssertJ + MockK/fakes para unitários.
+- Testcontainers para Mongo/Redis, somente em adapter e integração.
+- `@WebMvcTest` + MockMvc (DSL Kotlin) para controller.
+- ArchUnit para regras de dependência entre pacotes, obrigatório dentro de `sdui-app`.
 - `@SpringBootTest` com Testcontainers para integração/E2E leve.
 - WireMock apenas quando existir client HTTP de hidratação.
 
-### O que ajustar
+### O que foi ajustado
 
-1. **Não chamar o `sdui-core` de simples validação de contexto.** Ele deve conter as invariantes SDUI completas,
-   inclusive compatibilidade, omissão, targeting e resolução limitada de fragments.
-2. **O `sdui-orchestrator` precisa ser o dono dos casos de uso**, não apenas um pipeline técnico.
-3. **`sdui-adapters` não deve depender diretamente de DTOs HTTP do contract**. Preferir domínio/application e mappers
-   explícitos.
-4. **`@JsonTypeInfo` não deve ser obrigatório.** Usar somente se polimorfismo de desserialização for realmente
-   necessário.
-5. **Não expor fragments publicamente automaticamente.** Começar com Screen e adicionar endpoint independente quando
-   houver consumidor.
-6. **Hydrators devem ser bounded.** SPI não pode permitir fan-out ilimitado por squad.
-7. **Não adicionar RestClient/WireMock sem client HTTP real.**
-8. **ArchUnit deve proteger regras reais**, e não apenas verificar nomes de packages.
-9. **Testcontainers não pertence a unitários.** Deve ser usado em adapters e integração.
-10. **Corrigir headers da proposta:** usar os nomes sem `X-` definidos no projeto.
-11. **Fixar o starter MVC de teste do Boot 4.1.1:** `spring-boot-starter-webmvc-test`. [web:62]
-12. **Separar API version de UI schema version:** `API-Version` é obrigatório e independente de
-    `UI-Schema-Version`. [file:8]
-13. **Jackson 3, não Jackson 2.** `tools.jackson.core:jackson-databind` +
-    `com.fasterxml.jackson.core:jackson-annotations`. Ver ADR-005.
-14. **Resilience4j sai do POM raiz.** Sem consumidor no MVP e o BOM 2.4.0 não gerencia o artefato de Boot 4. Ver
-    ADR-006.
-15. **`503` + `Retry-After` entra na tabela de respostas** como último degrau da escada de fallback. Ver ADR-007.
-16. **`Fragment` não entra no MVP.** `Screen` é formalizado no vocabulário; fragments ficam como proposta até haver
-    segunda surface. Ver ADR-004.
-17. **Transação de publish via porta `TransactionalUnitOfWork`**, com exceção ArchUnit nominal. Ver ADR-003.
-18. **Omissão pura confirmada como política de section incompatível**, com slot portante marcado no skeleton persistido.
-    `downgradeTo` por type fica fora do MVP com gatilho de reentrada nomeado. Ver ADR-009.
-19. **`SectionComponentType` não entra no contrato.** Variação de renderização escolhida pelo servidor é aparência;
-    alternativas por caso no ADR. Ver ADR-010.
-20. **Conjunto de actions permanece fechado em quatro**, sem extensão por feature. Ver ADR-011.
+1. **`sdui-core` não é simples validação de contexto.** Contém as invariantes SDUI completas: compatibilidade,
+   omissão, targeting e slot portante.
+2. **O `orchestrator` é dono dos casos de uso**, não apenas um pipeline técnico, e não conhece Spring.
+3. **`adapters` não depende de DTOs do `contract`.** Mapeamento por funções de extensão a partir de domínio/application.
+4. **`@JsonTypeInfo` não é obrigatório.** Só com polimorfismo de desserialização realmente necessário.
+5. **Fragment fora do MVP**, em todas as camadas (ADR-004).
+6. **Hydrators são bounded por instância/dependência**, com cancelamento explícito em timeout (§11).
+7. **Sem RestClient/WireMock sem client HTTP real.**
+8. **ArchUnit protege regras reais**, e dentro de `sdui-app` é a única fronteira entre camadas.
+9. **Testcontainers não pertence a unitários.**
+10. **Headers sem `X-`**, conforme o projeto.
+11. **Starter MVC de teste do Boot 4:** `spring-boot-starter-webmvc-test`.
+12. **`API-Version` separado de `UI-Schema-Version`** (`plano-servico-sdui.md`).
+13. **Jackson 3 com módulo Kotlin** (ADR-005).
+14. **Resilience4j fora do MVP** (ADR-006).
+15. **`503` + `Retry-After` como último degrau da escada** (ADR-007).
+16. **Transação de publish via porta `TransactionalUnitOfWork`** (ADR-003; alternativa proposta no ADR-013).
+17. **Omissão pura com slot portante declarado** (ADR-009).
+18. **`SectionComponentType` não entra no contrato** (ADR-010).
+19. **Conjunto de actions fechado em quatro** (ADR-011).
+20. **Kotlin em toda a produção e testes; build Gradle com convention plugins**, sem MapStruct/`kapt`.
+21. **Sem coroutines no MVP** (ADR-012).
+22. **Propriedades do MongoDB no prefixo `spring.mongodb.*`** e representação de UUID explícita (§10).
+23. **Versões gerenciadas pelo BOM nunca são fixadas**; bibliotecas fora do BOM ficam no catálogo com versão verificada.
 
 ---
 
 ## 15. Ordem de implementação
 
-1. Criar parent Maven e Maven Wrapper.
-2. Criar `sdui-core`, `sdui-orchestrator`, `sdui-contract`, `sdui-adapters`, `sdui-api`, `sdui-bootstrap` e
-   `sdui-integration-test`.
-3. Implementar primeiro o core com testes unitários e sem qualquer Spring.
-4. Implementar casos de uso e ports do orchestrator.
-5. Implementar o contrato v1 e testes de serialização.
+1. Criar `settings.gradle.kts`, catálogo, `build-logic/` com os convention plugins e `VerifyDependencies`, e o Gradle
+   Wrapper com checksum.
+2. Criar `sdui-contract`, `sdui-core`, `sdui-app`, `sdui-bootstrap` e `sdui-integration-test`.
+3. Implementar o core com testes unitários, sem qualquer Spring.
+4. Implementar casos de uso e portas do orchestrator (pacote em `sdui-app`), com fakes em memória.
+5. Implementar o contrato v1 e os testes de serialização com o `JsonMapper` do Boot.
 6. Implementar resolução de Screen sem hidratação remota (sem fragments — ADR-004).
-7. Implementar cache Redis para Screen/lastgood/singleflight.
-8. Implementar Mongo para spec, pointer, skeleton e auditoria.
+7. Implementar cache Redis para Screen/lastgood/singleflight (starter de Redis entra aqui).
+8. Implementar Mongo para spec, pointer, skeleton e auditoria (starter de MongoDB entra aqui).
 9. Implementar API MVC e `@WebMvcTest`.
-10. Implementar ArchUnit e fazer o build falhar quando houver violação.
+10. Endurecer ArchUnit: remover todo `allowEmptyShould(true)` restante e fazer o build falhar em violação.
 11. Implementar hydrators somente para squads/clientes efetivamente definidos.
 12. Adicionar client HTTP e WireMock apenas nesse momento.
 13. Criar integração completa com `@SpringBootTest` + Mongo/Redis Testcontainers.
@@ -1784,41 +1747,46 @@ Formato curto: contexto, decisão, consequência. Um ADR só muda por outro ADR 
 engenheiro de backend**; isso não dispensa o registro, ao contrário: o ADR é o que impede a decisão de ser reaberta por
 esquecimento daqui a três meses.
 
-Legenda de status: `ACEITO` (fechado, vale para o código) e `PENDENTE` (recomendação registrada, aguardando decisão).
+Legenda de status:
+
+- `ACEITO`: fechado, vale para o código.
+- `PROPOSTO`: recomendação registrada; **não vale para o código** até ser promovida a `ACEITO`.
+- `PENDENTE`: decisão aberta que bloqueia a parte afetada.
 
 ---
 
-### ADR-001 — Modularização Maven vs. §13.2 do plano
+### ADR-001 — Modularização: quatro módulos de produção
 
-**Status:** `PENDENTE` — é a única decisão deste documento que continua aberta.
+**Status:** `ACEITO` (18/09/2026). Supersede a versão anterior deste ADR, que recomendava três módulos Maven.
 
 **Contexto.** O `plano-servico-sdui.md` §13.2 se intitula "Pacotes (simples, sem hexágono)" e propõe um layout achatado
-de pacotes (`api`, `compose`, `catalog`, `skeleton`, `spec`, `diff`, `cache`, `targeting`, `audit`, `support`) num
-artefato único. A premissa 12 do §0 põe "Hexágono neste MS" em fora de escopo.
-
-Esta pré-arquitetura entrega sete módulos Maven com `port/in/`, `port/out/` e módulo `adapters`. O §1 rejeita o hexágono
-no texto e o §4 o implementa na estrutura. É uma reversão de decisão do plano, não uma consistência.
+de pacotes num artefato único. A premissa 12 do §0 põe "Hexágono neste MS" fora de escopo. A versão anterior desta
+pré-arquitetura entregava sete módulos com `port/in/`, `port/out/` e módulo `adapters`.
 
 **Análise.** O benefício real de sete módulos é fronteira compilada e ownership separado por squad. Com um engenheiro, o
-ownership não existe e a fronteira pode ser obtida por ArchUnit sobre pacotes, que já está previsto no §7. O custo é
-sete POMs, build mais lento, e toda mudança de assinatura atravessando módulos.
+ownership não existe. A migração para Gradle reduz o custo de módulos (convention plugins, compile avoidance, build
+paralelo), mas não cria ownership. Das fronteiras compiladas, só uma protege algo que o ArchUnit protegeria pior: a
+pureza do core, porque é onde Spring e infraestrutura vazam mais facilmente e porque um classpath sem Spring impede o
+erro em vez de detectá-lo depois.
 
-**Recomendação.** Colapsar para **três módulos**:
+**Decisão.** Quatro módulos de produção e um de teste:
 
 ```text
-sdui-contract   -> DTOs REST/JSON públicos (fronteira de processo, versionada à parte)
-sdui-app        -> core + orchestrator + adapters + api, separados por pacote e protegidos por ArchUnit
-sdui-bootstrap  -> main, wiring, YAML, observabilidade (único executável)
+sdui-contract          -> DTOs REST/JSON públicos (fronteira de processo)
+sdui-core              -> domínio puro, fronteira compilada + verifyPureClasspath
+sdui-app               -> orchestrator + adapters + api, separados por pacote e protegidos por ArchUnit
+sdui-bootstrap         -> main, wiring, YAML, observabilidade (único executável)
+sdui-integration-test  -> integração real e ArchUnit (somente testes)
 ```
 
-`sdui-contract` continua separado porque é a única fronteira que outro processo pode consumir. `sdui-bootstrap` continua
-separado para manter a regra "só um módulo tem `@SpringBootApplication`". Todo o resto vira pacote com regra ArchUnit,
-que é exatamente o que o §13.2 do plano pede.
+**Consequência.**
 
-Se a resposta for manter os sete módulos, o §13.2 do plano precisa ser reescrito no mesmo commit.
-
-**Consequência se aceito.** Reescrever os §2, §3, §9 e §15 deste documento. As regras ArchUnit do §7.2 passam de
-`..sdui.adapters..` para os pacotes equivalentes dentro de `sdui-app`, sem perda de cobertura.
+- Os §2, §3, §7, §8, §9 e §15 deste documento já refletem a decisão.
+- O §13.2 do plano deve ganhar nota apontando para este ADR: o layout de pacotes do plano vale dentro de `sdui-app`, e
+  `core`/`contract` saem para módulos próprios.
+- O `iniciar-prompt.md` usa os mesmos cinco projetos.
+- Gatilhos para dividir `sdui-app`: ownership distinto, deploy distinto, ou regra ArchUnit violada repetidamente para o
+  código compilar (§2).
 
 ---
 
@@ -1838,13 +1806,15 @@ borda HTTP. Esta pré-arquitetura não mencionava `ThreadLocal` em lugar nenhum.
   decidir algo, ela recebe `platform`; não lê do `ThreadLocal`.
 - Aberto e fechado no `CorrelationIdInterceptor`, com `remove()` em `finally`. A virtual thread é descartada por
   request, mas o `finally` protege contra reuso do carrier e contra troca futura para pool.
-- Vive em `sdui-api` porque é infraestrutura HTTP. `sdui-core` e `sdui-orchestrator` continuam sem conhecê-lo.
+- Vive no pacote `api` de `sdui-app` porque é infraestrutura HTTP. `core` e `orchestrator` continuam sem conhecê-lo.
 
-**Consequência.** Uma regra ArchUnit adicional: nenhuma classe de `..core..` ou `..orchestrator..` pode referenciar
+**Consequência.** Uma regra ArchUnit adicional (§7.3): nenhuma classe de `..core..` ou `..orchestrator..` pode referenciar
 `ComposeTraceContext`. Se alguém precisar dele lá, o dado deveria estar na assinatura.
 
 **Nota sobre a referência.** A validação inicial citava "§11/§13.1" do plano. O §13.1 é apenas a lista de runtime e só
 referencia o §11 para o veto ao `ScopedValue`. A decisão de `ThreadLocal` vive **só no §11**.
+
+---
 
 ---
 
@@ -1853,18 +1823,18 @@ referencia o §11 para o veto ao `ScopedValue`. A decisão de `ThreadLocal` vive
 **Status:** `ACEITO`
 
 **Contexto.** O plano §7.5 é explícito: `@Transactional` não vai em controller, o serviço de publish é o único que abre
-transação, e compose não abre transação. A tabela de módulos do §2 diz que `sdui-orchestrator` não tem Spring em
-produção. `@Transactional` é `spring-tx`. As duas regras colidem: o caso de uso de publish mora no orchestrator.
+transação, e compose não abre transação. A regra do orchestrator (§4.2) é não ter Spring,
+mesmo compartilhando o módulo `sdui-app`. `@Transactional` é `spring-tx`. As duas regras colidem: o caso de uso de publish mora no orchestrator.
 
-**Opções.** (a) `spring-tx` no orchestrator, quebrando "sem Spring em produção". (b) Porta pura no orchestrator,
+**Opções.** (a) `spring-tx` no orchestrator, quebrando "orchestrator sem Spring". (b) Porta pura no orchestrator,
 implementação anotada em adapters, exigindo exceção na regra ArchUnit que proíbe `@Transactional` em adapters.
 
 **Decisão.** Opção (b).
 
-```java
-// sdui-orchestrator :: port.out
-public interface TransactionalUnitOfWork {
-    <T> T execute(Supplier<T> work);
+```kotlin
+// sdui-app :: br.com.empresa.sdui.orchestrator.port.outbound
+interface TransactionalUnitOfWork {
+    fun <T> execute(work: () -> T): T
 }
 ```
 
@@ -1886,6 +1856,12 @@ sem mudar o caso de uso, que é o principal ganho desse desenho.
 
 ---
 
+**Nota Kotlin.** Classes Kotlin são `final` por padrão. `MongoTransactionalUnitOfWork` funciona com `@Transactional`
+porque o plugin `kotlin("plugin.spring")` abre classes anotadas com `@Transactional` para o proxy. Uma alternativa sem
+proxy e sem a exceção nominal está registrada no ADR-013.
+
+---
+
 ### ADR-004 — Vocabulário: `Screen` formalizado, `Fragment` adiado
 
 **Status:** `ACEITO`
@@ -1902,7 +1878,7 @@ compose devolve**. `Árvore hidratada` vira sinônimo textual; em código, cache
 consistente.
 
 **Decisão sobre `Fragment`.** **Não entra no MVP.** Nenhuma fonte do projeto define "Fragment"; o próprio §14 item 5 já
-dizia para não expor fragments publicamente. Ficam fora do primeiro PR: `Fragment.java`, `FragmentStore`,
+dizia para não expor fragments publicamente. Ficam fora do primeiro PR: `Fragment`, `FragmentStore`,
 `FragmentResolver`, `FragmentController` e `GET /v1/fragments/{fragmentId}`. O §5 deste documento passa a ser leitura de
 proposta, não especificação.
 
@@ -1915,28 +1891,38 @@ Home reusando o mesmo bloco.
 
 ---
 
-### ADR-005 — Jackson 3 no `sdui-contract`
+---
 
-**Status:** `ACEITO`
+### ADR-005 — Jackson 3 com módulo Kotlin
 
-**Contexto.** O `sdui-contract/pom.xml` declarava `com.fasterxml.jackson.core:jackson-databind` sem versão, sob o parent
-`spring-boot-starter-parent:4.1.1`. No Boot 4, Jackson 3 é a biblioteca preferida e padrão, e o suporte a Jackson 2 está
-depreciado, existindo apenas para facilitar migração. O Jackson 3 mudou groupId e pacote de `com.fasterxml.jackson` para
-`tools.jackson`, com exceção de `jackson-annotations`, que mantém o groupId antigo.
+**Status:** `ACEITO` (revisado em 18/09/2026 para Kotlin/Gradle).
 
-**Problema concreto.** O artefato resolveria (o gerenciamento de Jackson 2 continua no BOM), mas o `sdui-contract`
-compilaria contra o `ObjectMapper` do Jackson 2 enquanto o `sdui-api` serializaria a resposta com o `JsonMapper` do
-Jackson 3 autoconfigurado pelo Boot. Dois databinds no classpath e os testes de serialização do §6.2 validando um mapper
-que não é o do runtime.
+**Contexto.** No Boot 4, Jackson 3 é a biblioteca padrão e o suporte a Jackson 2 está depreciado, existindo apenas para
+facilitar migração. O Jackson 3 mudou groupId e pacote de `com.fasterxml.jackson` para `tools.jackson`, com exceção de
+`jackson-annotations`, que mantém o groupId antigo.
 
-**Decisão.** `tools.jackson.core:jackson-databind` + `com.fasterxml.jackson.core:jackson-annotations`, ambos sem versão
-(gerenciados pelo parent). O MVP nasce em Jackson 3. Não usar `spring.jackson2` nem `spring-boot-jackson2`: são
-ferramenta de migração, não escolha de greenfield.
+**Problema original.** Declarar `com.fasterxml.jackson.core:jackson-databind` no contrato resolveria (o gerenciamento de
+Jackson 2 continua no BOM), mas o contrato compilaria contra o `ObjectMapper` do Jackson 2 enquanto a api serializaria
+com o `JsonMapper` do Jackson 3 autoconfigurado pelo Boot: dois databinds no classpath e testes validando um mapper que
+não é o do runtime.
 
-**Consequência.** O envelope usa `JsonMapper` imutável e ISO-8601 por padrão. Os testes de contrato do `sdui-contract`
-devem usar o mesmo `JsonMapper` que o Boot autoconfigura, não um mapper construído à mão no teste — senão o teste passa
-e a resposta HTTP sai diferente. Reforça o item 4 do §14: `@JsonTypeInfo` só se o polimorfismo de desserialização for
-realmente necessário.
+**Problema adicional em Kotlin.** Sem `jackson-module-kotlin`, o Jackson não entende construtor primário, parâmetros
+com default nem nulabilidade de `data class`. A serialização parece funcionar, mas a desserialização de fixtures e de
+requests administrativos falha. No Jackson 3 o módulo também mudou de groupId: `tools.jackson.module`.
+
+**Decisão.**
+
+- `sdui-contract`: `tools.jackson.core:jackson-databind` + `com.fasterxml.jackson.core:jackson-annotations`, sem versão.
+- `sdui-app`: `tools.jackson.module:jackson-module-kotlin`, sem versão; o `JsonMapper` do Boot o registra.
+- Nunca `com.fasterxml.jackson.module:jackson-module-kotlin`, `spring.jackson2` ou `spring-boot-jackson2`: são
+  ferramentas de migração, não escolha de greenfield.
+- Compilador com `-Xannotation-default-target=param-property`, para annotations Jackson em parâmetros de construtor
+  caírem onde o Jackson as procura.
+
+**Consequência.** O envelope usa o `JsonMapper` imutável do Boot, com ISO-8601 por padrão. **Os testes de serialização
+vivem em `sdui-app`**, não em `sdui-contract`: só ali existe o `JsonMapper` que o Boot autoconfigura, e o requisito é
+testar com ele, não com um mapper construído à mão (§6.6). `@JsonTypeInfo` continua restrito a polimorfismo de
+desserialização realmente necessário.
 
 ---
 
@@ -1944,35 +1930,33 @@ realmente necessário.
 
 **Status:** `ACEITO`
 
-**Contexto.** O POM raiz importava `resilience4j-bom:2.4.0`. Dois problemas: **nenhum módulo declarava qualquer artefato
-resilience4j**, então o BOM era peso morto; e o suporte a Spring Boot 4 entrou na 2.4.0 mas o artefato
-`resilience4j-spring-boot4` ficou de fora do BOM, com o fix mergeado sem release subsequente que o propagasse — projetos
-que usam o BOM enfrentam falha de resolução e precisam sobrescrever a versão explicitamente.
+**Contexto.** A versão Maven desta pré-arquitetura importava `resilience4j-bom:2.4.0`. Dois problemas: **nenhum módulo
+declarava qualquer artefato resilience4j**, então o BOM era peso morto; e o artefato `resilience4j-spring-boot4` ficou
+de fora do BOM 2.4.0, obrigando a sobrescrever a versão explicitamente de qualquer forma.
 
 **Análise do que o MVP realmente precisa.**
 
-| Necessidade                          | Solução no MVP                          | Precisa de Resilience4j?              |
-|--------------------------------------|-----------------------------------------|---------------------------------------|
-| Timeout por section                  | `Future.get(timeout)` em virtual thread | Não                                   |
-| Bounded fan-out de hydrator          | `Semaphore` (§11 deste documento)       | Não                                   |
-| Timeout de Mongo/Redis               | Configuração do driver                  | Não                                   |
-| Rate limit do compose                | Token bucket distribuído no Redis       | Não (o RateLimiter dele é in-process) |
-| Circuit breaker por dependência HTTP | —                                       | Sim, **quando existir client HTTP**   |
+| Necessidade                          | Solução no MVP                                        | Precisa de Resilience4j?              |
+|--------------------------------------|-------------------------------------------------------|---------------------------------------|
+| Timeout por section                  | `Future.get(timeout)` + `cancel(true)` (§11)          | Não                                   |
+| Bounded fan-out de hydrator          | `Semaphore` compartilhado por instância (§11)         | Não                                   |
+| Timeout de Mongo/Redis               | Configuração do driver                                | Não                                   |
+| Rate limit do compose                | Token bucket distribuído no Redis                     | Não (o RateLimiter dele é in-process) |
+| Circuit breaker por dependência HTTP | —                                                     | Sim, **quando existir client HTTP**   |
 
-**Decisão.** Remover o BOM e o `resilience4j.version` do POM raiz. Nenhuma dependência de resiliência entra antes de
-existir consumidor.
+**Decisão.** Nenhuma dependência de resiliência entra no catálogo antes de existir consumidor.
 
 **Gatilho de reintrodução.** O primeiro `SectionHydrator` com client HTTP real. Nesse momento: declarar
-`resilience4j-spring-boot4` **com versão explícita, não via BOM**; verificar antes se já saiu release que corrigiu o
-BOM; e somar `spring-boot-starter-aspectj` — no Boot 4 o `spring-boot-starter-aop` foi renomeado para
-`spring-boot-starter-aspectj`, e nenhum dos dois estava declarado.
+`resilience4j-spring-boot4` no catálogo **com versão explícita**, verificando antes se já saiu release que corrigiu o
+BOM; e somar `spring-boot-starter-aspectj` — no Boot 4 o `spring-boot-starter-aop` foi renomeado.
 
-**Alternativa a avaliar no gatilho.** O Boot 4 traz `@Retryable` e `@ConcurrencyLimit` nativos. Só vale puxar
-Resilience4j se o ganho for circuit breaker com métricas por dependência; retry e limite de concorrência já estão
-cobertos.
+**Alternativa a avaliar no gatilho.** O **Spring Framework 7** traz `@Retryable` e `@ConcurrencyLimit` nativos
+(habilitados explicitamente na configuração). Só vale puxar Resilience4j se o ganho for circuit breaker com métricas por
+dependência; retry e limite de concorrência já estão cobertos. Em Kotlin, os beans que usam essas annotations precisam
+ser proxiáveis — beans anotados com `@Component`/`@Service` já são abertos pelo `plugin.spring`.
 
-**Consequência.** O §13.1 do plano lista Resilience4j como stack de runtime. Este ADR não contradiz a intenção, adia a
-introdução até haver consumidor — mas o §13.1 deve ganhar a nota "a partir do primeiro hydrator HTTP".
+**Consequência.** O §13.1 do plano lista Resilience4j como stack de runtime. Este ADR adia a introdução até haver
+consumidor; o §13.1 deve ganhar a nota "a partir do primeiro hydrator HTTP".
 
 ---
 
@@ -1992,8 +1976,10 @@ próprio §12 diz que não deve acontecer — e o app mobile perderia o sinal de
 tratado fora da escada. `404` nunca, para `home`.
 
 **Consequência.** Teste obrigatório: Redis vazio e sem `lastgood` retorna `503` com `Retry-After` e corpo estável, não
-`500` nem stacktrace. Entra na matriz do §6 e nos critérios de H07/H11. O degrau seguinte é o skeleton local do binário,
+`500` nem stacktrace. Entra na matriz do §6 (§6.5 e §6.8) e nos critérios de H07/H11. O degrau seguinte é o skeleton local do binário,
 que é contrato com mobile e não código deste MS.
+
+---
 
 ---
 
@@ -2010,8 +1996,8 @@ incidente.
 
 **Opções para o checker, em ordem de preferência.**
 
-1. **Checker é uma pessoa de produto ou de negócio**, não de backend. Aprovar uma revisão de Home é decisão de produto:o
-   diff N-1 → N mostra copy, ordem de slots e ações. Não exige ler Java. É a opção que preserva a regra e melhora a
+1. **Checker é uma pessoa de produto ou de negócio**, não de backend. Aprovar uma revisão de Home é decisão de produto: o
+   diff N-1 → N mostra copy, ordem de slots e ações. Não exige ler código. É a opção que preserva a regra e melhora a
    governança.
 2. **Channel `internal` com atalho de publish** para o ciclo de desenvolvimento, mantendo maker-checker obrigatório em
    `stable` e `canary`. O plano §12 já prevê exatamente isso: "channel `internal` pode ter atalho de publish para dev,
@@ -2025,6 +2011,8 @@ nomeado. A H09 continua implementando a regra completa; o que muda é quem é o 
 **Consequência.** O `audit_log` precisa registrar papel (`maker`/`checker`/`auditor`) mesmo quando maker e checker forem
 a mesma pessoa em `internal`, com o channel explícito no registro. Assim a auditoria mostra "aprovado em internal sem
 segundo ator" em vez de esconder o fato.
+
+---
 
 ---
 
@@ -2105,9 +2093,12 @@ faixa é mais barata que grafo de degradação.
 
 ---
 
+---
+
 ### ADR-010 — `SectionComponentType` não entra no contrato
 
-**Status:** `PROPOSTO` — fecha uma porta que o artigo do Ghost abre.
+**Status:** `ACEITO` — fecha uma porta que o artigo do Ghost abre. Promovido de `PROPOSTO` porque H08 e H12 já
+dependem dele.
 
 **Contexto.** O Ghost separa *qual dado* de *como renderizar* em dois campos: o
 modelo de dados da section e um `SectionComponentType` que escolhe a renderização
@@ -2166,9 +2157,12 @@ resposta própria:
 
 ---
 
+---
+
 ### ADR-011 — Conjunto de actions fechado, sem extensão por feature
 
-**Status:** `PROPOSTO` — registra divergência deliberada do Ghost.
+**Status:** `ACEITO` — registra divergência deliberada do Ghost. Promovido de `PROPOSTO` porque a H12 já depende
+dele.
 
 **Contexto.** O Ghost permite que features adicionem tipos de `IAction` próprios,
 roteados para handlers de escopo da feature, e o artigo apresenta isso como
@@ -2196,35 +2190,92 @@ de virar dezoito.
 
 ---
 
-## Conclusão
+---
 
-A proposta de adicionar testes por camada e de preparar módulos para fragmentos estáticos, telas dinâmicas e múltiplas
-squads **faz sentido**, desde que o desenho mantenha limites simples e ownership claro.
+### ADR-012 — Sem coroutines no MVP
 
-A pré-arquitetura recomendada fica assim:
+**Status:** `ACEITO` (18/09/2026). Registra o que o desenho já pressupõe, para que a escolha de Kotlin não o reabra
+por acidente.
 
-```text
-sdui-contract       -> contrato REST/JSON público
-sdui-core           -> regras SDUI puras
-sdui-orchestrator   -> casos de uso + ports + SPI de hydrators
-sdui-adapters       -> Mongo + Redis + HTTP clients
-sdui-api            -> Controllers MVC e adaptação HTTP
-sdui-bootstrap      -> composição Spring Boot e YAML
-sdui-integration-test -> integração real e ArchUnit
+**Contexto.** O serviço é Spring MVC, com virtual threads (`spring.threads.virtual.enabled`) e drivers bloqueantes de
+MongoDB e Redis. Kotlin oferece coroutines, e a tentação natural é escrever `suspend fun hydrate(...)`. Misturar os dois
+modelos obriga a escolher entre repositórios reativos (outro driver, outro modelo de transação, outro modelo de teste)
+ou pontes `runBlocking` no caminho quente — que bloqueiam do mesmo jeito e ainda escondem o custo.
+
+**Decisão.** Nenhuma `suspend fun`, nenhum `kotlinx.coroutines`, nenhum repositório reativo em produção. Concorrência de
+I/O é feita com virtual threads e `Semaphore`, conforme §11. A SPI `SectionHydrator` é bloqueante.
+
+**Consequência.** Regra ArchUnit: nada de `kotlinx.coroutines..` em classes de produção (§7.3). Reabrir somente com um
+caso concreto que virtual threads não resolvam — por exemplo, streaming de resposta —, e então com ADR que troque o
+modelo inteiro, não uma parte dele.
+
+---
+
+### ADR-013 — `TransactionalUnitOfWork` com `TransactionTemplate`
+
+**Status:** `PROPOSTO` — alternativa ao mecanismo do ADR-003. Não vale para o código até ser aceito; enquanto isso,
+vale o ADR-003.
+
+**Contexto.** O ADR-003 implementa a porta com uma classe anotada com `@Transactional`, o que exige proxy AOP, classe
+aberta (em Kotlin, via `plugin.spring`) e uma exceção nominal na regra ArchUnit que proíbe `@Transactional` em adapters.
+
+**Proposta.** Implementar a porta programaticamente:
+
+```kotlin
+class MongoTransactionalUnitOfWork(
+    private val transactionTemplate: TransactionTemplate,   // construído sobre o MongoTransactionManager
+) : TransactionalUnitOfWork {
+    override fun <T> execute(work: () -> T): T =
+        transactionTemplate.execute { work() }
+            ?: error("TransactionTemplate retornou null para um trabalho não-nulo")
+}
 ```
 
-A decisão mais importante é não transformar a modularização em uma plataforma genérica antes da necessidade. Começar com
-os módulos acima, interfaces pequenas, composição explícita e testes que protegem regras reais. A evolução para adapters
-separados por tecnologia ou para um SPI distribuído entre squads deve acontecer quando ownership, deploy ou ciclo de
-vida justificarem a divisão.
+**Ganho.** Sem proxy e sem dependência do `allopen` para esta classe; a regra ArchUnit passa a ser "nenhum
+`@Transactional` no projeto", **sem exceção**; o limite da transação fica visível no código em vez de numa annotation.
+A porta, os casos de uso e a pendência de DocumentDB do ADR-003 não mudam.
+
+**Custo.** O `?: error(...)` existe porque `TransactionTemplate.execute` é anotado como nullable; um `work` que
+legitimamente devolva `null` precisaria de uma variante `executeNullable`. Nada no MVP precisa disso.
+
+**Para aceitar.** Promover este ADR a `ACEITO`, marcar o ADR-003 como "mecanismo supersedido pelo ADR-013 (a porta
+permanece)" e simplificar a regra do §7.3.
+
+---
+
+## Conclusão
+
+A proposta de testes por camada e de preparar o serviço para telas dinâmicas e múltiplas squads **faz sentido**, desde
+que o desenho mantenha limites simples e ownership claro.
+
+A pré-arquitetura fica assim:
+
+```text
+sdui-contract          -> contrato REST/JSON público
+sdui-core              -> regras SDUI puras (Kotlin sem Spring)
+sdui-app               -> orchestrator (casos de uso, portas, SPI de hydrators)
+                          + adapters (Mongo, Redis, HTTP quando houver)
+                          + api (controllers MVC e adaptação HTTP)
+sdui-bootstrap         -> composição Spring Boot e YAML
+sdui-integration-test  -> integração real e ArchUnit
+```
+
+A decisão mais importante é não transformar a modularização em plataforma genérica antes da necessidade: quatro módulos
+de produção, interfaces pequenas, composição explícita e testes que protegem regras reais. A divisão de `sdui-app` ou a
+extração de uma SPI distribuída entre squads acontece quando ownership, deploy ou ciclo de vida justificarem.
 
 ---
 
 ## Referências
 
+- [Spring Boot 4.1 Release Notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.1-Release-Notes)
+- [Spring Boot 4.0 Migration Guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide)
 - [Spring Boot — Testing Spring Boot Applications](https://docs.spring.io/spring-boot/reference/testing/spring-boot-applications.html)
-- [Spring Framework — REST Clients](https://docs.spring.io/spring-framework/reference/7.1/integration/rest-clients.html)
-- [Spring Boot Starter WebMVC Test 4.1.1](https://central.sonatype.com/artifact/org.springframework.boot/spring-boot-starter-webmvc-test/4.1.1)
+- [Spring Boot — Kotlin Support](https://docs.spring.io/spring-boot/reference/features/kotlin.html)
+- [Spring Framework 7.0 — REST Clients](https://docs.spring.io/spring-framework/reference/7.0/integration/rest-clients.html)
+- [Gradle — Sharing build logic with convention plugins](https://docs.gradle.org/current/userguide/sharing_build_logic_between_subprojects.html)
+- [Gradle — Version catalogs](https://docs.gradle.org/current/userguide/version_catalogs.html)
 - [ArchUnit User Guide](https://www.archunit.org/userguide/html/000_Index.html)
-- [JUnit 5 User Guide](https://docs.junit.org/5.10.2/user-guide/index.html)
+- [JUnit User Guide](https://docs.junit.org/current/user-guide/)
+- [MockK](https://mockk.io/)
 - Plano de construção — ms-sdui-composer: `plano-servico-sdui.md`
