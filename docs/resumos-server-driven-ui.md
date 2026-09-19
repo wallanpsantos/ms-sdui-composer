@@ -37,7 +37,7 @@ O artigo descreve três sistemas de mercado e uma implementação de exemplo:
 - **Netflix:** home de discovery com observabilidade por componente, versão de schema e versão de cliente.
 - **Lyft / Canvas:** nomes semânticos (`RideOptionCard`). No artigo o fio é Protobuf/gRPC — aqui o equivalente é tipo JSON semântico no Design System, não primitiva de pixel.
 
-Peças que copiamos como ideia, não como biblioteca: contrato compartilhado (records/DTOs Java), Composer (template + dados → JSON), header de schema (no projeto: `UI-Schema-Version`, sem prefixo `X-`), renderer com registry, actions despachadas no centro, cache e fallback obrigatório no envelope.
+Peças que copiamos como ideia, não como biblioteca: contrato compartilhado, Composer (template + dados → JSON), header de schema (no projeto: `UI-Schema-Version`, sem prefixo `X-`), renderer com registry, actions despachadas no centro, cache e fallback obrigatório no envelope.
 
 **Riscos que o artigo marca e o projeto herda:** teste fica mais difícil; over-abstraction mata o sistema (HubFramework do Spotify foi descontinuado); não usar SDUI em vídeo, mapa ou checkout offline-crítico.
 
@@ -185,12 +185,12 @@ Não importar do rascunho externo: header `X-*`, `viewLayout.singleColumn`, `onT
 | Schema GraphQL / Protobuf / gRPC | fora do desenho vigente |
 | Header de schema | `UI-Schema-Version` (sem `X-`) |
 | Demais headers | `Client-Platform`, `Client-Version`, `Client-Build`, `OS-Version`, `Component-Capabilities` |
-| Composer | Java 25 + Spring Boot >= 4.1.1, stateless |
+| Composer | Kotlin na JVM Java + Spring Boot >= 4.1.1, stateless |
 | Flag | decide existência; JSON decide composição |
 
 ### Peças que implementamos nós mesmos
 
-- Contrato JSON versionado (records Java), não pacote `@sdui/contracts` de terceiros
+- Contrato JSON versionado, não pacote `@sdui/contracts` de terceiros
 - Composer / Application Controller
 - Registry no cliente nativo
 - Actions no JSON, handlers no app

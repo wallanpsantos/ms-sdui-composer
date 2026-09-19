@@ -12,9 +12,11 @@ produto (tendo a `home` como primeira surface). Destinado a implementação post
 > ArchUnit e demais bibliotecas devem usar as versões gerenciadas pelo Spring Boot ou a versão mais recente verificada no
 > repositório corporativo/Maven Central.
 
-Papel: Staff/Principal Java. Stack fechada pelo projeto: Java 25 LTS, Spring Framework 7.0.9+, Spring Boot 4.1.1 (nunca
-3.x), Gradle 9.7.1 - Kotlin+, MongoDB 8.3+ (ou DocumentDB compatível), Redis na mesma AZ, Kafka 4.2+ opcional para auditoria
-assíncrona.
+Papel: Staff/Principal Kotlin/Spring.
+Stack fechada pelo projeto: Kotlin 2.3.21, JVM Java 25 LTS,
+Spring Framework 7.0.9+, Spring Boot 4.1.1, Gradle 9.7.1 com Kotlin DSL,
+MongoDB 8.3+ (ou DocumentDB compatível), Redis na mesma AZ e Kafka 4.2+
+opcional para auditoria assíncrona.
 
 Fontes permanentes: `resumos-server-driven-ui.md`, `instrucoes-projeto.md`, skill `skills/sdui-backend/`, PDFs em
 `Books/`. Não copiar livro.
@@ -1008,8 +1010,10 @@ com.empresa.sdui
   support          # semver, hash, clock
 ```
 
-Composer não conhece Mongo template. Repositórios finos. Records no contrato interno. Sealed types para `Action`,
-`PublishStatus`, `Platform`.
+Composer não conhece MongoTemplate. Repositórios são finos.
+O contrato interno usa `data class` imutáveis.
+Hierarquias fechadas, como `Action`, usam `sealed interface` ou `sealed class`;
+estados estáveis como `PublishStatus` e `Platform` usam `enum class`.
 
 **Divergência aberta com a pré-arquitetura (ADR-001).** O `pre-arquitetura-sdui-home.md` propõe **sete módulos Maven**
 (`contract`, `core`, `orchestrator`, `adapters`, `api`, `bootstrap`, `integration-test`) com `port/in` e `port/out` —
@@ -1231,7 +1235,7 @@ Decisões em aberto (não inventar):
 Quando formos implementar, o primeiro PR não é o composer completo. É:
 
 1. Módulo `targeting` (semver + ordinal + capabilities) com testes.
-2. Envelope records + serializer JSON.
+2. Envelope em `data class` Kotlin + serialização JSON gerenciada pelo Spring Boot/Jackson.
 3. `GET /v1/surfaces/home` com fixture e headers reais.
 4. Coleções e índices Mongo.
 5. Só então Select + pointer.
