@@ -1,10 +1,13 @@
 package br.com.empresa.sdui.orchestrator.compose
 
 import br.com.empresa.sdui.core.model.Channel
+import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.ComposedScreen
 import br.com.empresa.sdui.core.model.ContextViolation
 import br.com.empresa.sdui.core.model.FallbackReason
 import br.com.empresa.sdui.core.model.NegotiateHeaders
+import br.com.empresa.sdui.core.model.OmittedReason
+import br.com.empresa.sdui.core.model.Section
 
 data class ComposeRequest(
     val headers: NegotiateHeaders,
@@ -22,7 +25,7 @@ sealed interface ComposeResult {
 
 data class HydrationContext(
     val surface: String,
-    val platform: br.com.empresa.sdui.core.model.ClientPlatform,
+    val platform: ClientPlatform,
     val specRevisionId: String,
     val locale: String,
     val channel: Channel,
@@ -30,10 +33,10 @@ data class HydrationContext(
 
 sealed interface HydrationResult {
     data class Ok(val props: Map<String, Any?>) : HydrationResult
-    data class Failed(val reason: br.com.empresa.sdui.core.model.OmittedReason) : HydrationResult
+    data class Failed(val reason: OmittedReason) : HydrationResult
 }
 
 interface SectionHydrator {
     fun supports(type: String, typeVersion: Int): Boolean
-    fun hydrate(context: HydrationContext, section: br.com.empresa.sdui.core.model.Section): HydrationResult
+    fun hydrate(context: HydrationContext, section: Section): HydrationResult
 }

@@ -5,7 +5,10 @@ import br.com.empresa.sdui.core.compat.CapabilityMatrix
 import br.com.empresa.sdui.core.filter.Filter
 import br.com.empresa.sdui.core.limit.RateLimitKey
 import br.com.empresa.sdui.core.limit.TokenBucketRateLimiter
+import br.com.empresa.sdui.core.model.Capability
 import br.com.empresa.sdui.core.model.Channel
+import br.com.empresa.sdui.core.model.ClientContext
+import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.ComposedScreen
 import br.com.empresa.sdui.core.model.ContextValidation
 import br.com.empresa.sdui.core.model.ETagFactory
@@ -96,7 +99,7 @@ class ComposeScreenService(
                 composeFresh(request, context, channel, caps, treeKey, tags)
             }
         } catch (_: Exception) {
-            fallbackOrUnavailable(context.platform, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
+            return fallbackOrUnavailable(context.platform, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
         }
         return when (outcome) {
             is SingleflightOutcome.Leader -> outcome.value
@@ -105,7 +108,7 @@ class ComposeScreenService(
                 outcome.value
             }
 
-            is SingleflightOutcome.WaitTimeout<*> -> {
+            is SingleflightOutcome.WaitTimeout -> {
                 metrics.increment("compose.singleflight.wait", tags)
                 fallbackOrUnavailable(context.platform, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
             }
@@ -114,9 +117,9 @@ class ComposeScreenService(
 
     private fun composeFresh(
         request: ComposeRequest,
-        context: br.com.empresa.sdui.core.model.ClientContext,
+        context: ClientContext,
         channel: Channel,
-        caps: Set<br.com.empresa.sdui.core.model.Capability>,
+        caps: Set<Capability>,
         treeKey: String,
         tags: Map<String, String>,
     ): ComposeResult {
@@ -211,7 +214,7 @@ class ComposeScreenService(
     }
 
     private fun fallbackOrUnavailable(
-        platform: br.com.empresa.sdui.core.model.ClientPlatform,
+        platform: ClientPlatform,
         channel: Channel,
         reason: FallbackReason,
         tags: Map<String, String>,
@@ -241,17 +244,17 @@ class ComposeScreenService(
 
 object DefaultCanaryPolicy : CanaryPolicy {
     override fun channelFor(
-        platform: br.com.empresa.sdui.core.model.ClientPlatform,
+        platform: ClientPlatform,
         build: String,
         requested: Channel,
     ): Channel = Channel.STABLE
 }
 
 class AllowlistCanaryPolicy(
-    private val allowed: Map<br.com.empresa.sdui.core.model.ClientPlatform, Set<String>>,
+    private val allowed: Map<ClientPlatform, Set<String>>,
 ) : CanaryPolicy {
     override fun channelFor(
-        platform: br.com.empresa.sdui.core.model.ClientPlatform,
+        platform: ClientPlatform,
         build: String,
         requested: Channel,
     ): Channel {

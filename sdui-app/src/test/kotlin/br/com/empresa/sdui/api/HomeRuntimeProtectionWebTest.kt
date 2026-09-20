@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package br.com.empresa.sdui.api
 
 import br.com.empresa.sdui.SduiAppTestConfiguration
@@ -16,7 +18,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.annotation.DirtiesContext
 import org.springframework.test.web.servlet.MockMvc
@@ -73,7 +75,7 @@ class HomeRuntimeProtectionWebTest(
                 version = 100,
             ),
         )
-        (treeCache as InMemoryHydratedScreenCache).clear()
+        treeCache.clear()
     }
 
     @Test
@@ -151,7 +153,7 @@ class HomeRuntimeProtectionWebTest(
             "no_compatible_spec", "redis_unavailable", "dependency_timeout", "last_good", "required_slot_empty",
         )
         (lastGood as InMemoryLastGoodScreenStore).clear()
-        (treeCache as InMemoryHydratedScreenCache).clear()
+        treeCache.clear()
         val unavailable = getHome(CanonicalHeaders.ios())
         assertThat(unavailable.status).isEqualTo(503)
         assertThat(unavailable.headers["Retry-After"]?.first()).isNotBlank()

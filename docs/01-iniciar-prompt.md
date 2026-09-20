@@ -97,7 +97,7 @@ Versões exatas vivem em `gradle/libs.versions.toml`. Este bloco define pisos e 
       `kotlin-reflect`.
     - `sdui.spring-app` (`sdui-bootstrap`): `sdui.spring-library` + `org.springframework.boot`.
     - Detalhes e esboços em `docs/pre-arquitetura-ms-sdui-composer.md` §8–§9.
-- Compilador Kotlin: `-Xannotation-default-target=param-property` e `allWarningsAsErrors = true`.
+- Compilador Kotlin: `allWarningsAsErrors = true`.
 - `kotlin-reflect` nos módulos Spring, pois a aplicação depende de reflexão Kotlin.
 - JSON: Jackson 3 gerenciado pelo Boot. Onde houver serialização de `data class`, declarar
   `tools.jackson.module:jackson-module-kotlin` (groupId do Jackson 3; nunca `com.fasterxml.jackson.module`).

@@ -6,6 +6,7 @@ import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
 object JsonMaps {
+    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     fun toValue(node: JsonNode): Any? = when {
         node.isNull -> null
         node.isBoolean -> node.asBoolean()
@@ -44,7 +45,7 @@ object JsonMaps {
 
             is Map<*, *> -> {
                 val obj: ObjectNode = mapper.nodeFactory.objectNode()
-                value.forEach { (k, v) -> obj.set<JsonNode>(k.toString(), toNode(mapper, v)) }
+                value.forEach { (k, v) -> obj.set(k.toString(), toNode(mapper, v)) }
                 obj
             }
 

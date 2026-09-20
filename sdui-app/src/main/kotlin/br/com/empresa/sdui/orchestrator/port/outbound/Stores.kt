@@ -8,6 +8,7 @@ import br.com.empresa.sdui.core.model.ComposedScreen
 import br.com.empresa.sdui.core.model.IdempotencyRecord
 import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.PublishRequest
+import br.com.empresa.sdui.core.model.PublishRequestStatus
 import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecDiff
@@ -45,7 +46,7 @@ interface PublishRequestStore {
     fun find(requestId: String): PublishRequest?
     fun compareAndSetStatus(
         requestId: String,
-        expected: br.com.empresa.sdui.core.model.PublishRequestStatus,
+        expected: PublishRequestStatus,
         updated: PublishRequest
     ): PublishRequest?
 }
@@ -88,7 +89,7 @@ interface ProjectionStore {
 }
 
 interface TransactionalUnitOfWork {
-    fun <T> execute(work: () -> T): T
+    fun <T : Any> execute(work: () -> T): T
 }
 
 sealed interface SingleflightOutcome<out T> {

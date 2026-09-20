@@ -21,6 +21,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.DiffStore
 import br.com.empresa.sdui.orchestrator.port.outbound.HydratedScreenCache
 import br.com.empresa.sdui.orchestrator.port.outbound.IdempotencyStore
 import br.com.empresa.sdui.orchestrator.port.outbound.LastGoodScreenStore
+import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import br.com.empresa.sdui.orchestrator.port.outbound.PointerStore
 import br.com.empresa.sdui.orchestrator.port.outbound.ProjectionStore
 import br.com.empresa.sdui.orchestrator.port.outbound.PublishRequestStore
@@ -150,7 +151,7 @@ class InMemoryDiffStore : DiffStore {
     private val items = ConcurrentHashMap<String, SpecDiff>()
 
     override fun save(diff: SpecDiff): SpecDiff {
-        items["${diff.specId}:${diff.fromRevision}:${diff.toRevision}"] = diff
+        items["${diff.specId}:${diff.fromRevision ?: 0}:${diff.toRevision}"] = diff
         return diff
     }
 
@@ -248,7 +249,7 @@ class InMemoryProjectionStore : ProjectionStore {
 
 class InMemoryTransactionalUnitOfWork : TransactionalUnitOfWork {
     private val lock = ReentrantLock()
-    override fun <T> execute(work: () -> T): T = lock.withLock { work() }
+    override fun <T : Any> execute(work: () -> T): T = lock.withLock { work() }
 }
 
 class InMemoryComposeSingleflight : ComposeSingleflight {
@@ -282,7 +283,7 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
     }
 }
 
-class RecordingMetrics : br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder {
+class RecordingMetrics : MetricsRecorder {
     data class Sample(val name: String, val tags: Map<String, String>, val value: Long? = null)
 
     val samples = mutableListOf<Sample>()

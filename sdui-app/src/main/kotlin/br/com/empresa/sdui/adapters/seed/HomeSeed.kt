@@ -86,6 +86,7 @@ class HomeSeed(
         return skeletonStore.save(skeleton)
     }
 
+    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     private fun seedIosCurrent(root: JsonNode, skeleton: Skeleton) {
         val envelope = root.get("envelope")
         val sectionsNode = root.get("sections")
@@ -196,40 +197,18 @@ class HomeSeed(
 
     fun seedPointers() {
         val iosCurrent = specStore.findByRevisionId("rev_01K8HOMEMAIN")
-        pointerStore.save(
-            Pointer(
-                surface = MvpCatalog.SURFACE_HOME,
-                platform = ClientPlatform.IOS,
-                channel = Channel.STABLE,
-                specId = iosCurrent?.specId,
-                specRevisionId = iosCurrent?.specRevisionId,
-                previousSpecRevisionId = null,
-                version = 1,
-            ),
-        )
-        pointerStore.save(
-            Pointer(
-                surface = MvpCatalog.SURFACE_HOME,
-                platform = ClientPlatform.IOS,
-                channel = Channel.CANARY,
-                specId = iosCurrent?.specId,
-                specRevisionId = iosCurrent?.specRevisionId,
-                previousSpecRevisionId = null,
-                version = 1,
-            ),
-        )
-        pointerStore.save(
-            Pointer(
-                surface = MvpCatalog.SURFACE_HOME,
-                platform = ClientPlatform.IOS,
-                channel = Channel.INTERNAL,
-                specId = iosCurrent?.specId,
-                specRevisionId = iosCurrent?.specRevisionId,
-                previousSpecRevisionId = null,
-                version = 1,
-            ),
-        )
         for (channel in Channel.entries) {
+            pointerStore.save(
+                Pointer(
+                    surface = MvpCatalog.SURFACE_HOME,
+                    platform = ClientPlatform.IOS,
+                    channel = channel,
+                    specId = iosCurrent?.specId,
+                    specRevisionId = iosCurrent?.specRevisionId,
+                    previousSpecRevisionId = null,
+                    version = 1,
+                ),
+            )
             pointerStore.save(
                 Pointer(
                     surface = MvpCatalog.SURFACE_HOME,

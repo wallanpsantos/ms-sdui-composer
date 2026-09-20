@@ -1,10 +1,12 @@
+@file:Suppress("DEPRECATION")
+
 package br.com.empresa.sdui.api
 
 import br.com.empresa.sdui.SduiAppTestConfiguration
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
@@ -83,16 +85,19 @@ class HomeComposeContractWebTest(
         val forbidden = listOf(
             "color", "typography", "margin", "padding", "gap", "width", "height",
             "radius", "orientation", "shimmer", "ripple", "haptic", "columns", "itemWidth",
+            "row", "column", "container",
         )
         PropScan.scan(body).forEach { key ->
             assertThat(key.lowercase()).isNotIn(forbidden)
         }
-        assertThat(body.toString()).doesNotContain("cpf", "row", "column", "container")
+        assertThat(body.toString().lowercase()).doesNotContain("cpf")
+        assertThat(body.toString()).doesNotContainPattern("[0-9]{3}\\.[0-9]{3}\\.[0-9]{3}-[0-9]{2}")
         val sections = body.get("sections")
         val types = (0 until sections.size()).map {
             val section = sections.get(it)
             "${section.get("type").asText()}@${section.get("typeVersion").asInt()}"
         }
+        assertThat(types.map { it.substringBefore('@') }).doesNotContain("row", "column", "container")
         assertThat(types).containsExactly(
             "top_bar@1", "shortcut_shelf@1", "account_card@1", "card_product@1",
             "card_product@1", "credit_offer@1", "coverage_card@1", "decision_card@1",
@@ -125,8 +130,8 @@ class HomeComposeContractWebTest(
     }
 
     private fun assertSemanticallyEqual(actual: JsonNode, expected: JsonNode) {
-        val actualCopy = actual.deepCopy<ObjectNode>()
-        val expectedCopy = expected.deepCopy<ObjectNode>()
+        val actualCopy = actual.deepCopy() as ObjectNode
+        val expectedCopy = expected.deepCopy() as ObjectNode
         (actualCopy.get("envelope") as ObjectNode).remove("generatedAt")
         (expectedCopy.get("envelope") as ObjectNode).remove("generatedAt")
         assertThat(actualCopy).isEqualTo(expectedCopy)

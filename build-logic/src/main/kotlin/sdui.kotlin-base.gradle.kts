@@ -1,3 +1,14 @@
+import org.gradle.api.artifacts.VersionCatalogsExtension
+import org.gradle.api.tasks.testing.Test
+import org.gradle.kotlin.dsl.add
+import org.gradle.kotlin.dsl.dependencies
+import org.gradle.kotlin.dsl.get
+import org.gradle.kotlin.dsl.getByType
+import org.gradle.kotlin.dsl.`java-library`
+import org.gradle.kotlin.dsl.kotlin
+import org.gradle.kotlin.dsl.register
+import org.gradle.kotlin.dsl.withType
+
 plugins {
     id("org.jetbrains.kotlin.jvm")
     `java-library`
@@ -9,7 +20,6 @@ fun lib(alias: String) = libs.findLibrary(alias).get()
 kotlin {
     jvmToolchain(25)
     compilerOptions {
-        freeCompilerArgs.add("-Xannotation-default-target=param-property")
         allWarningsAsErrors.set(true)
     }
 }
