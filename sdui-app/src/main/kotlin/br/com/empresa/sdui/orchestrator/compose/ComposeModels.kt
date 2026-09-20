@@ -21,12 +21,20 @@ import java.time.Duration
  * [singleflightWait] e deliberadamente menor que [request]: quem espera outro compor deve desistir
  * e ir para o last good **antes** de o cliente desistir, senao a espera apenas soma ao tempo total
  * sem melhorar o desfecho.
+ *
+ * O orcamento limita espera, nunca trabalho. Abandonar uma composicao no meio troca latencia por
+ * erro e joga fora o que ja foi pago; deixar de esperar por outro nao custa nada a ninguem.
  */
 data class ComposeBudgets(
     /** Validade de uma arvore no cache de composicao. */
     val treeTtl: Duration = Duration.ofSeconds(60),
-    /** Prazo total da requisicao, derivado do SLO da borda. */
-    val request: Duration = Duration.ofMillis(250),
+    /**
+     * Prazo total da requisicao: o limite externo de paciencia do cliente, nao a meta interna.
+     *
+     * Generoso de proposito. Ele so encolhe esperas, e um valor apertado faria o primeiro request
+     * de um pod recem-subido — com a JVM ainda fria — desistir de esperar sem motivo.
+     */
+    val request: Duration = Duration.ofSeconds(1),
     /** Quanto um waiter espera o lider do singleflight antes de degradar. */
     val singleflightWait: Duration = Duration.ofMillis(150),
     /** Quanto se espera por uma permissao do bulkhead de leitura antes de degradar. */

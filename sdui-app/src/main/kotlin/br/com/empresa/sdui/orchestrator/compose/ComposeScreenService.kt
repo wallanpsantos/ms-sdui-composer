@@ -57,12 +57,14 @@ import java.util.concurrent.ThreadLocalRandom
  * Nenhuma falha de dependencia vira 5xx direto: tudo passa pela escada de fallback (ADR-007), que
  * tenta last good antes de assumir indisponibilidade.
  *
- * **Politica de resiliencia (ADR-014).** Toda requisicao abre um [TimeBudget] e nenhuma etapa
- * comeca sem prazo; as leituras de store passam por um [Bulkhead] proprio do plano de leitura; e
- * todo desfecho degradado — recusa do bulkhead, prazo estourado, falha de store, escrita de cache
- * perdida, last good velho demais e o proprio 503 — emite metrica antes de seguir. O servico nao
- * faz retry de dependencia nenhuma: a escada de fallback ja e a politica de degradacao, e repetir
- * chamada multiplicaria a carga exatamente quando a dependencia esta fraca.
+ * **Politica de resiliencia (ADR-014).** Toda requisicao abre um [TimeBudget] que limita as
+ * **esperas** — permissao de bulkhead e espera pelo lider do singleflight —, e nunca o trabalho em
+ * si: esperar por outro quando nao ha prazo nao ajuda ninguem, mas abandonar trabalho ja pago so
+ * troca latencia por erro. As leituras de store passam por um [Bulkhead] proprio do plano de
+ * leitura, e todo desfecho degradado — recusa do bulkhead, orcamento estourado, falha de store,
+ * escrita de cache perdida, last good velho demais e o proprio 503 — emite metrica antes de
+ * seguir. O servico nao faz retry de dependencia nenhuma: a escada de fallback ja e a politica de
+ * degradacao, e repetir chamada multiplicaria a carga exatamente quando a dependencia esta fraca.
  */
 class ComposeScreenService(
     private val specStore: SpecStore,
@@ -139,15 +141,17 @@ class ComposeScreenService(
         }
 
         // Com a revisao em maos o ETag ja e conhecido: uma revalidacao termina aqui, sem tocar no
-        // cache de arvore nem compor nada. A revalidacao e barata o bastante para ser atendida
-        // mesmo com o orcamento no fim — por isso a checagem de prazo vem depois dela.
+        // cache de arvore nem compor nada.
         val etag = ETagFactory.of(selected.specRevisionId, context.platform, context.schemaVersion, capsHash)
         if (!request.ifNoneMatch.isNullOrBlank() && request.ifNoneMatch == etag) {
             return ComposeResult.NotModified(etag)
         }
+        // Orcamento estourado e sinal, nao veredito. Abortar aqui trocaria trabalho ja pago — a
+        // selecao — por uma leitura de last good que, num pod recem-subido, nao existe: o primeiro
+        // request depois de um deploy viraria 503 so porque a JVM ainda estava fria. Quem consome
+        // o orcamento sao as esperas, e e nelas que ele e aplicado.
         if (budget.isExhausted()) {
             metrics.increment(DEADLINE_EXCEEDED, tags + mapOf("stage" to STAGE_SELECT))
-            return fallbackOrUnavailable(context, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
         }
 
         val treeKey = RedisKeys.tree(
@@ -289,7 +293,6 @@ class ComposeScreenService(
             skeleton = skeleton,
             sections = filtered.sections,
             alreadyOmitted = filtered.omitted,
-            remaining = budget.remaining(),
         )
         if (hydrated.requiredSlotFailed) {
             return fallbackOrUnavailable(context, channel, FallbackReason.REQUIRED_SLOT_EMPTY, tags)

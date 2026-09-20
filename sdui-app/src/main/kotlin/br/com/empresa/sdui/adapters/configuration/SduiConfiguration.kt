@@ -90,10 +90,10 @@ data class SduiProperties(
     /** Base do `Retry-After` do 429, antes do jitter. */
     val rateLimitRetryAfterSeconds: Long = 2,
     /**
-     * Prazo total de uma requisicao de composicao, derivado do SLO da borda. Todas as esperas
-     * configuraveis abaixo precisam caber dentro dele.
+     * Prazo total de uma requisicao de composicao. Limita as esperas do pipeline, nunca o trabalho
+     * em si. Todas as esperas configuraveis abaixo precisam caber dentro dele.
      */
-    val requestBudgetMs: Long = 250,
+    val requestBudgetMs: Long = 1_000,
     /**
      * Quanto um waiter espera o lider do singleflight. Menor que [requestBudgetMs] de proposito:
      * desistir e ir para o last good antes do cliente desistir e o que torna a espera util.

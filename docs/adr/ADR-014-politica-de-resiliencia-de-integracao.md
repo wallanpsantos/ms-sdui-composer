@@ -42,29 +42,39 @@ hidratação.
 
 ## Decisão
 
-### 1. Orçamento de tempo explícito
+### 1. Orçamento de tempo explícito, aplicado às esperas
 
-Toda requisição abre um `TimeBudget` (`core/limit/TimeBudget.kt`), derivado do SLO da borda. Os prazos vivem em
-`ComposeBudgets` e são configuráveis sob o prefixo `sdui`:
+Toda requisição abre um `TimeBudget` (`core/limit/TimeBudget.kt`). Os prazos vivem em `ComposeBudgets` e são
+configuráveis sob o prefixo `sdui`:
 
-| Etapa                  | Prazo   | Propriedade                |
-|------------------------|---------|----------------------------|
-| Requisição (total)     | 250 ms  | `request-budget-ms`        |
-| Espera do waiter       | 150 ms  | `singleflight-timeout-ms`  |
-| Permissão do bulkhead  | 50 ms   | `read-bulkhead-wait-ms`    |
-| Hidratação por section | 80 ms   | `hydration-timeout-ms`     |
+| Prazo                  | Valor    | Propriedade                | Encolhido pelo orçamento? |
+|------------------------|----------|----------------------------|---------------------------|
+| Requisição (total)     | 1 000 ms | `request-budget-ms`        | —                         |
+| Espera do waiter       | 150 ms   | `singleflight-timeout-ms`  | Sim                       |
+| Permissão do bulkhead  | 50 ms    | `read-bulkhead-wait-ms`    | Sim                       |
+| Hidratação por section | 80 ms    | `hydration-timeout-ms`     | **Não**                   |
 
-Cada etapa recebe `budget.stage(teto)`, que é o menor entre o teto dela e o que resta. A espera do waiter é
-deliberadamente menor que o orçamento total: quem espera deve desistir e ir para o last good **antes** de o cliente
-desistir, senão a espera só soma ao tempo total sem melhorar o desfecho.
+A regra é: **o orçamento limita espera, nunca trabalho.** As duas esperas recebem `budget.stage(teto)`, que é o
+menor entre o teto delas e o que resta — esperar por outro quando não há prazo não ajuda ninguém. O trabalho em si
+não é abandonado, e a hidratação mantém o teto próprio.
+
+A razão é concreta. Um corte rígido logo após a seleção devolveria `503` no primeiro request de um pod recém-subido:
+a JVM fria gasta o orçamento na seleção, o `lastGood` de um pod novo está vazio, e o usuário recebe erro por um custo
+de aquecimento, não de incidente. Abandonar trabalho já pago também troca latência por erro e joga fora a composição
+que popularia o cache para todos os demais.
+
+Orçamento estourado é, portanto, **sinal e não veredito**: emite `compose.deadline.exceeded` com a etapa em que foi
+detectado e o pipeline segue. Quem produz os desfechos são o bulkhead, a espera do waiter e a escada de fallback.
+
+A espera do waiter é deliberadamente menor que o orçamento total: quem espera deve desistir e ir para o last good
+**antes** de o cliente desistir.
 
 O `TimeBudget` usa `nanoTime` e não relógio de parede, porque o valor é uma diferença e um ajuste de NTP para trás
 produziria prazo negativo ou eterno.
 
 **Limite assumido:** o orçamento não interrompe chamada já em andamento. Uma chamada síncrona de store não é
 cancelável a partir do orquestrador. Prazo por chamada é responsabilidade do adapter — _socket timeout_ do driver —
-quando a persistência deixar de ser em memória. O que o orçamento garante é que nenhuma etapa **inicie** sem prazo
-e que as esperas configuráveis nunca ultrapassem o que o cliente aceita aguardar.
+quando a persistência deixar de ser em memória.
 
 ### 2. Bulkhead do plano de leitura
 
@@ -170,7 +180,8 @@ framework e o JDK basta; o Spring Boot instala a ponte de JUL para o backend de 
 
 - `read-bulkhead-permits` dimensionado abaixo da concorrência real transforma pico legítimo em fallback. Mitigação:
   `compose.bulkhead.rejected` é a métrica que denuncia isso, e o valor é configurável sem recompilar.
-- `request-budget-ms` apertado demais produz `compose.deadline.exceeded` em operação normal. Mesma mitigação.
+- `request-budget-ms` apertado demais produz `compose.deadline.exceeded` em operação normal — ruído de alerta, não
+  degradação de resposta, justamente porque o orçamento não aborta. Mesma mitigação.
 
 ## Alternativas Consideradas
 
@@ -189,7 +200,8 @@ framework e o JDK basta; o Spring Boot instala a ponte de JUL para o backend de 
 - `sdui-core`: `ResiliencePrimitivesTest` — faixa e piso do jitter, encolhimento e esgotamento do orçamento,
   lotação e devolução de permissão do bulkhead.
 - `sdui-app`: `ComposeResilienceTest` — contador do `503` com motivo, last good dentro e fora do prazo, jitter do
-  `Retry-After`, interrupção por orçamento estourado, degradação por lotação e relato de falha de store.
+  `Retry-After`, sinalização de orçamento estourado **sem** abandono da composição, degradação por lotação e relato de falha de
+  store.
 - `sdui-app`: `AdminIdempotencyTest` — `open` concorrente com a mesma chave produzindo um único pedido, devolução da
   chave em falha, invalidação do last good por `approve` e por `rollback`, exclusividade/validade/teto da reserva.
 - ArchUnit: as regras existentes continuam valendo; `core` e `orchestrator` seguem sem Spring, Jackson e servlet.

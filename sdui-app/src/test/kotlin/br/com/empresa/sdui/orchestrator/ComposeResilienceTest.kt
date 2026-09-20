@@ -211,19 +211,20 @@ class ComposeResilienceTest {
     }
 
     @Test
-    fun `orcamento estourado na selecao interrompe o pipeline antes de compor`() {
-        // Roteiro do relogio: inicio do orcamento, prazo do bulkhead e, na terceira leitura, um
-        // segundo inteiro ja gasto — bem acima dos 250ms de orcamento.
-        val harness = Harness(nanos = listOf(0L, 0L, Duration.ofSeconds(1).toNanos()))
+    fun `orcamento estourado e sinalizado sem abandonar a composicao`() {
+        // Roteiro do relogio: inicio do orcamento, prazo do bulkhead e, na terceira leitura, dois
+        // segundos gastos — o dobro do orcamento.
+        val harness = Harness(nanos = listOf(0L, 0L, Duration.ofSeconds(2).toNanos()))
         harness.seed()
 
         val result = harness.compose()
 
-        assertThat(result).isInstanceOf(ComposeResult.Unavailable::class.java)
         assertThat(harness.names()).contains("compose.deadline.exceeded")
         assertThat(harness.tagsOf("compose.deadline.exceeded")).containsEntry("stage", "select")
-        // Nao chegou a consultar o cache de arvore nem a compor.
-        assertThat(harness.names()).doesNotContain("compose.hit", "compose.miss")
+        // Sinal, nao veredito: abortar aqui trocaria a selecao ja paga por um 503 num pod frio.
+        assertThat(result).isInstanceOf(ComposeResult.Success::class.java)
+        assertThat((result as ComposeResult.Success).screen.fallback).isFalse()
+        assertThat(harness.names()).contains("compose.miss")
     }
 
     @Test

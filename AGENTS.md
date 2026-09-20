@@ -279,9 +279,11 @@ Regras inegociáveis do ciclo de resiliência de integração. O ADR completo es
 1. **Sem Retry de Dependência no Servidor:** a escada de fallback (ADR-007) é a política de degradação.
    Acrescentar retry sobre store multiplicaria a carga exatamente quando a dependência está fraca.
    Retry é do cliente móvel, sobre um `GET` idempotente, com orçamento e jitter declarados.
-2. **Nenhuma Etapa Começa Sem Prazo:** toda requisição abre um `TimeBudget` e cada etapa recebe
-   `budget.stage(teto)`. A espera do waiter no singleflight é sempre menor que o orçamento total —
-   desistir depois do cliente não melhora desfecho nenhum, só soma tempo.
+2. **Orçamento Limita Espera, Nunca Trabalho:** toda requisição abre um `TimeBudget`, e só as
+   esperas — permissão de bulkhead e espera pelo líder do singleflight — recebem `budget.stage(teto)`.
+   Orçamento estourado emite `compose.deadline.exceeded` e o pipeline segue. Proibido abortar
+   composição já iniciada por prazo: num pod recém-subido isso vira `503` por JVM fria, com o
+   `lastGood` ainda vazio. A espera do waiter é sempre menor que o orçamento total.
 3. **Todo Desfecho Degradado Emite Métrica:** `503`, recusa de bulkhead, prazo estourado, falha de
    store, escrita de cache perdida e last good vencido têm contador próprio. Proibido `catch` mudo no
    pipeline de composição — um cache que lê e recusa gravar precisa ser distinguível de operação normal.

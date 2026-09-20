@@ -29,7 +29,8 @@ sdui:
   hydration-timeout-ms: 80
   hydration-fanout: 8
   # Orcamento da requisicao e as esperas que precisam caber dentro dele (ADR-014).
-  request-budget-ms: 250
+  # O orcamento limita espera, nunca trabalho ja iniciado.
+  request-budget-ms: 1000
   singleflight-timeout-ms: 150
   read-bulkhead-permits: 32
   read-bulkhead-wait-ms: 50

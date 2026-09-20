@@ -35,10 +35,6 @@ data class HydratedTree(
  * quantas chamadas de dados acontecem ao mesmo tempo. O prazo e por section: quem estoura vira
  * omissao com HYDRATION_TIMEOUT e as demais seguem, o que mantem o tempo total da requisicao
  * previsivel mesmo com uma fonte lenta.
- *
- * O prazo de cada section e limitado tambem pelo que resta do orcamento da requisicao, recebido em
- * `remaining`: o teto configurado vale quando a composicao chega aqui no horario, e encolhe quando
- * as etapas anteriores ja gastaram o prazo.
  */
 class HydrationCoordinator(
     private val hydrators: List<SectionHydrator>,
@@ -52,12 +48,7 @@ class HydrationCoordinator(
         skeleton: Skeleton,
         sections: List<Section>,
         alreadyOmitted: List<OmittedSection>,
-        remaining: Duration = timeout,
     ): HydratedTree {
-        // O prazo efetivo e o menor entre o teto da hidratacao e o que sobrou do orcamento da
-        // requisicao. Sem esse minimo, uma selecao lenta seria seguida de uma hidratacao com o
-        // prazo cheio, e a soma passaria do que o cliente aceita esperar.
-        val effectiveTimeout = if (remaining < timeout) remaining else timeout
         val omitted = alreadyOmitted.toMutableList()
         val requiredSlots = skeleton.slots.filter { it.required }.map { it.id }.toSet()
         if (sections.isEmpty()) {
@@ -71,12 +62,12 @@ class HydrationCoordinator(
             val original = CompletableFuture.supplyAsync(
                 {
                     val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
-                    val remainingMs = (effectiveTimeout.toMillis() - elapsedMs).coerceAtLeast(0)
+                    val remainingMs = (timeout.toMillis() - elapsedMs).coerceAtLeast(0)
                     if (remainingMs <= 0 || !fanOut.tryAcquire(remainingMs, TimeUnit.MILLISECONDS)) {
                         throw TimeoutException("Fan-out semaphore acquire timeout")
                     }
                     try {
-                        if (System.nanoTime() - started >= effectiveTimeout.toNanos()) {
+                        if (System.nanoTime() - started >= timeout.toNanos()) {
                             throw TimeoutException("Timeout before hydrator invocation")
                         }
                         hydrator.hydrate(context, section)
@@ -86,7 +77,7 @@ class HydrationCoordinator(
                 },
                 executor,
             )
-            original.orTimeout(effectiveTimeout.toMillis().coerceAtLeast(1), TimeUnit.MILLISECONDS)
+            original.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
                 .handle { result, error ->
                     val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
                     metrics.recordTime(
