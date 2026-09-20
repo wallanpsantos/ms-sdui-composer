@@ -270,3 +270,35 @@ Regras inegociáveis resultantes da revisão multidimensional de 2026-09-20 (`co
     `classpath:/application.yaml` para um único recurso; um segundo arquivo em módulo biblioteca faz a
     configuração vencedora depender da ordem do classpath.
 
+## 20. Política de Resiliência de Integração (ADR-014)
+
+Regras inegociáveis do ciclo de resiliência de integração. O ADR completo está em
+`docs/adr/ADR-014-politica-de-resiliencia-de-integracao.md`; o contrato para os apps está em
+`docs/runbooks/contrato-de-retry-clientes-moveis.md`.
+
+1. **Sem Retry de Dependência no Servidor:** a escada de fallback (ADR-007) é a política de degradação.
+   Acrescentar retry sobre store multiplicaria a carga exatamente quando a dependência está fraca.
+   Retry é do cliente móvel, sobre um `GET` idempotente, com orçamento e jitter declarados.
+2. **Orçamento Limita Espera, Nunca Trabalho:** toda requisição abre um `TimeBudget`, e só as
+   esperas — permissão de bulkhead e espera pelo líder do singleflight — recebem `budget.stage(teto)`.
+   Orçamento estourado emite `compose.deadline.exceeded` e o pipeline segue. Proibido abortar
+   composição já iniciada por prazo: num pod recém-subido isso vira `503` por JVM fria, com o
+   `lastGood` ainda vazio. A espera do waiter é sempre menor que o orçamento total.
+3. **Todo Desfecho Degradado Emite Métrica:** `503`, recusa de bulkhead, prazo estourado, falha de
+   store, escrita de cache perdida e last good vencido têm contador próprio. Proibido `catch` mudo no
+   pipeline de composição — um cache que lê e recusa gravar precisa ser distinguível de operação normal.
+4. **`Retry-After` Sempre com Jitter:** a chave do limitador é `plataforma:build`, uma coorte. Valor
+   constante devolve a coorte inteira no mesmo segundo e repete o pico que causou a recusa.
+5. **Fallback Tem Prazo de Validade:** acima de `max-fallback-age-seconds` o last good é recusado em
+   favor do `503`. Indisponibilidade visível é preferível a incorreção silenciosa.
+6. **Publicação e Rollback Invalidam o Last Good:** junto com o cache de árvore e sempre depois do
+   commit. Sem isso o fallback reintroduz a revisão que o operador acabou de retirar.
+7. **Idempotência é Reserva, Não Gravação no Fim:** `reserve` toma a chave antes do efeito e o retorno
+   do `putIfAbsent` é conferido; `complete` fecha no mesmo commit do efeito; `release` devolve a chave
+   quando a operação falha sem efeito. `find`-depois-`put` deixa dois retries concorrentes executarem.
+8. **Bulkhead Explícito no Plano de Leitura:** Virtual Threads removeram o pool limitado que fazia
+   shedding. O teto de leituras simultâneas é declarado e separado do plano administrativo.
+9. **Prazo por Chamada é do Adapter:** o orçamento não interrompe chamada síncrona em andamento.
+   Quando Mongo e Redis forem cabeados, o timeout de socket do driver é obrigatório — e não um
+   parâmetro `Duration` decorativo na assinatura das portas.
+

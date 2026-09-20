@@ -146,13 +146,17 @@ data class AuditEvent(
 )
 
 /**
- * Resultado ja produzido por uma chave de idempotencia.
+ * Reserva ou resultado de uma chave de idempotencia.
  *
  * Faz o retry de uma operacao administrativa devolver o mesmo resultado em vez de duplicar a
  * publicacao ou conflitar com o proprio efeito anterior.
+ *
+ * [resultRef] nulo significa reserva em voo: a chave foi tomada e a operacao ainda nao commitou.
+ * A distincao importa porque so ela separa "ja fizemos, aqui esta o resultado" de "alguem esta
+ * fazendo agora" — sem ela, um retry concorrente executaria a operacao uma segunda vez.
  */
 data class IdempotencyRecord(
     val key: String,
     val operation: String,
-    val resultRef: String,
+    val resultRef: String?,
 )

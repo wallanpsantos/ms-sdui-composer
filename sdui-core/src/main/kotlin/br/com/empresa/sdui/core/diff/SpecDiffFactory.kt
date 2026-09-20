@@ -22,7 +22,7 @@ object SpecDiffFactory {
         val prevById = previous?.sections?.associateBy { it.id }.orEmpty()
         for (section in current.sections) {
             val before = prevById[section.id] ?: continue
-            if (before.type != section.type || before.typeVersion != section.typeVersion || before.props != section.props) {
+            if (before != section) {
                 changed += DiffEntry(path = "sections.${section.id}", change = "changed")
             }
         }

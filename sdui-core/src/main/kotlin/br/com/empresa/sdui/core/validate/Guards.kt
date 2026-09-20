@@ -33,7 +33,7 @@ object VisualGuard {
 object PiiGuard {
     private val LOWER_PII_KEYS: Set<String> = MvpCatalog.PII_KEYS.map { it.lowercase() }.toSet()
     private val CPF = Regex("""\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{11}\b""")
-    private val PAN = Regex("""\b\d{16}\b""")
+    private val PAN = Regex("""\b(?:\d{4}[ -]?){3}\d{4}\b|\b\d{16}\b""")
 
     fun violations(root: Any?): List<String> {
         val found = mutableListOf<String>()

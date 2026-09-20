@@ -34,6 +34,7 @@ data class Capability(
         fun parseList(header: String?): List<Capability> {
             if (header.isNullOrBlank()) return emptyList()
             return header.splitToSequence(",")
+                .take(MAX_HEADER_CAPABILITIES * 2)
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .mapNotNull { parse(it) }

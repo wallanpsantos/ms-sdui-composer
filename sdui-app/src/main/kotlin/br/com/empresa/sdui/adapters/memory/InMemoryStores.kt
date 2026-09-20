@@ -28,8 +28,11 @@ import br.com.empresa.sdui.orchestrator.port.outbound.SingleflightOutcome
 import br.com.empresa.sdui.orchestrator.port.outbound.SkeletonStore
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecCache
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
+import br.com.empresa.sdui.orchestrator.port.outbound.StoredScreen
 import br.com.empresa.sdui.orchestrator.port.outbound.TransactionalUnitOfWork
+import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -167,27 +170,98 @@ class InMemoryDiffStore : DiffStore {
     override fun find(specId: String, from: Int, to: Int): SpecDiff? = items["$specId:$from:$to"]
 }
 
-/** Trilha de auditoria em memoria, so de acrescimo. */
-class InMemoryAuditLogStore : AuditLogStore {
+/** Trilha de auditoria em memoria, com teto de retencao para evitar vazamento de heap. */
+class InMemoryAuditLogStore(
+    private val maxEvents: Int = 2_000,
+) : AuditLogStore {
     private val events = mutableListOf<AuditEvent>()
     private val lock = ReentrantLock()
 
     override fun append(event: AuditEvent) {
-        lock.withLock { events += event }
+        lock.withLock {
+            if (events.size >= maxEvents) {
+                events.removeAt(0)
+            }
+            events += event
+        }
     }
 
     override fun list(): List<AuditEvent> = lock.withLock { events.toList() }
 }
 
-/** Registros de idempotencia em memoria. A primeira gravacao de uma chave vence. */
-class InMemoryIdempotencyStore : IdempotencyStore {
-    private val items = ConcurrentHashMap<String, IdempotencyRecord>()
+/**
+ * Registros de idempotencia em memoria, com reserva atomica, validade e teto de entradas.
+ *
+ * A reserva usa `putIfAbsent` e **confere o retorno**: quem recebe null tomou a chave, quem recebe
+ * um registro perdeu e nao executa. Era essa conferencia que faltava para a chave valer sob
+ * concorrencia — consultar e depois gravar deixava duas chamadas simultaneas passarem as duas.
+ *
+ * A validade existe porque a chave vem de header: sem ela o mapa cresce com o numero de operacoes
+ * administrativas ja feitas e nunca encolhe, o que e a mesma regra de teto que vale para o cache
+ * de arvore e para o limitador. Uma chave expirada pode ser retomada — o que ela protege e o retry
+ * imediato de um operador, nao a historia inteira do servico, que vive na trilha de auditoria.
+ */
+class InMemoryIdempotencyStore(
+    private val clock: Clock,
+    private val ttl: Duration = Duration.ofHours(24),
+    private val maxEntries: Int = 10_000,
+) : IdempotencyStore {
+    private data class Entry(val record: IdempotencyRecord, val expiresAt: Instant)
 
-    override fun find(key: String): IdempotencyRecord? = items[key]
+    private val items = ConcurrentHashMap<String, Entry>()
+    private val pruning = AtomicBoolean(false)
 
-    override fun put(record: IdempotencyRecord) {
-        items.putIfAbsent(record.key, record)
+    override fun find(key: String): IdempotencyRecord? {
+        val entry = items[key] ?: return null
+        if (entry.expiresAt.isBefore(clock.instant())) {
+            items.remove(key, entry)
+            return null
+        }
+        return entry.record
     }
+
+    override fun reserve(key: String, operation: String): Boolean {
+        if (items.size >= maxEntries) prune()
+        val fresh = Entry(IdempotencyRecord(key, operation, null), clock.instant().plus(ttl))
+        val existing = items.putIfAbsent(key, fresh) ?: return true
+        // Registro vencido nao segura a chave, mas a troca tem de ser condicionada ao valor lido:
+        // uma gravacao incondicional atropelaria a reserva de quem chegou no meio.
+        if (existing.expiresAt.isBefore(clock.instant())) return items.replace(key, existing, fresh)
+        return false
+    }
+
+    override fun complete(record: IdempotencyRecord) {
+        items[record.key] = Entry(record, clock.instant().plus(ttl))
+    }
+
+    override fun release(key: String) {
+        val entry = items[key] ?: return
+        // So devolve reserva em voo. Um resultado ja fechado e o que faz o retry ser idempotente;
+        // remove-lo por engano deixaria a operacao seguinte executar de novo.
+        if (entry.record.resultRef == null) items.remove(key, entry)
+    }
+
+    /** Quantas chaves estao residentes agora. Serve a diagnostico e aos testes do teto. */
+    fun residentEntries(): Int = items.size
+
+    private fun prune() {
+        if (!pruning.compareAndSet(false, true)) return
+        try {
+            val now = clock.instant()
+            items.entries.removeIf { it.value.expiresAt.isBefore(now) }
+            val excess = items.size - maxEntries / 2
+            if (excess > 0) {
+                items.entries
+                    .sortedBy { it.value.expiresAt }
+                    .take(excess)
+                    .forEach { items.remove(it.key, it.value) }
+            }
+        } finally {
+            pruning.set(false)
+        }
+    }
+
+    fun clear() = items.clear()
 }
 
 /**
@@ -209,7 +283,7 @@ class InMemoryHydratedScreenCache(
         check(!RedisKeys.containsUserId(treeKey))
         val entry = items[treeKey] ?: return null
         if (entry.expiresAt < System.currentTimeMillis()) {
-            items.remove(treeKey)
+            items.remove(treeKey, entry)
             return null
         }
         return entry.screen
@@ -257,19 +331,28 @@ class InMemoryHydratedScreenCache(
 }
 
 /**
- * Ultima arvore boa em memoria, por surface, plataforma e canal.
+ * Ultima arvore boa em memoria, por surface, plataforma e canal, carimbada com o instante da
+ * gravacao.
  *
- * Sem expiracao de proposito: uma arvore defasada continua sendo melhor resposta que um 503, e
- * ela so e servida quando a composicao ja falhou.
+ * Nao expira sozinha: uma arvore defasada continua sendo melhor resposta que um 503, e ela so e
+ * servida quando a composicao ja falhou. Quem decide ate que ponto a defasagem ainda e aceitavel e
+ * o pipeline, que compara a idade com o orcamento de fallback — e para isso precisa do carimbo.
  */
-class InMemoryLastGoodScreenStore : LastGoodScreenStore {
-    private val items = ConcurrentHashMap<String, ComposedScreen>()
+class InMemoryLastGoodScreenStore(
+    private val clock: Clock = Clock.systemUTC(),
+) : LastGoodScreenStore {
+    private val items = ConcurrentHashMap<String, StoredScreen>()
 
-    override fun get(surface: String, platform: ClientPlatform, channel: Channel): ComposedScreen? =
+    override fun get(surface: String, platform: ClientPlatform, channel: Channel): StoredScreen? =
         items[RedisKeys.lastGood(surface, platform, channel)]
 
     override fun put(screen: ComposedScreen) {
-        items[RedisKeys.lastGood(screen.surface, screen.platform, screen.channel)] = screen
+        items[RedisKeys.lastGood(screen.surface, screen.platform, screen.channel)] =
+            StoredScreen(screen, clock.instant())
+    }
+
+    override fun invalidate(surface: String, platform: ClientPlatform, channel: Channel) {
+        items.remove(RedisKeys.lastGood(surface, platform, channel))
     }
 
     fun clear() = items.clear()
@@ -291,11 +374,14 @@ class InMemorySpecCache : SpecCache {
     }
 }
 
-/** Projecoes em memoria, com expiracao preguicosa na leitura. */
-class InMemoryProjectionStore : ProjectionStore {
+/** Projecoes em memoria, com expiracao preguicosa e poda periodica sob teto. */
+class InMemoryProjectionStore(
+    private val maxEntries: Int = 10_000,
+) : ProjectionStore {
     private data class Entry(val props: Map<String, Any?>, val expiresAt: Long)
 
     private val items = ConcurrentHashMap<String, Entry>()
+    private val pruning = AtomicBoolean(false)
 
     override fun get(projection: String, id: String): Map<String, Any?>? {
         val key = RedisKeys.section(projection, id)
@@ -308,9 +394,30 @@ class InMemoryProjectionStore : ProjectionStore {
     }
 
     override fun put(projection: String, id: String, props: Map<String, Any?>, ttl: Duration) {
+        if (items.size >= maxEntries) prune()
         items[RedisKeys.section(projection, id)] =
             Entry(props, System.currentTimeMillis() + ttl.toMillis())
     }
+
+    private fun prune() {
+        if (!pruning.compareAndSet(false, true)) return
+        try {
+            val now = System.currentTimeMillis()
+            items.entries.removeIf { it.value.expiresAt < now }
+            val excess = items.size - (maxEntries / 2)
+            if (excess > 0) {
+                items.entries
+                    .sortedBy { it.value.expiresAt }
+                    .take(excess)
+                    .forEach { items.remove(it.key, it.value) }
+            }
+        } finally {
+            pruning.set(false)
+        }
+    }
+
+    fun residentEntries(): Int = items.size
+    fun clear() = items.clear()
 }
 
 /**
@@ -343,7 +450,7 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
                 val value = compute()
                 created.complete(value)
                 return SingleflightOutcome.Leader(value)
-            } catch (error: Exception) {
+            } catch (error: Throwable) {
                 created.completeExceptionally(error)
                 throw error
             } finally {
@@ -356,6 +463,9 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
             SingleflightOutcome.Waiter(value)
         } catch (_: TimeoutException) {
             SingleflightOutcome.WaitTimeout()
+        } catch (ex: java.util.concurrent.ExecutionException) {
+            val cause = ex.cause ?: ex
+            if (cause is Exception) throw cause else throw RuntimeException(cause)
         }
     }
 }

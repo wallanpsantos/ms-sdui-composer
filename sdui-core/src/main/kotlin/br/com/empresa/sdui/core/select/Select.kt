@@ -41,10 +41,9 @@ object Select {
         }
         return published
             .filter { it.matches(context, effectiveCaps) }
-            .sortedWith(
-                compareByDescending<Spec> { it.targeting.priority }
-                    .thenByDescending { it.publishedAt ?: Instant.EPOCH },
+            .maxWithOrNull(
+                compareBy<Spec> { it.targeting.priority }
+                    .thenBy { it.publishedAt ?: Instant.EPOCH },
             )
-            .firstOrNull()
     }
 }

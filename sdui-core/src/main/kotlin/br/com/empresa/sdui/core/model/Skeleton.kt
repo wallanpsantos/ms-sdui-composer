@@ -30,6 +30,9 @@ data class Skeleton(
     val slots: List<SlotDefinition>,
     val status: SpecStatus,
 ) {
+    val slotOrder: Map<String, Int> = slots.mapIndexed { index, slot -> slot.id to index }.toMap()
+    val requiredSlotIds: Set<String> = slots.filter { it.required }.map { it.id }.toSet()
+
     fun slot(id: String): SlotDefinition? = slots.firstOrNull { it.id == id }
 
     fun wireSlots(): List<SlotDefinition> = slots

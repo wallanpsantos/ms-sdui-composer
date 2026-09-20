@@ -34,8 +34,9 @@ object JsonMaps {
         return (value as? Map<String, Any?>) ?: emptyMap()
     }
 
-    fun toNode(mapper: JsonMapper, value: Any?): JsonNode {
+    fun toNode(mapper: JsonMapper, value: Any?, depth: Int = 0): JsonNode {
         if (value == null) return mapper.nodeFactory.nullNode()
+        if (depth > 32) return mapper.nodeFactory.stringNode("[truncated]")
         return when (value) {
             is JsonNode -> value
             is String -> mapper.nodeFactory.stringNode(value)
@@ -46,13 +47,13 @@ object JsonMaps {
             is Float -> mapper.nodeFactory.numberNode(value)
             is List<*> -> {
                 val array: ArrayNode = mapper.nodeFactory.arrayNode()
-                value.forEach { array.add(toNode(mapper, it)) }
+                value.forEach { array.add(toNode(mapper, it, depth + 1)) }
                 array
             }
 
             is Map<*, *> -> {
                 val obj: ObjectNode = mapper.nodeFactory.objectNode()
-                value.forEach { (k, v) -> obj.set(k.toString(), toNode(mapper, v)) }
+                value.forEach { (k, v) -> obj.set(k.toString(), toNode(mapper, v, depth + 1)) }
                 obj
             }
 

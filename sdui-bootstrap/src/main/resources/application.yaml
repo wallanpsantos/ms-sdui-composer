@@ -28,6 +28,16 @@ sdui:
   tree-cache-max-entries: 10000
   hydration-timeout-ms: 80
   hydration-fanout: 8
+  # Orcamento da requisicao e as esperas que precisam caber dentro dele (ADR-014).
+  # O orcamento limita espera, nunca trabalho ja iniciado.
+  request-budget-ms: 1000
+  singleflight-timeout-ms: 150
+  read-bulkhead-permits: 32
+  read-bulkhead-wait-ms: 50
+  max-fallback-age-seconds: 86400
+  idempotency-ttl-seconds: 86400
+  idempotency-max-keys: 10000
   retry-after-seconds: 5
+  rate-limit-retry-after-seconds: 2
   canary-ios-builds: [ ]
   canary-android-builds: [ ]

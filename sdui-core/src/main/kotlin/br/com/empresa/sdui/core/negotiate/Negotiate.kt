@@ -17,9 +17,9 @@ import br.com.empresa.sdui.core.model.SemVer
  * comportamento esperado e vira 400, nunca 500.
  */
 object Negotiate {
-    private val BUILD = Regex("""^\d+$""")
+    private val BUILD = Regex("""^\d{1,10}$""")
     private val LOCALE = Regex("""^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$""")
-    private val SCHEMA = Regex("""^\d+$""")
+    private val SCHEMA = Regex("""^\d{1,10}$""")
 
     fun negotiate(headers: NegotiateHeaders): ContextValidation {
         val violations = mutableListOf<ContextViolation>()
@@ -71,20 +71,20 @@ object Negotiate {
             violations += ContextViolation("OS-Version", "invalid")
         }
 
-        if (violations.isNotEmpty()) {
+        if (platform == null || appVersion == null || build == null || schema == null || locale == null || apiVersion == null || violations.isNotEmpty()) {
             return ContextValidation.Invalid(violations)
         }
 
         return ContextValidation.Valid(
             ClientContext(
-                platform = platform!!,
-                appVersion = appVersion!!,
-                build = build!!,
+                platform = platform,
+                appVersion = appVersion,
+                build = build,
                 osVersion = osVersion,
                 osVersionRaw = osRaw ?: "",
-                schemaVersion = schema!!,
-                locale = locale!!,
-                apiVersion = apiVersion!!,
+                schemaVersion = schema,
+                locale = locale,
+                apiVersion = apiVersion,
                 headerCapabilities = Capability.parseList(headers.componentCapabilities),
                 channelHint = Channel.parse(headers.channel),
             ),

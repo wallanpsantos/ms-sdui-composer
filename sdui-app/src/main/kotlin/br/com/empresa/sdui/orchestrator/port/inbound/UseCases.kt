@@ -36,13 +36,19 @@ data class DraftCatalogCommand(
     val component: ComponentType,
 )
 
-/** Comando do maker: abre um pedido de publicacao de uma revisao num canal. */
+/**
+ * Comando do maker: abre um pedido de publicacao de uma revisao num canal.
+ *
+ * A chave de idempotencia e obrigatoria, como nas demais operacoes de estado. Abrir pedido e
+ * justamente a operacao que cria estado novo: sem chave, um retry do maker produz um segundo
+ * pedido para a mesma revisao, e o checker passa a ter dois pedidos identicos para decidir.
+ */
 data class OpenPublishCommand(
     val actor: Actor,
     val specId: String,
     val revision: Int,
     val channel: Channel,
-    val idempotencyKey: String?,
+    val idempotencyKey: String,
 )
 
 /** Comando do checker: aprova ou rejeita um pedido. A chave de idempotencia e obrigatoria. */

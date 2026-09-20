@@ -26,6 +26,12 @@ class MicrometerMetricsRecorder(
         registry.summary(name, tagList(tags)).record(bytes.toDouble())
     }
 
-    private fun tagList(tags: Map<String, String>): List<Tag> =
-        tags.entries.map { Tag.of(it.key, it.value) }
+    private fun tagList(tags: Map<String, String>): List<Tag> {
+        if (tags.isEmpty()) return emptyList()
+        val list = ArrayList<Tag>(tags.size)
+        for ((k, v) in tags) {
+            list += Tag.of(k, v)
+        }
+        return list
+    }
 }

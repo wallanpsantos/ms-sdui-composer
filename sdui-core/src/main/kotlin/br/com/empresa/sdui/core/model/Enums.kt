@@ -69,8 +69,10 @@ enum class ActorRole {
     ;
 
     companion object {
+        private val BY_NAME: Map<String, ActorRole> = entries.associateBy { it.name }
+
         fun parse(raw: String?): ActorRole? =
-            entries.firstOrNull { it.name.equals(raw?.trim(), ignoreCase = true) }
+            raw?.trim()?.uppercase()?.let { BY_NAME[it] }
     }
 }
 
@@ -124,7 +126,9 @@ enum class SlotLayout {
     fun wire(): String = name.lowercase()
 
     companion object {
+        private val BY_WIRE: Map<String, SlotLayout> = entries.associateBy { it.wire() }
+
         fun parse(raw: String?): SlotLayout? =
-            entries.firstOrNull { it.wire() == raw?.trim()?.lowercase() }
+            raw?.trim()?.lowercase()?.let { BY_WIRE[it] }
     }
 }

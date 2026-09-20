@@ -43,6 +43,10 @@ object SpecValidator {
         }
         val counts = mutableMapOf<String, Int>()
         val sectionIds = spec.sections.map { it.id }.toSet()
+        if (sectionIds.size != spec.sections.size) {
+            val duplicates = spec.sections.groupBy { it.id }.filterValues { it.size > 1 }.keys
+            errors += "secoes com id duplicado: $duplicates"
+        }
         for (section in spec.sections) {
             val slot = skeleton.slot(section.slot)
             if (slot == null) {
@@ -117,11 +121,10 @@ object SpecValidator {
                 apiVersion = "1",
                 headerCapabilities = emptyList(),
             )
+            val effective = matrix.effective(context)
             Combo(
-                label = "${spec.platform.wire()} $version caps=${
-                    matrix.effective(context).joinToString { it.wire() }
-                }",
-                caps = matrix.effective(context),
+                label = "${spec.platform.wire()} $version caps=${effective.joinToString { it.wire() }}",
+                caps = effective,
             )
         }
     }

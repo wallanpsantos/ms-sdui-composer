@@ -18,6 +18,7 @@ import br.com.empresa.sdui.adapters.observability.MicrometerMetricsRecorder
 import br.com.empresa.sdui.adapters.observability.NoOpMetricsRecorder
 import br.com.empresa.sdui.adapters.seed.HomeSeed
 import br.com.empresa.sdui.core.compat.CapabilityMatrix
+import br.com.empresa.sdui.core.limit.Bulkhead
 import br.com.empresa.sdui.core.limit.TokenBucketRateLimiter
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.orchestrator.admin.CatalogQueryService
@@ -25,6 +26,7 @@ import br.com.empresa.sdui.orchestrator.admin.DraftService
 import br.com.empresa.sdui.orchestrator.admin.PublishService
 import br.com.empresa.sdui.orchestrator.admin.RollbackService
 import br.com.empresa.sdui.orchestrator.compose.AllowlistCanaryPolicy
+import br.com.empresa.sdui.orchestrator.compose.ComposeBudgets
 import br.com.empresa.sdui.orchestrator.compose.ComposeScreenService
 import br.com.empresa.sdui.orchestrator.hydration.HydrationCoordinator
 import br.com.empresa.sdui.orchestrator.hydration.PassThroughHydrator
@@ -83,7 +85,30 @@ data class SduiProperties(
     val treeCacheMaxEntries: Int = 10_000,
     val hydrationTimeoutMs: Long = 80,
     val hydrationFanout: Int = 8,
+    /** Base do `Retry-After` do 503, antes do jitter. */
     val retryAfterSeconds: Long = 5,
+    /** Base do `Retry-After` do 429, antes do jitter. */
+    val rateLimitRetryAfterSeconds: Long = 2,
+    /**
+     * Prazo total de uma requisicao de composicao. Limita as esperas do pipeline, nunca o trabalho
+     * em si. Todas as esperas configuraveis abaixo precisam caber dentro dele.
+     */
+    val requestBudgetMs: Long = 1_000,
+    /**
+     * Quanto um waiter espera o lider do singleflight. Menor que [requestBudgetMs] de proposito:
+     * desistir e ir para o last good antes do cliente desistir e o que torna a espera util.
+     */
+    val singleflightTimeoutMs: Long = 150,
+    /** Chamadas simultaneas de leitura de store. Ver [Bulkhead]. */
+    val readBulkheadPermits: Int = 32,
+    /** Espera maxima por uma permissao do bulkhead de leitura antes de degradar. */
+    val readBulkheadWaitMs: Long = 50,
+    /** Idade maxima de um last good servido como fallback. */
+    val maxFallbackAgeSeconds: Long = 86_400,
+    /** Validade de uma chave de idempotencia administrativa. */
+    val idempotencyTtlSeconds: Long = 86_400,
+    /** Teto de chaves de idempotencia residentes. */
+    val idempotencyMaxKeys: Int = 10_000,
     val seedIos: Boolean = true,
 )
 
@@ -136,14 +161,28 @@ class SduiConfiguration {
     fun auditLogStore(): AuditLogStore = InMemoryAuditLogStore()
 
     @Bean
-    fun idempotencyStore(): IdempotencyStore = InMemoryIdempotencyStore()
+    fun idempotencyStore(clock: Clock, properties: SduiProperties): IdempotencyStore =
+        InMemoryIdempotencyStore(
+            clock = clock,
+            ttl = Duration.ofSeconds(properties.idempotencyTtlSeconds),
+            maxEntries = properties.idempotencyMaxKeys,
+        )
 
     @Bean
     fun hydratedScreenCache(properties: SduiProperties): HydratedScreenCache =
         InMemoryHydratedScreenCache(properties.treeCacheMaxEntries)
 
     @Bean
-    fun lastGoodScreenStore(): LastGoodScreenStore = InMemoryLastGoodScreenStore()
+    fun lastGoodScreenStore(clock: Clock): LastGoodScreenStore = InMemoryLastGoodScreenStore(clock)
+
+    /**
+     * Bulkhead do plano de leitura da home.
+     *
+     * Separado de proposito do plano administrativo: uma publicacao lenta nao pode consumir a
+     * capacidade de atender o app.
+     */
+    @Bean
+    fun readBulkhead(properties: SduiProperties): Bulkhead = Bulkhead(properties.readBulkheadPermits)
 
     @Bean
     fun specCache(): SpecCache = InMemorySpecCache()
@@ -205,6 +244,7 @@ class SduiConfiguration {
         matrix: CapabilityMatrix,
         canaryPolicy: CanaryPolicy,
         rateLimiter: TokenBucketRateLimiter,
+        readBulkhead: Bulkhead,
         metrics: MetricsRecorder,
         clock: Clock,
         properties: SduiProperties,
@@ -220,10 +260,18 @@ class SduiConfiguration {
         matrix = matrix,
         canaryPolicy = canaryPolicy,
         rateLimiter = rateLimiter,
+        readBulkhead = readBulkhead,
         metrics = metrics,
         clock = clock,
-        treeTtl = Duration.ofSeconds(properties.treeTtlSeconds),
-        retryAfterSeconds = properties.retryAfterSeconds,
+        budgets = ComposeBudgets(
+            treeTtl = Duration.ofSeconds(properties.treeTtlSeconds),
+            request = Duration.ofMillis(properties.requestBudgetMs),
+            singleflightWait = Duration.ofMillis(properties.singleflightTimeoutMs),
+            bulkheadWait = Duration.ofMillis(properties.readBulkheadWaitMs),
+            maxFallbackAge = Duration.ofSeconds(properties.maxFallbackAgeSeconds),
+            retryAfterSeconds = properties.retryAfterSeconds,
+            rateLimitRetryAfterSeconds = properties.rateLimitRetryAfterSeconds,
+        ),
     )
 
     @Bean
@@ -254,12 +302,13 @@ class SduiConfiguration {
         idempotency: IdempotencyStore,
         specCache: SpecCache,
         treeCache: HydratedScreenCache,
+        lastGood: LastGoodScreenStore,
         tx: TransactionalUnitOfWork,
         matrix: CapabilityMatrix,
         clock: Clock,
     ): PublishUseCase = PublishService(
         specStore, skeletonStore, catalogStore, pointerStore, publishStore, diffStore,
-        auditLog, idempotency, specCache, treeCache, tx, matrix, clock,
+        auditLog, idempotency, specCache, treeCache, lastGood, tx, matrix, clock,
     )
 
     @Bean
@@ -270,10 +319,11 @@ class SduiConfiguration {
         idempotency: IdempotencyStore,
         specCache: SpecCache,
         treeCache: HydratedScreenCache,
+        lastGood: LastGoodScreenStore,
         tx: TransactionalUnitOfWork,
         clock: Clock,
     ): RollbackPointerUseCase = RollbackService(
-        pointerStore, specStore, auditLog, idempotency, specCache, treeCache, tx, clock,
+        pointerStore, specStore, auditLog, idempotency, specCache, treeCache, lastGood, tx, clock,
     )
 
     @Bean

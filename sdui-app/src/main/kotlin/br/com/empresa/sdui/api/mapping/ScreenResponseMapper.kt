@@ -36,7 +36,7 @@ class ScreenResponseMapper(
         // horario de verao desde 2019, entao o valor e constante; mudar para UTC seria quebra de
         // contrato com os clientes moveis.
         val generatedAt = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
-            screen.generatedAt.atOffset(ZoneOffset.of("-03:00")),
+            screen.generatedAt.atOffset(BRASIL_OFFSET),
         )
         return ScreenResponse(
             envelope = ScreenEnvelope(
@@ -119,8 +119,9 @@ class ScreenResponseMapper(
         )
     }
 
-    private fun toNode(value: Any?): JsonNode {
+    private fun toNode(value: Any?, depth: Int = 0): JsonNode {
         if (value == null) return mapper.nodeFactory.nullNode()
+        if (depth > MAX_RECURSION_DEPTH) return mapper.nodeFactory.stringNode("[truncated]")
         return when (value) {
             is JsonNode -> value
             is String -> mapper.nodeFactory.stringNode(value)
@@ -131,17 +132,22 @@ class ScreenResponseMapper(
             is Float -> mapper.nodeFactory.numberNode(value)
             is List<*> -> {
                 val array: ArrayNode = mapper.nodeFactory.arrayNode()
-                value.forEach { array.add(toNode(it)) }
+                value.forEach { array.add(toNode(it, depth + 1)) }
                 array
             }
 
             is Map<*, *> -> {
                 val obj: ObjectNode = mapper.nodeFactory.objectNode()
-                value.forEach { (k, v) -> obj.set(k.toString(), toNode(v)) }
+                value.forEach { (k, v) -> obj.set(k.toString(), toNode(v, depth + 1)) }
                 obj
             }
 
             else -> mapper.nodeFactory.stringNode(value.toString())
         }
+    }
+
+    private companion object {
+        private val BRASIL_OFFSET: ZoneOffset = ZoneOffset.of("-03:00")
+        private const val MAX_RECURSION_DEPTH: Int = 32
     }
 }
