@@ -30,7 +30,9 @@ data class Section(
     val layout: String? = null,
     val props: Map<String, Any?>,
     val actions: List<Action> = emptyList(),
-)
+) {
+    val capability: Capability = Capability(type, typeVersion)
+}
 
 /**
  * Registro de uma section que o pipeline decidiu nao entregar.
@@ -45,7 +47,8 @@ data class OmittedSection(
     val typeVersion: Int,
     val reason: OmittedReason,
 ) {
-    fun capability(): Capability = Capability(type, typeVersion)
+    val capability: Capability = Capability(type, typeVersion)
+    fun capability(): Capability = capability
 }
 
-fun Section.capability(): Capability = Capability(type, typeVersion)
+fun Section.capability(): Capability = capability

@@ -57,12 +57,13 @@ object PropWalk {
     fun referencesForeignSection(props: Map<String, Any?>, ownId: String, otherIds: Set<String>): Boolean {
         var found = false
         walkStrings(props) { text ->
-            if (otherIds.any { other -> other != ownId && text.contains(other) }) {
+            if (!found && otherIds.any { other -> other != ownId && text.contains(other) }) {
                 found = true
             }
         }
+        if (found) return true
         walkKeys(props) { _, key ->
-            if (key in FOREIGN_REF_KEYS) {
+            if (!found && key in FOREIGN_REF_KEYS) {
                 found = true
             }
         }

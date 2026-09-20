@@ -5,7 +5,6 @@ import br.com.empresa.sdui.core.model.OmittedReason
 import br.com.empresa.sdui.core.model.OmittedSection
 import br.com.empresa.sdui.core.model.Section
 import br.com.empresa.sdui.core.model.Skeleton
-import br.com.empresa.sdui.core.model.capability
 
 /** O que sobrou do filtro, ja na ordem final, e o que foi descartado com o motivo. */
 data class FilterResult(
@@ -26,8 +25,8 @@ object Filter {
         skeleton: Skeleton,
         effectiveCaps: Set<Capability>,
     ): FilterResult {
-        val slotOrder = skeleton.slots.mapIndexed { index, slot -> slot.id to index }.toMap()
-        val (supported, unsupported) = sections.partition { it.capability() in effectiveCaps }
+        val slotOrder = skeleton.slotOrder
+        val (supported, unsupported) = sections.partition { it.capability in effectiveCaps }
         val ordered = supported.sortedBy { slotOrder[it.slot] ?: Int.MAX_VALUE }
         val omitted = unsupported.map { section ->
             OmittedSection(

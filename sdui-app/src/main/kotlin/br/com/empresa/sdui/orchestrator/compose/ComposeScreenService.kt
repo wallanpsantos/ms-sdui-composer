@@ -363,7 +363,7 @@ class ComposeScreenService(
                 val screen = stored.screen
                 val effectiveCaps = matrix.effective(context)
                 val filtered = Filter.filter(screen.sections, screen.skeleton, effectiveCaps)
-                val requiredSlots = screen.skeleton.slots.filter { it.required }.map { it.id }.toSet()
+                val requiredSlots = screen.skeleton.requiredSlotIds
                 val requiredPresent = filtered.sections.map { it.slot }.toSet()
                 if (requiredSlots.all { it in requiredPresent }) {
                     metrics.recordTime(FALLBACK_AGE, age.toMillis().coerceAtLeast(0L), channelTags)

@@ -170,13 +170,20 @@ class InMemoryDiffStore : DiffStore {
     override fun find(specId: String, from: Int, to: Int): SpecDiff? = items["$specId:$from:$to"]
 }
 
-/** Trilha de auditoria em memoria, so de acrescimo. */
-class InMemoryAuditLogStore : AuditLogStore {
+/** Trilha de auditoria em memoria, com teto de retencao para evitar vazamento de heap. */
+class InMemoryAuditLogStore(
+    private val maxEvents: Int = 2_000,
+) : AuditLogStore {
     private val events = mutableListOf<AuditEvent>()
     private val lock = ReentrantLock()
 
     override fun append(event: AuditEvent) {
-        lock.withLock { events += event }
+        lock.withLock {
+            if (events.size >= maxEvents) {
+                events.removeAt(0)
+            }
+            events += event
+        }
     }
 
     override fun list(): List<AuditEvent> = lock.withLock { events.toList() }
@@ -367,11 +374,14 @@ class InMemorySpecCache : SpecCache {
     }
 }
 
-/** Projecoes em memoria, com expiracao preguicosa na leitura. */
-class InMemoryProjectionStore : ProjectionStore {
+/** Projecoes em memoria, com expiracao preguicosa e poda periodica sob teto. */
+class InMemoryProjectionStore(
+    private val maxEntries: Int = 10_000,
+) : ProjectionStore {
     private data class Entry(val props: Map<String, Any?>, val expiresAt: Long)
 
     private val items = ConcurrentHashMap<String, Entry>()
+    private val pruning = AtomicBoolean(false)
 
     override fun get(projection: String, id: String): Map<String, Any?>? {
         val key = RedisKeys.section(projection, id)
@@ -384,9 +394,30 @@ class InMemoryProjectionStore : ProjectionStore {
     }
 
     override fun put(projection: String, id: String, props: Map<String, Any?>, ttl: Duration) {
+        if (items.size >= maxEntries) prune()
         items[RedisKeys.section(projection, id)] =
             Entry(props, System.currentTimeMillis() + ttl.toMillis())
     }
+
+    private fun prune() {
+        if (!pruning.compareAndSet(false, true)) return
+        try {
+            val now = System.currentTimeMillis()
+            items.entries.removeIf { it.value.expiresAt < now }
+            val excess = items.size - (maxEntries / 2)
+            if (excess > 0) {
+                items.entries
+                    .sortedBy { it.value.expiresAt }
+                    .take(excess)
+                    .forEach { items.remove(it.key, it.value) }
+            }
+        } finally {
+            pruning.set(false)
+        }
+    }
+
+    fun residentEntries(): Int = items.size
+    fun clear() = items.clear()
 }
 
 /**
