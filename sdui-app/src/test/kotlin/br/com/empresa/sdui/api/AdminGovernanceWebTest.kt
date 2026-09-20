@@ -145,7 +145,9 @@ class AdminGovernanceWebTest(
             ),
         )
         val opened = publish.open(
-            OpenPublishCommand(Actor("maker-1", ActorRole.MAKER), draft.specId, draft.revision, Channel.STABLE, null),
+            OpenPublishCommand(
+                Actor("maker-1", ActorRole.MAKER), draft.specId, draft.revision, Channel.STABLE, "open-approve-1",
+            ),
         )
         val self = mockMvc.post("/admin/v1/publish-requests/${opened.requestId}/approve") {
             header("Actor-Id", "maker-1")

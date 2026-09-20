@@ -33,6 +33,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.CatalogStore
 import br.com.empresa.sdui.orchestrator.port.outbound.DiffStore
 import br.com.empresa.sdui.orchestrator.port.outbound.HydratedScreenCache
 import br.com.empresa.sdui.orchestrator.port.outbound.IdempotencyStore
+import br.com.empresa.sdui.orchestrator.port.outbound.LastGoodScreenStore
 import br.com.empresa.sdui.orchestrator.port.outbound.PointerStore
 import br.com.empresa.sdui.orchestrator.port.outbound.PublishRequestStore
 import br.com.empresa.sdui.orchestrator.port.outbound.SkeletonStore
@@ -47,6 +48,15 @@ class AdminDenied(message: String) : RuntimeException(message)
 
 /** Estado mudou sob os pes da operacao, como dois approves simultaneos. Vira 409. */
 class AdminConflict(message: String) : RuntimeException(message)
+
+/**
+ * A chave de idempotencia esta reservada por uma chamada que ainda nao terminou. Vira 409.
+ *
+ * Separada de [AdminConflict] de proposito: as duas viram 409, mas dizem coisas diferentes ao
+ * operador. Conflito significa que outro ator mudou o pedido; esta significa que a propria
+ * requisicao dele ainda esta correndo e reenviar agora nao ajuda.
+ */
+class AdminInFlight(key: String) : RuntimeException("Idempotency-Key $key em voo")
 
 /** Conteudo recusado pelos validadores. Carrega todos os erros de uma vez. Vira 400. */
 class AdminValidation(val errors: List<String>) : RuntimeException(errors.joinToString("; "))
@@ -150,6 +160,7 @@ class PublishService(
     private val idempotency: IdempotencyStore,
     private val specCache: SpecCache,
     private val treeCache: HydratedScreenCache,
+    private val lastGood: LastGoodScreenStore,
     private val tx: TransactionalUnitOfWork,
     private val matrix: CapabilityMatrix,
     private val clock: Clock,
@@ -157,52 +168,94 @@ class PublishService(
 
     override fun open(command: OpenPublishCommand): PublishRequest {
         requireRole(command.actor.role, ActorRole.MAKER)
-        command.idempotencyKey?.let { key ->
-            idempotency.find(key)?.let { record ->
-                return publishStore.find(record.resultRef) ?: throw AdminNotFound("publish ${record.resultRef}")
+        idempotency.find(command.idempotencyKey)?.let { return replayPublish(it) }
+        if (!idempotency.reserve(command.idempotencyKey, OPERATION_OPEN)) {
+            return replayPublish(
+                idempotency.find(command.idempotencyKey) ?: throw AdminInFlight(command.idempotencyKey),
+            )
+        }
+        try {
+            val spec = specStore.findBySpecIdAndRevision(command.specId, command.revision)
+                ?: throw AdminNotFound("spec ${command.specId}#${command.revision}")
+            if (spec.status == SpecStatus.PUBLISHED) {
+                throw AdminValidation(listOf("revisao ja publicada"))
             }
+            val skeleton = skeletonStore.find(spec.skeletonId, spec.skeletonRevision)
+                ?: skeletonStore.current(spec.skeletonId)
+                ?: throw AdminNotFound("skeleton")
+            val catalogErrors = CatalogValidator.validate(catalogStore.current())
+            val specErrors = SpecValidator.validateDraft(spec, skeleton, catalogStore.current(), matrix)
+            if (catalogErrors.isNotEmpty() || specErrors.isNotEmpty()) {
+                throw AdminValidation(catalogErrors + specErrors)
+            }
+            val previous = specStore.listBySpecId(spec.specId)
+                .filter { it.status == SpecStatus.PUBLISHED }
+                .maxByOrNull { it.revision }
+            val diff = SpecDiffFactory.diff(previous, spec, skeleton)
+            val request = PublishRequest(
+                requestId = "pr_${UUID.randomUUID()}",
+                specId = spec.specId,
+                revision = spec.revision,
+                specRevisionId = spec.specRevisionId,
+                surface = spec.surface,
+                platform = spec.platform,
+                channel = command.channel,
+                makerId = command.actor.id,
+                status = PublishRequestStatus.OPEN,
+            )
+            // Diff, pedido e fecho da chave no mesmo commit. O diff e o que o checker revisa antes
+            // de aprovar; gravado fora da transacao, uma falha no meio deixaria diff sem pedido.
+            return tx.execute {
+                diffStore.save(diff)
+                val saved = publishStore.save(request)
+                idempotency.complete(IdempotencyRecord(command.idempotencyKey, OPERATION_OPEN, saved.requestId))
+                saved
+            }
+        } catch (error: Throwable) {
+            // A operacao nao produziu efeito: devolver a chave permite ao maker corrigir o
+            // rascunho e reenviar com a mesma chave, em vez de ter de inventar outra.
+            idempotency.release(command.idempotencyKey)
+            throw error
         }
-        val spec = specStore.findBySpecIdAndRevision(command.specId, command.revision)
-            ?: throw AdminNotFound("spec ${command.specId}#${command.revision}")
-        if (spec.status == SpecStatus.PUBLISHED) {
-            throw AdminValidation(listOf("revisao ja publicada"))
-        }
-        val skeleton = skeletonStore.find(spec.skeletonId, spec.skeletonRevision)
-            ?: skeletonStore.current(spec.skeletonId)
-            ?: throw AdminNotFound("skeleton")
-        val catalogErrors = CatalogValidator.validate(catalogStore.current())
-        val specErrors = SpecValidator.validateDraft(spec, skeleton, catalogStore.current(), matrix)
-        if (catalogErrors.isNotEmpty() || specErrors.isNotEmpty()) {
-            throw AdminValidation(catalogErrors + specErrors)
-        }
-        val previous = specStore.listBySpecId(spec.specId)
-            .filter { it.status == SpecStatus.PUBLISHED }
-            .maxByOrNull { it.revision }
-        val diff = SpecDiffFactory.diff(previous, spec, skeleton)
-        diffStore.save(diff)
-        val request = PublishRequest(
-            requestId = "pr_${UUID.randomUUID()}",
-            specId = spec.specId,
-            revision = spec.revision,
-            specRevisionId = spec.specRevisionId,
-            surface = spec.surface,
-            platform = spec.platform,
-            channel = command.channel,
-            makerId = command.actor.id,
-            status = PublishRequestStatus.OPEN,
-        )
-        val saved = publishStore.save(request)
-        command.idempotencyKey?.let { key ->
-            idempotency.put(IdempotencyRecord(key, "publish.open", saved.requestId))
-        }
-        return saved
+    }
+
+    /**
+     * Devolve o resultado ja produzido para uma chave, ou recusa se ela ainda estiver em voo.
+     *
+     * Reserva em voo nao tem resultado para devolver, e responder o estado atual do pedido seria
+     * afirmar um desfecho que ainda nao aconteceu.
+     */
+    private fun replayPublish(record: IdempotencyRecord): PublishRequest {
+        val ref = record.resultRef ?: throw AdminInFlight(record.key)
+        return publishStore.find(ref) ?: throw AdminNotFound("publish $ref")
     }
 
     override fun approve(command: DecidePublishCommand): PublishRequest {
         requireRole(command.actor.role, ActorRole.CHECKER)
-        idempotency.find(command.idempotencyKey)?.let { record ->
-            return publishStore.find(record.resultRef) ?: throw AdminNotFound("publish ${record.resultRef}")
+        idempotency.find(command.idempotencyKey)?.let { return replayPublish(it) }
+        if (!idempotency.reserve(command.idempotencyKey, OPERATION_APPROVE)) {
+            return replayPublish(
+                idempotency.find(command.idempotencyKey) ?: throw AdminInFlight(command.idempotencyKey),
+            )
         }
+        val outcome = try {
+            approveReserved(command)
+        } catch (error: Throwable) {
+            idempotency.release(command.idempotencyKey)
+            throw error
+        }
+        // Escritas de cache ficam fora da transacao: nao sao transacionais e, aplicadas antes do
+        // commit, entregariam aos leitores uma revisao que um rollback ainda pode desfazer.
+        specCache.put(outcome.spec)
+        treeCache.invalidate(outcome.spec.surface, outcome.spec.platform, outcome.channel)
+        // O last good tambem guarda uma revisao, e continuaria servindo a anterior na proxima
+        // falha de composicao. Invalidar aqui e o que impede o fallback de reintroduzir o que a
+        // publicacao acabou de substituir.
+        lastGood.invalidate(outcome.spec.surface, outcome.spec.platform, outcome.channel)
+        return outcome.request
+    }
+
+    private fun approveReserved(command: DecidePublishCommand): PublishOutcome {
         val open = publishStore.find(command.requestId) ?: throw AdminNotFound("publish ${command.requestId}")
         if (open.makerId == command.actor.id && open.channel != Channel.INTERNAL) {
             throw AdminDenied("maker nao aprova o proprio pedido")
@@ -224,7 +277,7 @@ class PublishService(
             diffStore.find(spec.specId, parentRev, spec.revision)
                 ?: throw AdminValidation(listOf("diff ausente"))
         }
-        val outcome = tx.execute {
+        return tx.execute {
             val approved = open.copy(status = PublishRequestStatus.APPROVED, checkerId = command.actor.id)
             val won = publishStore.compareAndSetStatus(open.requestId, PublishRequestStatus.OPEN, approved)
                 ?: throw AdminConflict("approve concorrente")
@@ -256,7 +309,7 @@ class PublishService(
                     ts = clock.instant(),
                     actorId = command.actor.id,
                     role = command.actor.role,
-                    action = "publish.approve",
+                    action = OPERATION_APPROVE,
                     surface = published.surface,
                     platform = published.platform,
                     channel = open.channel,
@@ -266,50 +319,60 @@ class PublishService(
                     requestId = open.requestId,
                 ),
             )
-            idempotency.put(IdempotencyRecord(command.idempotencyKey, "approve", won.requestId))
-            PublishOutcome(won, published)
+            idempotency.complete(IdempotencyRecord(command.idempotencyKey, OPERATION_APPROVE, won.requestId))
+            PublishOutcome(won, published, open.channel)
         }
-        // Escritas de cache ficam fora da transacao: nao sao transacionais e, aplicadas antes do
-        // commit, entregariam aos leitores uma revisao que um rollback ainda pode desfazer.
-        specCache.put(outcome.spec)
-        treeCache.invalidate(outcome.spec.surface, outcome.spec.platform, open.channel)
-        return outcome.request
     }
 
     override fun reject(command: DecidePublishCommand, reason: String): PublishRequest {
         requireRole(command.actor.role, ActorRole.CHECKER)
-        idempotency.find(command.idempotencyKey)?.let { record ->
-            return publishStore.find(record.resultRef) ?: throw AdminNotFound("publish ${record.resultRef}")
+        idempotency.find(command.idempotencyKey)?.let { return replayPublish(it) }
+        if (!idempotency.reserve(command.idempotencyKey, OPERATION_REJECT)) {
+            return replayPublish(
+                idempotency.find(command.idempotencyKey) ?: throw AdminInFlight(command.idempotencyKey),
+            )
         }
-        val open = publishStore.find(command.requestId) ?: throw AdminNotFound("publish ${command.requestId}")
-        if (open.makerId == command.actor.id && open.channel != Channel.INTERNAL) {
-            throw AdminDenied("maker nao rejeita o proprio pedido como checker unico sem papel")
+        try {
+            val open = publishStore.find(command.requestId) ?: throw AdminNotFound("publish ${command.requestId}")
+            if (open.makerId == command.actor.id && open.channel != Channel.INTERNAL) {
+                throw AdminDenied("maker nao rejeita o proprio pedido como checker unico sem papel")
+            }
+            val rejected =
+                open.copy(status = PublishRequestStatus.REJECTED, checkerId = command.actor.id, reason = reason)
+            // Transicao, auditoria e fecho da chave no mesmo commit. Separados, uma falha entre a
+            // transicao e o fecho deixaria o efeito aplicado sem registro da chave: o retry do
+            // checker acharia o pedido fora de OPEN e receberia 409, sem meio de saber se a propria
+            // rejeicao dele foi a que valeu.
+            return tx.execute {
+                val won = publishStore.compareAndSetStatus(open.requestId, PublishRequestStatus.OPEN, rejected)
+                    ?: throw AdminConflict("pedido nao esta aberto")
+                auditLog.append(
+                    AuditEvent(
+                        id = UUID.randomUUID().toString(),
+                        ts = clock.instant(),
+                        actorId = command.actor.id,
+                        role = command.actor.role,
+                        action = OPERATION_REJECT,
+                        surface = open.surface,
+                        platform = open.platform,
+                        channel = open.channel,
+                        specId = open.specId,
+                        fromRevision = null,
+                        toRevision = open.specRevisionId,
+                        requestId = open.requestId,
+                    ),
+                )
+                idempotency.complete(IdempotencyRecord(command.idempotencyKey, OPERATION_REJECT, won.requestId))
+                won
+            }
+        } catch (error: Throwable) {
+            idempotency.release(command.idempotencyKey)
+            throw error
         }
-        val rejected = open.copy(status = PublishRequestStatus.REJECTED, checkerId = command.actor.id, reason = reason)
-        val won = publishStore.compareAndSetStatus(open.requestId, PublishRequestStatus.OPEN, rejected)
-            ?: throw AdminConflict("pedido nao esta aberto")
-        auditLog.append(
-            AuditEvent(
-                id = UUID.randomUUID().toString(),
-                ts = clock.instant(),
-                actorId = command.actor.id,
-                role = command.actor.role,
-                action = "publish.reject",
-                surface = open.surface,
-                platform = open.platform,
-                channel = open.channel,
-                specId = open.specId,
-                fromRevision = null,
-                toRevision = open.specRevisionId,
-                requestId = open.requestId,
-            ),
-        )
-        idempotency.put(IdempotencyRecord(command.idempotencyKey, "publish.reject", won.requestId))
-        return won
     }
 }
 
-private data class PublishOutcome(val request: PublishRequest, val spec: Spec)
+private data class PublishOutcome(val request: PublishRequest, val spec: Spec, val channel: Channel)
 
 /**
  * Devolve o pointer a uma revisao publicada anterior.
@@ -324,15 +387,37 @@ class RollbackService(
     private val idempotency: IdempotencyStore,
     private val specCache: SpecCache,
     private val treeCache: HydratedScreenCache,
+    private val lastGood: LastGoodScreenStore,
     private val tx: TransactionalUnitOfWork,
     private val clock: Clock,
 ) : RollbackPointerUseCase {
     override fun rollback(command: RollbackCommand): Pointer {
         requireRole(command.actor.role, ActorRole.CHECKER)
         idempotency.find(command.idempotencyKey)?.let { record ->
+            val ref = record.resultRef ?: throw AdminInFlight(command.idempotencyKey)
             return pointerStore.find(command.surface, command.platform, command.channel)
-                ?: throw AdminNotFound("pointer ${record.resultRef}")
+                ?: throw AdminNotFound("pointer $ref")
         }
+        if (!idempotency.reserve(command.idempotencyKey, OPERATION_ROLLBACK)) {
+            throw AdminInFlight(command.idempotencyKey)
+        }
+        val outcome = try {
+            rollbackReserved(command)
+        } catch (error: Throwable) {
+            idempotency.release(command.idempotencyKey)
+            throw error
+        }
+        // Mesma razao do approve: o cache so pode refletir o ponteiro depois que ele commitou.
+        outcome.retiredRevisionId?.let { specCache.invalidate(it, command.platform) }
+        specCache.put(outcome.target)
+        treeCache.invalidate(command.surface, command.platform, command.channel)
+        // O last good guarda a arvore da revisao que acabou de sair de vigor. Sem invalidar, a
+        // proxima falha de composicao serviria de volta exatamente o que o rollback removeu.
+        lastGood.invalidate(command.surface, command.platform, command.channel)
+        return outcome.pointer
+    }
+
+    private fun rollbackReserved(command: RollbackCommand): RollbackOutcome {
         val pointer = pointerStore.find(command.surface, command.platform, command.channel)
             ?: throw AdminNotFound("pointer")
         val targetId = command.targetSpecRevisionId ?: pointer.previousSpecRevisionId
@@ -344,7 +429,7 @@ class RollbackService(
         if (target.platform != command.platform) {
             throw AdminValidation(listOf("rollback nao cruza plataforma"))
         }
-        val saved = tx.execute {
+        return tx.execute {
             val moved = pointer.copy(
                 specId = target.specId,
                 specRevisionId = target.specRevisionId,
@@ -358,7 +443,7 @@ class RollbackService(
                     ts = clock.instant(),
                     actorId = command.actor.id,
                     role = command.actor.role,
-                    action = "pointer.rollback",
+                    action = OPERATION_ROLLBACK,
                     surface = command.surface,
                     platform = command.platform,
                     channel = command.channel,
@@ -368,23 +453,41 @@ class RollbackService(
                     requestId = command.idempotencyKey,
                 ),
             )
-            idempotency.put(
+            idempotency.complete(
                 IdempotencyRecord(
                     command.idempotencyKey,
-                    "rollback",
-                    "${command.surface}:${command.platform.wire()}:${command.channel.wire()}"
-                )
+                    OPERATION_ROLLBACK,
+                    "${command.surface}:${command.platform.wire()}:${command.channel.wire()}",
+                ),
             )
-            persisted
+            RollbackOutcome(persisted, target, pointer.specRevisionId)
         }
-        // Mesma razao do approve: o cache so pode refletir o ponteiro depois que ele commitou.
-        specCache.invalidate(pointer.specRevisionId ?: target.specRevisionId, command.platform)
-        specCache.put(target)
-        treeCache.invalidate(command.surface, command.platform, command.channel)
-        return saved
     }
 }
+
+/**
+ * O que um rollback produziu: o pointer movido, a revisao que voltou a vigorar e a que saiu.
+ *
+ * Existe para que as invalidacoes de cache acontecam depois do commit e ainda assim saibam qual
+ * revisao foi aposentada — dentro da transacao elas publicariam estado que um erro ainda desfaz.
+ */
+private data class RollbackOutcome(
+    val pointer: Pointer,
+    val target: Spec,
+    val retiredRevisionId: String?,
+)
 
 private fun requireRole(actual: ActorRole, vararg allowed: ActorRole) {
     if (actual !in allowed) throw AdminDenied("papel $actual insuficiente")
 }
+
+/**
+ * Nomes das operacoes idempotentes, iguais aos da trilha de auditoria.
+ *
+ * Um literal solto em cada chamada deixaria "approve" e "publish.approve" conviverem no mesmo
+ * store, e a operacao gravada na chave deixaria de casar com a acao auditada.
+ */
+private const val OPERATION_OPEN: String = "publish.open"
+private const val OPERATION_APPROVE: String = "publish.approve"
+private const val OPERATION_REJECT: String = "publish.reject"
+private const val OPERATION_ROLLBACK: String = "pointer.rollback"

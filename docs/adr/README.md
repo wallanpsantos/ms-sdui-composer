@@ -42,3 +42,10 @@ Os ADRs fundamentais da pré-arquitetura (`docs/02-pre-arquitetura-ms-sdui-compo
 - **ADR-012:** Exclusão de coroutines e bibliotecas reativas em favor de Spring MVC + Virtual Threads. (`ACEITO`)
 - **ADR-013:** Transação de publish programática com `TransactionTemplate` (sem proxies AOP e sem anotações
   `@Transactional`). (`ACEITO`)
+
+## ADRs com arquivo próprio
+
+- **ADR-014:** Política de resiliência de integração — orçamento de tempo, bulkhead do plano de leitura, ausência
+  deliberada de retry, `Retry-After` com jitter, idade máxima do fallback, idempotência por reserva e
+  observabilidade obrigatória de todo desfecho degradado. (`ACEITO`)
+  Arquivo: [`ADR-014-politica-de-resiliencia-de-integracao.md`](ADR-014-politica-de-resiliencia-de-integracao.md)

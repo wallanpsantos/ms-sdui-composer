@@ -14,6 +14,7 @@ import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecDiff
 import br.com.empresa.sdui.core.model.SpecStatus
 import java.time.Duration
+import java.time.Instant
 
 /** Persistencia de specs. Uma revisao PUBLISHED e imutavel — a implementacao deve recusar sobrescrita. */
 interface SpecStore {
@@ -71,10 +72,29 @@ interface AuditLogStore {
     fun list(): List<AuditEvent>
 }
 
-/** Resultados ja produzidos por chave de idempotencia, para o retry nao duplicar o efeito. */
+/**
+ * Chaves de idempotencia das operacoes administrativas.
+ *
+ * O contrato e de reserva, nao de gravacao no fim: [reserve] toma a chave **antes** de a operacao
+ * comecar e so uma chamada vence. Consultar e depois gravar seria check-then-act — duas chamadas
+ * concorrentes com a mesma chave passariam as duas pela consulta e executariam o efeito duas
+ * vezes, que e exatamente o que a chave existe para impedir.
+ *
+ * O ciclo completo e reserve -> complete (no mesmo commit do efeito) ou reserve -> release (quando
+ * a operacao falha sem efeito). Sem o release, um 400 de validacao queimaria a chave para sempre e
+ * o operador nao conseguiria reenviar depois de corrigir o rascunho.
+ */
 interface IdempotencyStore {
     fun find(key: String): IdempotencyRecord?
-    fun put(record: IdempotencyRecord)
+
+    /** Toma a chave. true quando esta chamada reservou; false quando ja havia registro vivo. */
+    fun reserve(key: String, operation: String): Boolean
+
+    /** Fecha a reserva com o resultado. Vai no mesmo commit do efeito que ela protege. */
+    fun complete(record: IdempotencyRecord)
+
+    /** Devolve a chave ao pool. So tem efeito sobre reserva em voo, nunca sobre resultado ja fechado. */
+    fun release(key: String)
 }
 
 /**
@@ -89,15 +109,28 @@ interface HydratedScreenCache {
     fun invalidate(surface: String, platform: ClientPlatform, channel: Channel)
 }
 
+/** Uma arvore de last good com o instante em que foi guardada. */
+data class StoredScreen(val screen: ComposedScreen, val storedAt: Instant)
+
 /**
  * Guarda a ultima arvore composta com sucesso por surface, plataforma e canal.
  *
  * O degrau da escada de fallback que evita o 503: preferimos entregar uma home correta porem
  * defasada, marcada como fallback no envelope, a nao entregar nada.
+ *
+ * A leitura devolve [StoredScreen] e nao a arvore crua porque defasagem sem limite deixa de ser
+ * degradacao de experiencia e vira problema de correcao: o pipeline precisa do instante para
+ * recusar um last good velho demais e para publicar a idade como metrica.
+ *
+ * [invalidate] existe pelo mesmo motivo que existe no cache de arvore. Uma publicacao ou um
+ * rollback mudam qual revisao aquela combinacao deve servir; sem invalidar aqui, a revisao que o
+ * rollback acabou de tirar do ar continuaria guardada e voltaria a ser entregue na proxima falha
+ * de composicao — o fallback reintroduzindo justamente o que o operador removeu.
  */
 interface LastGoodScreenStore {
-    fun get(surface: String, platform: ClientPlatform, channel: Channel): ComposedScreen?
+    fun get(surface: String, platform: ClientPlatform, channel: Channel): StoredScreen?
     fun put(screen: ComposedScreen)
+    fun invalidate(surface: String, platform: ClientPlatform, channel: Channel)
 }
 
 /**

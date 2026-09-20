@@ -3,6 +3,7 @@ package br.com.empresa.sdui.api.http
 import br.com.empresa.sdui.contract.error.ApiErrorResponse
 import br.com.empresa.sdui.orchestrator.admin.AdminConflict
 import br.com.empresa.sdui.orchestrator.admin.AdminDenied
+import br.com.empresa.sdui.orchestrator.admin.AdminInFlight
 import br.com.empresa.sdui.orchestrator.admin.AdminNotFound
 import br.com.empresa.sdui.orchestrator.admin.AdminValidation
 import org.springframework.http.HttpStatus
@@ -26,6 +27,16 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     @ExceptionHandler(AdminConflict::class)
     fun conflict(ex: AdminConflict): ResponseEntity<ApiErrorResponse> =
         ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse("CONFLICT", ex.message ?: "conflict"))
+
+    /**
+     * Chave de idempotencia em voo. Tambem 409, mas com codigo proprio: o operador precisa
+     * distinguir "outro ator mudou o pedido" de "a sua propria requisicao ainda esta correndo",
+     * porque so o segundo caso se resolve esperando.
+     */
+    @ExceptionHandler(AdminInFlight::class)
+    fun inFlight(ex: AdminInFlight): ResponseEntity<ApiErrorResponse> =
+        ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ApiErrorResponse("IDEMPOTENT_IN_FLIGHT", ex.message ?: "operacao em voo"))
 
     @ExceptionHandler(AdminValidation::class)
     fun validation(ex: AdminValidation): ResponseEntity<ApiErrorResponse> =

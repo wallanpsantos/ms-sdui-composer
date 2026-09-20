@@ -121,7 +121,7 @@ class AdminController(
     fun openPublish(
         @RequestBody body: OpenPublishBody,
         @RequestHeader headers: HttpHeaders,
-        @RequestHeader(name = "Idempotency-Key", required = false) idempotencyKey: String?,
+        @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
     ): PublishRequest = publish.open(
         OpenPublishCommand(
             actor = actor(headers),
