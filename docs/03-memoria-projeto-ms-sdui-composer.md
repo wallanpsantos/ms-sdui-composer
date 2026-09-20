@@ -1,7 +1,8 @@
 # MEMÓRIA OPERACIONAL E ARQUITETURAL — MS-SDUI-COMPOSER
 
-**Última Atualização:** 2026-09-19  
-**Status do Projeto:** MVP H00–H18 concluído com 7 correções de qualidade e otimização de performance aplicadas. Quality
+**Última Atualização:** 2026-09-20  
+**Status do Projeto:** MVP H00–H18 concluído com 7 correções de qualidade e 11 otimizações de performance, concorrência
+e resiliência aplicadas. Quality
 Gate: **APROVADO (PASS)**.
 
 ---
@@ -104,6 +105,20 @@ Durante a revisão técnica multidimensional do MVP (`H00` a `H18`), foram sanad
 6. **Limpeza de API (`RedisKeyspace.kt`):** Removido o parâmetro `channel` não utilizado do método `treePrefix`.
 7. **Resource Leak Prevention (`SduiConfiguration.kt`):** Leitura de arquivo de seed protegida por
    `.use { it.readText() }`.
+8. **Liberação de Semáforo sob Timeout no Fan-out (`HydrationCoordinator.kt`):** Tarefas com timeout agora sofrem
+   `taskThread.interrupt()`, evitando que Virtual Threads órfãs retenham permits do `Semaphore(fanOut)`.
+9. **Isolamento de Métricas no Fan-out (`HydrationCoordinator.kt`):** Gravação de métricas com `runCatching` dentro do
+   `.handle`, blindando `job.join()` contra `CompletionException`.
+10. **Poda e Retenção em Stores (`InMemoryStores.kt`):** Adicionada rotina periódica `prune()` no
+    `InMemoryProjectionStore`
+    (teto de 10.000 entradas) e anel FIFO no `InMemoryAuditLogStore` (limite de 2.000 eventos).
+11. **Pré-cálculo de Capability e SlotOrder (`Section.kt`, `Skeleton.kt`, `Filter.kt`):** `Section.capability` e
+    `Skeleton.slotOrder` / `requiredSlotIds` pré-calculados imutavelmente, eliminando milhares de alocações transitórias
+    no hot path.
+12. **Lookups O (1) em Enums (`Enums.kt`):** `SlotLayout.parse` e `ActorRole.parse` indexados via mapas estáticos
+    pré-calculados.
+13. **Guarda de Profundidade de Recursão (`ScreenResponseMapper.kt`, `JsonMaps.kt`):** Limite de 32 níveis em `toNode`
+    prevenindo `StackOverflowError` sob payloads aninhados.
 
 ---
 
@@ -133,4 +148,4 @@ Durante a revisão técnica multidimensional do MVP (`H00` a `H18`), foram sanad
 - **Métricas Emitidas:** `compose.hit`, `compose.miss`, `compose.fallback`, `compose.singleflight.wait`,
   `payload.bytes`, `serialize.ms`, `section.<type>.ms`, `section.omitted`, `select.no_candidate`.
 - **Cenário de Carga Versionado:** [
-  `sdui-app/src/test/resources/load/compose-hit-p99.yaml`](file:///C:/Users/walla/GitHub/kotlin/ms-sdui-composer/sdui-app/src/test/resources/load/compose-hit-p99.yaml).
+  `sdui-app/src/test/resources/load/compose-hit-p99.yaml`](../sdui-app/src/test/resources/load/compose-hit-p99.yaml).
