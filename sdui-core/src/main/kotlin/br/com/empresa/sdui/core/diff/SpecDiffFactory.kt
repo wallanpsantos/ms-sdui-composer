@@ -5,6 +5,12 @@ import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecDiff
 
+/**
+ * Calcula o que muda entre a revisao publicada e a candidata, para o checker decidir com contexto.
+ *
+ * Compara por id de section — adicionadas, removidas, alteradas — e, separadamente, a ocupacao dos
+ * slots portantes, que e a mudanca capaz de esvaziar a home sem alterar nenhuma section existente.
+ */
 object SpecDiffFactory {
     fun diff(previous: Spec?, current: Spec, skeleton: Skeleton): SpecDiff {
         val prevIds = previous?.sections?.map { it.id }?.toSet().orEmpty()

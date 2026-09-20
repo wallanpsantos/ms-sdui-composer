@@ -60,6 +60,27 @@ class TokenBucketAndGuardsTest {
     }
 
     @Test
+    fun `mapa saturado de identidades ativas recusa identidade nova em vez de crescer`() {
+        var now = 0L
+        val limiter = TokenBucketRateLimiter(
+            capacity = 10,
+            refillPerSecond = 0,
+            maxKeys = 3,
+            idleEvictionMs = 600_000,
+            clockMs = { now },
+        )
+        // Tres identidades ativas: consumiram token, nao estao cheias nem ociosas, entao a poda
+        // nao tem o que remover.
+        repeat(3) { limiter.tryConsume(RateLimitKey("ativo-$it", ClientPlatform.IOS)) }
+        now = 60_000
+
+        assertThat(limiter.tryConsume(RateLimitKey("identidade-nova", ClientPlatform.IOS))).isFalse()
+        assertThat(limiter.residentKeys()).isEqualTo(3)
+        // Quem ja tem bucket segue sendo atendido.
+        assertThat(limiter.tryConsume(RateLimitKey("ativo-0", ClientPlatform.IOS))).isTrue()
+    }
+
+    @Test
     fun `guards recusam visual PII e catalogo generico`() {
         assertThat(VisualGuard.violations(mapOf("color" to "#fff"))).isNotEmpty()
         assertThat(PiiGuard.violations(mapOf("cpf" to "123.456.789-00"))).isNotEmpty()

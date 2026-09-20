@@ -64,6 +64,12 @@ import java.time.Clock
 import java.time.Duration
 import java.util.concurrent.Semaphore
 
+/**
+ * Parametros operacionais, ajustaveis sem recompilar sob o prefixo `sdui`.
+ *
+ * Reune o que se mexe em producao: prazos, limites de concorrencia, tetos de memoria, allowlists
+ * de canary. Os defaults aqui valem quando nada e configurado.
+ */
 @ConfigurationProperties(prefix = "sdui")
 data class SduiProperties(
     val canaryIosBuilds: List<String> = emptyList(),

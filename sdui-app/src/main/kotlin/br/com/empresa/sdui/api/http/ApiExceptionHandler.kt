@@ -11,6 +11,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler
 
+/**
+ * Traduz as falhas de governanca ao status HTTP correspondente.
+ *
+ * Fica na borda para que o orchestrator possa sinalizar erro em vocabulario de dominio, sem
+ * conhecer HTTP. O corpo e sempre ApiErrorResponse, o mesmo de toda a API.
+ */
 @RestControllerAdvice
 class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     @ExceptionHandler(AdminDenied::class)
@@ -28,4 +34,18 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     @ExceptionHandler(AdminNotFound::class)
     fun notFound(ex: AdminNotFound): ResponseEntity<ApiErrorResponse> =
         ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse("NOT_FOUND", ex.message ?: "not found"))
+
+    /**
+     * Rede de seguranca para o que nao foi previsto.
+     *
+     * Sem ela, uma falha de invariante — `check` ou `error` num store, por exemplo — sobe com a
+     * mensagem interna no corpo da resposta. O cliente recebe um codigo estavel e nada mais; o
+     * diagnostico fica no log do servidor, que e onde ele pertence.
+     */
+    @ExceptionHandler(Exception::class)
+    fun unexpected(ex: Exception): ResponseEntity<ApiErrorResponse> {
+        logger.error("falha nao tratada ao atender a requisicao", ex)
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(ApiErrorResponse("INTERNAL_ERROR", "erro interno"))
+    }
 }

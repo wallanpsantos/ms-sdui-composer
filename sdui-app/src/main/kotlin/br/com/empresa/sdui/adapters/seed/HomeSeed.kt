@@ -26,6 +26,16 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 import java.time.Instant
 
+/**
+ * Carrega o catalogo, o skeleton e os specs da home a partir da fixture canonica do contrato.
+ *
+ * Como nao ha persistencia, e o seed que deixa o servico utilizavel ao subir. Partir da mesma
+ * fixture que os testes de contrato usam garante que o que sobe e o que foi acordado com as
+ * equipes moveis, em vez de uma copia que envelhece em paralelo.
+ *
+ * Alem da revisao corrente, semeia uma legacy e uma seguinte, para exercitar a selecao por faixa
+ * de versao e o canary sem depender de dado montado a mao.
+ */
 class HomeSeed(
     private val catalogStore: CatalogStore,
     private val skeletonStore: SkeletonStore,

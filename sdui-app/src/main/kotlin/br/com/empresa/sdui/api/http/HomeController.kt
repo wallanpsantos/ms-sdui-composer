@@ -16,6 +16,15 @@ import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.json.JsonMapper
 
+/**
+ * A borda HTTP da home: GET /v1/surfaces/home.
+ *
+ * Le os headers de negociacao, delega ao caso de uso e traduz cada desfecho ao status certo.
+ * Responde com o JSON ja serializado em bytes, sem devolver objeto para o Spring serializar de
+ * novo, e instrumenta tempo e tamanho do payload. ETag e Cache-Control permitem ao cliente
+ * revalidar com If-None-Match e receber 304, e o Vary declara de quais headers a resposta depende
+ * para nenhum cache intermediario servir a arvore de um contexto a outro.
+ */
 @RestController
 class HomeController(
     private val compose: ComposeScreenUseCase,

@@ -7,6 +7,7 @@ import br.com.empresa.sdui.core.model.Capability
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.ClientPlatform
+import br.com.empresa.sdui.core.model.ETagFactory
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.RedisKeys
@@ -118,15 +119,35 @@ class SelectFilterKeysTest {
     }
 
     @Test
-    fun `tree key inclui surface platform schema app major minor hash e channel e nunca userId`() {
+    fun `tree key inclui surface platform schema revisao hash e channel e nunca userId`() {
         val caps = MvpCatalog.TYPES.toSet()
-        val key = RedisKeys.tree("home", ClientPlatform.IOS, "3", "8.14", CapsHash.sha256(caps), Channel.STABLE)
-        assertThat(key).startsWith("sdui:tree:home:ios:3:8.14:")
+        val key = RedisKeys.tree("home", ClientPlatform.IOS, "3", "rev_main", CapsHash.sha256(caps), Channel.STABLE)
+        assertThat(key).startsWith("sdui:tree:home:ios:3:rev_main:")
         assertThat(key).endsWith(":stable")
         assertThat(key).doesNotContain("userId")
         assertThat(RedisKeys.containsUserId(key)).isFalse()
         val shuffled = CapsHash.sha256(caps.shuffled())
         assertThat(CapsHash.sha256(caps)).isEqualTo(shuffled)
+    }
+
+    @Test
+    fun `etag distingue capabilities diferentes na mesma revisao`() {
+        val completo = CapsHash.sha256(MvpCatalog.TYPES.toSet())
+        val reduzido = CapsHash.sha256(setOf(Capability("top_bar", 1)))
+        val a = ETagFactory.of("rev_main", ClientPlatform.IOS, "3", completo)
+        val b = ETagFactory.of("rev_main", ClientPlatform.IOS, "3", reduzido)
+        assertThat(a).isNotEqualTo(b)
+        assertThat(a).startsWith("W/\"rev_main-ios-3-")
+        // Mesmo conjunto, mesmo etag: senao a revalidacao nunca devolveria 304.
+        assertThat(ETagFactory.of("rev_main", ClientPlatform.IOS, "3", completo)).isEqualTo(a)
+    }
+
+    @Test
+    fun `revisoes diferentes nunca compartilham entrada de cache`() {
+        val caps = CapsHash.sha256(MvpCatalog.TYPES.toSet())
+        val main = RedisKeys.tree("home", ClientPlatform.IOS, "3", "rev_main", caps, Channel.STABLE)
+        val legacy = RedisKeys.tree("home", ClientPlatform.IOS, "3", "rev_legacy", caps, Channel.STABLE)
+        assertThat(main).isNotEqualTo(legacy)
     }
 
     @Test

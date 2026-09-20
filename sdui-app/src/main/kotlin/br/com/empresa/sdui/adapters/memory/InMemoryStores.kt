@@ -38,6 +38,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
+/**
+ * Specs em memoria. Faz valer a imutabilidade de PUBLISHED recusando sobrescrita de uma revisao
+ * ja publicada.
+ */
 class InMemorySpecStore : SpecStore {
     private val items = ConcurrentHashMap<String, Spec>()
     private val lock = ReentrantLock()
@@ -75,6 +79,7 @@ class InMemorySpecStore : SpecStore {
     fun clear() = items.clear()
 }
 
+/** Skeletons em memoria, com a mesma protecao de imutabilidade apos publicacao. */
 class InMemorySkeletonStore : SkeletonStore {
     private val items = ConcurrentHashMap<String, Skeleton>()
 
@@ -97,6 +102,7 @@ class InMemorySkeletonStore : SkeletonStore {
         items.values.filter { it.skeletonId == skeletonId }.maxByOrNull { it.revision }
 }
 
+/** Catalogo em memoria. Substituido inteiro a cada gravacao, por isso um unico campo volatil basta. */
 class InMemoryCatalogStore : CatalogStore {
     @Volatile
     private var catalog: Catalog = Catalog(emptyList())
@@ -109,6 +115,7 @@ class InMemoryCatalogStore : CatalogStore {
     override fun current(): Catalog = catalog
 }
 
+/** Pointers em memoria, um por surface, plataforma e canal. */
 class InMemoryPointerStore : PointerStore {
     private val items = ConcurrentHashMap<String, Pointer>()
 
@@ -124,6 +131,7 @@ class InMemoryPointerStore : PointerStore {
     }
 }
 
+/** Pedidos de publicacao em memoria, com a transicao de status serializada por lock. */
 class InMemoryPublishRequestStore : PublishRequestStore {
     private val items = ConcurrentHashMap<String, PublishRequest>()
     private val lock = ReentrantLock()
@@ -147,6 +155,7 @@ class InMemoryPublishRequestStore : PublishRequestStore {
     }
 }
 
+/** Diffs em memoria, indexados por spec e par de revisoes. */
 class InMemoryDiffStore : DiffStore {
     private val items = ConcurrentHashMap<String, SpecDiff>()
 
@@ -158,6 +167,7 @@ class InMemoryDiffStore : DiffStore {
     override fun find(specId: String, from: Int, to: Int): SpecDiff? = items["$specId:$from:$to"]
 }
 
+/** Trilha de auditoria em memoria, so de acrescimo. */
 class InMemoryAuditLogStore : AuditLogStore {
     private val events = mutableListOf<AuditEvent>()
     private val lock = ReentrantLock()
@@ -169,6 +179,7 @@ class InMemoryAuditLogStore : AuditLogStore {
     override fun list(): List<AuditEvent> = lock.withLock { events.toList() }
 }
 
+/** Registros de idempotencia em memoria. A primeira gravacao de uma chave vence. */
 class InMemoryIdempotencyStore : IdempotencyStore {
     private val items = ConcurrentHashMap<String, IdempotencyRecord>()
 
@@ -218,6 +229,7 @@ class InMemoryHydratedScreenCache(
         }
     }
 
+    /** Quantas entradas o cache guarda agora. Serve a diagnostico e aos testes do teto. */
     fun residentEntries(): Int = items.size
 
     /**
@@ -244,6 +256,12 @@ class InMemoryHydratedScreenCache(
     fun clear() = items.clear()
 }
 
+/**
+ * Ultima arvore boa em memoria, por surface, plataforma e canal.
+ *
+ * Sem expiracao de proposito: uma arvore defasada continua sendo melhor resposta que um 503, e
+ * ela so e servida quando a composicao ja falhou.
+ */
 class InMemoryLastGoodScreenStore : LastGoodScreenStore {
     private val items = ConcurrentHashMap<String, ComposedScreen>()
 
@@ -257,6 +275,7 @@ class InMemoryLastGoodScreenStore : LastGoodScreenStore {
     fun clear() = items.clear()
 }
 
+/** Cache de specs em memoria, chaveado por revisao e plataforma. */
 class InMemorySpecCache : SpecCache {
     private val items = ConcurrentHashMap<String, Spec>()
 
@@ -272,21 +291,47 @@ class InMemorySpecCache : SpecCache {
     }
 }
 
+/** Projecoes em memoria, com expiracao preguicosa na leitura. */
 class InMemoryProjectionStore : ProjectionStore {
-    private val items = ConcurrentHashMap<String, Map<String, Any?>>()
+    private data class Entry(val props: Map<String, Any?>, val expiresAt: Long)
 
-    override fun get(projection: String, id: String): Map<String, Any?>? = items[RedisKeys.section(projection, id)]
+    private val items = ConcurrentHashMap<String, Entry>()
+
+    override fun get(projection: String, id: String): Map<String, Any?>? {
+        val key = RedisKeys.section(projection, id)
+        val entry = items[key] ?: return null
+        if (entry.expiresAt < System.currentTimeMillis()) {
+            items.remove(key, entry)
+            return null
+        }
+        return entry.props
+    }
 
     override fun put(projection: String, id: String, props: Map<String, Any?>, ttl: Duration) {
-        items[RedisKeys.section(projection, id)] = props
+        items[RedisKeys.section(projection, id)] =
+            Entry(props, System.currentTimeMillis() + ttl.toMillis())
     }
 }
 
+/**
+ * Unidade de trabalho em memoria: serializa os blocos por lock.
+ *
+ * Da exclusao mutua, mas nao atomicidade — nao ha rollback. Uma falha no meio do bloco deixa os
+ * stores com o efeito parcial ja aplicado.
+ */
 class InMemoryTransactionalUnitOfWork : TransactionalUnitOfWork {
     private val lock = ReentrantLock()
     override fun <T : Any> execute(work: () -> T): T = lock.withLock { work() }
 }
 
+/**
+ * Singleflight local ao processo: a primeira requisicao de uma chave computa, as outras esperam.
+ *
+ * Quem espera e estoura o proprio prazo devolve WaitTimeout sem cancelar a computacao — cancelar
+ * puniria o lider e todos os demais que aguardam por causa de um unico impaciente.
+ *
+ * Vale so dentro de uma instancia. Com varias replicas, cada uma compoe a sua.
+ */
 class InMemoryComposeSingleflight : ComposeSingleflight {
     private val inflight = ConcurrentHashMap<String, CompletableFuture<Any?>>()
 
@@ -297,7 +342,6 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
             try {
                 val value = compute()
                 created.complete(value)
-                @Suppress("UNCHECKED_CAST")
                 return SingleflightOutcome.Leader(value)
             } catch (error: Exception) {
                 created.completeExceptionally(error)
@@ -312,8 +356,6 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
             SingleflightOutcome.Waiter(value)
         } catch (_: TimeoutException) {
             SingleflightOutcome.WaitTimeout()
-        } catch (error: Exception) {
-            throw error
         }
     }
 }

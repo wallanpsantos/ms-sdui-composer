@@ -1,5 +1,12 @@
 package br.com.empresa.sdui.core.validate
 
+/**
+ * Percorre props aninhadas para os guards e validadores.
+ *
+ * As props sao um mapa livre, entao as regras precisam de travessia generica em vez de tipo
+ * estatico. Acumula o caminho durante a visita para o erro apontar onde esta o problema, em vez de
+ * so dizer que existe.
+ */
 object PropWalk {
     fun walkKeys(value: Any?, path: String = "", visit: (path: String, key: String) -> Unit) {
         when (value) {

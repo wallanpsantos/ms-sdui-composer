@@ -6,6 +6,13 @@ import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.SemVer
 
+/**
+ * O que o servidor assume que cada faixa de app sabe renderizar, mais o que o cliente declara.
+ *
+ * Existe porque nem todo app atualizado suporta todo componente: versoes antigas de iOS ficam com
+ * um subconjunto, e o header Component-Capabilities permite ao cliente corrigir essa suposicao
+ * para mais. O resultado alimenta o filtro de sections e o capsHash da chave de cache.
+ */
 class CapabilityMatrix(
     private val byPlatformVersion: Map<Pair<ClientPlatform, String>, Set<Capability>> = defaultMatrix(),
 ) {

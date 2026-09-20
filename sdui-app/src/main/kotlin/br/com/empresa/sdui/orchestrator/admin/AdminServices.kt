@@ -42,11 +42,19 @@ import br.com.empresa.sdui.orchestrator.port.outbound.TransactionalUnitOfWork
 import java.time.Clock
 import java.util.*
 
+/** Papel insuficiente ou regra de segregacao violada. Vira 403. */
 class AdminDenied(message: String) : RuntimeException(message)
+
+/** Estado mudou sob os pes da operacao, como dois approves simultaneos. Vira 409. */
 class AdminConflict(message: String) : RuntimeException(message)
+
+/** Conteudo recusado pelos validadores. Carrega todos os erros de uma vez. Vira 400. */
 class AdminValidation(val errors: List<String>) : RuntimeException(errors.joinToString("; "))
+
+/** Spec, skeleton, pedido ou pointer inexistente. Vira 404. */
 class AdminNotFound(message: String) : RuntimeException(message)
 
+/** Leitura da governanca: catalogo, skeleton, revisoes e diff. Nao altera estado. */
 class CatalogQueryService(
     private val catalogStore: CatalogStore,
     private val skeletonStore: SkeletonStore,
@@ -60,6 +68,12 @@ class CatalogQueryService(
     override fun diff(specId: String, from: Int, to: Int): SpecDiff? = diffStore.find(specId, from, to)
 }
 
+/**
+ * Autoria de rascunhos de spec, skeleton e catalogo.
+ *
+ * Valida antes de gravar, para o autor ver o erro enquanto edita. Recusa tocar em revisao ja
+ * publicada: a correcao de algo publicado e sempre uma revisao nova.
+ */
 class DraftService(
     private val specStore: SpecStore,
     private val skeletonStore: SkeletonStore,
@@ -117,6 +131,14 @@ class DraftService(
     }
 }
 
+/**
+ * O fluxo maker-checker: abrir, aprovar e rejeitar publicacao.
+ *
+ * Quem abre nao aprova, fora do canal interno. A aprovacao revalida o spec antes de publicar —
+ * o catalogo pode ter mudado desde a abertura — e so entao move o pointer, dentro da transacao
+ * junto com auditoria e idempotencia. As invalidacoes de cache ficam do lado de fora, depois do
+ * commit.
+ */
 class PublishService(
     private val specStore: SpecStore,
     private val skeletonStore: SkeletonStore,
@@ -195,8 +217,13 @@ class PublishService(
             ?: throw AdminNotFound("skeleton")
         val errors = SpecValidator.validateDraft(spec, skeleton, catalogStore.current(), matrix)
         if (errors.isNotEmpty()) throw AdminValidation(errors)
-        diffStore.find(spec.specId, spec.parentRevision ?: (spec.revision - 1).coerceAtLeast(0), spec.revision)
-            ?: spec.parentRevision?.let { throw AdminValidation(listOf("diff ausente")) }
+        // Revisao com pai exige diff calculado: e o que o checker revisa antes de aprovar. A
+        // primeira revisao de um spec nao tem pai e portanto nao tem diff.
+        if (spec.parentRevision != null) {
+            val from = spec.parentRevision ?: 0
+            diffStore.find(spec.specId, from, spec.revision)
+                ?: throw AdminValidation(listOf("diff ausente"))
+        }
         val outcome = tx.execute {
             val approved = open.copy(status = PublishRequestStatus.APPROVED, checkerId = command.actor.id)
             val won = publishStore.compareAndSetStatus(open.requestId, PublishRequestStatus.OPEN, approved)
@@ -284,6 +311,12 @@ class PublishService(
 
 private data class PublishOutcome(val request: PublishRequest, val spec: Spec)
 
+/**
+ * Devolve o pointer a uma revisao publicada anterior.
+ *
+ * O caminho de reacao a uma publicacao ruim: nao apaga nem altera revisao nenhuma, so muda qual
+ * esta em vigor, e por isso e seguro de executar sob pressao. Nunca cruza plataforma.
+ */
 class RollbackService(
     private val pointerStore: PointerStore,
     private val specStore: SpecStore,

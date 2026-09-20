@@ -9,6 +9,13 @@ import br.com.empresa.sdui.core.model.ContextViolation
 import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.SemVer
 
+/**
+ * Primeiro passo do pipeline: transforma headers crus em um [ClientContext] valido.
+ *
+ * Acumula todas as violacoes antes de decidir, em vez de parar na primeira, para o cliente
+ * corrigir tudo de uma vez. Nada aqui lanca excecao por entrada malformada — header invalido e
+ * comportamento esperado e vira 400, nunca 500.
+ */
 object Negotiate {
     private val BUILD = Regex("""^\d+$""")
     private val LOCALE = Regex("""^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$""")

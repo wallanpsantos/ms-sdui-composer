@@ -4,6 +4,13 @@ import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.SlotLayout
 
+/**
+ * Valida a estrutura da surface antes da publicacao.
+ *
+ * Exige a ordem de slots do contrato, layouts dentro do vocabulario semantico, ausencia de
+ * atributo visual ate no titulo, e que os slots portantes estejam marcados como required — sem
+ * isso a protecao que derruba a composicao quando eles ficam vazios nao seria acionada.
+ */
 object SkeletonValidator {
     fun validate(skeleton: Skeleton): List<String> {
         val errors = mutableListOf<String>()

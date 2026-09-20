@@ -15,6 +15,7 @@ import br.com.empresa.sdui.core.model.ETagFactory
 import br.com.empresa.sdui.core.model.FallbackReason
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.RedisKeys
+import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.negotiate.Negotiate
 import br.com.empresa.sdui.core.select.Select
 import br.com.empresa.sdui.orchestrator.hydration.HydrationCoordinator
@@ -32,6 +33,25 @@ import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
 import java.time.Clock
 import java.time.Duration
 
+/**
+ * O pipeline de composicao: de headers do cliente ate a arvore de UI pronta.
+ *
+ * Orquestra Negotiate, Select, Filter, hidratacao e montagem do envelope, e e quem decide quando
+ * degradar.
+ *
+ * A selecao da revisao acontece em toda requisicao, antes da consulta ao cache, porque o targeting
+ * discrimina por dimensoes que nao cabem na chave. Um acerto de cache poupa filtragem, hidratacao
+ * e montagem — que e o grosso do trabalho — mas nao poupa a leitura do pointer e dos specs
+ * publicados. Quando a persistencia deixar de ser em memoria, esse par de leituras por requisicao
+ * passa a ser o proximo alvo de otimizacao, resolvendo a revisao direto pelo pointer em vez de
+ * listar os publicados.
+ *
+ * Na falta do cache, o singleflight garante que apenas uma requisicao componha de verdade e as
+ * outras aproveitem o mesmo resultado, em vez de todas baterem nas dependencias.
+ *
+ * Nenhuma falha de dependencia vira 5xx direto: tudo passa pela escada de fallback (ADR-007), que
+ * tenta last good antes de assumir indisponibilidade.
+ */
 class ComposeScreenService(
     private val specStore: SpecStore,
     private val skeletonStore: SkeletonStore,
@@ -70,11 +90,41 @@ class ComposeScreenService(
         val channel = canaryPolicy.channelFor(context.platform, context.build, context.channelHint)
         val caps = matrix.effective(context)
         val capsHash = CapsHash.sha256(caps)
+
+        // A selecao vem antes do cache porque o targeting discrimina por versao completa do app e
+        // por versao de SO. Uma chave montada a partir do contexto teria de carregar essas duas
+        // dimensoes para ser correta, e carrega-las fragmentaria o cache por patch e por versao de
+        // sistema. Resolvendo a revisao primeiro, a chave passa a identificar o que foi escolhido
+        // em vez de tentar reproduzir a escolha.
+        val selected = try {
+            selectSpec(context, channel, caps)
+        } catch (_: Exception) {
+            return fallbackOrUnavailable(context, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
+        }
+        if (selected == null) {
+            metrics.increment(
+                "select.no_candidate",
+                mapOf(
+                    "platform" to context.platform.wire(),
+                    "appVersion" to context.appVersion.toString(),
+                    "schemaVersion" to context.schemaVersion,
+                ),
+            )
+            return fallbackOrUnavailable(context, channel, FallbackReason.NO_COMPATIBLE_SPEC, tags)
+        }
+
+        // Com a revisao em maos o ETag ja e conhecido: uma revalidacao termina aqui, sem tocar no
+        // cache de arvore nem compor nada.
+        val etag = ETagFactory.of(selected.specRevisionId, context.platform, context.schemaVersion, capsHash)
+        if (!request.ifNoneMatch.isNullOrBlank() && request.ifNoneMatch == etag) {
+            return ComposeResult.NotModified(etag)
+        }
+
         val treeKey = RedisKeys.tree(
             surface = MvpCatalog.SURFACE_HOME,
             platform = context.platform,
             schema = context.schemaVersion,
-            appMajorMinor = context.appVersion.majorMinor,
+            specRevisionId = selected.specRevisionId,
             capsHash = capsHash,
             channel = channel,
         )
@@ -87,19 +137,16 @@ class ComposeScreenService(
         }
         if (cached != null) {
             metrics.increment("compose.hit", tags + mapOf("channel" to channel.wire()))
-            if (!request.ifNoneMatch.isNullOrBlank() && request.ifNoneMatch == cached.etag) {
-                return ComposeResult.NotModified(cached.etag)
-            }
-            return ComposeResult.Success(cached.copy(generatedAt = clock.instant()), fromCache = true)
+            return ComposeResult.Success(cached.withRequester(context), fromCache = true)
         }
 
         metrics.increment("compose.miss", tags + mapOf("channel" to channel.wire()))
         val outcome = try {
             singleflight.runExclusive(RedisKeys.singleflight(treeKey), singleflightTimeout) {
-                composeFresh(request, context, channel, caps, treeKey, tags)
+                composeFresh(context, channel, caps, selected, etag, treeKey, tags)
             }
         } catch (_: Exception) {
-            return fallbackOrUnavailable(context.platform, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
+            return fallbackOrUnavailable(context, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
         }
         return when (outcome) {
             is SingleflightOutcome.Leader -> outcome.value
@@ -110,55 +157,56 @@ class ComposeScreenService(
 
             is SingleflightOutcome.WaitTimeout -> {
                 metrics.increment("compose.singleflight.wait", tags)
-                fallbackOrUnavailable(context.platform, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
+                fallbackOrUnavailable(context, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
             }
         }
     }
 
+    /**
+     * Le pointer e specs publicados e devolve a revisao que atende este cliente, ou null.
+     *
+     * Recebe [caps] ja calculado em vez de recalcular: o mesmo conjunto precisa valer para a
+     * selecao e para o capsHash da chave de cache, senao a chave descreveria um conjunto de
+     * capabilities diferente do que decidiu a revisao.
+     */
+    private fun selectSpec(context: ClientContext, channel: Channel, caps: Set<Capability>): Spec? {
+        val pointer = pointerStore.find(MvpCatalog.SURFACE_HOME, context.platform, channel)
+        val candidates = specStore.listPublished(MvpCatalog.SURFACE_HOME, context.platform)
+        return Select.select(pointer, candidates, context, caps, channel)
+    }
+
     private fun composeFresh(
-        request: ComposeRequest,
         context: ClientContext,
         channel: Channel,
         caps: Set<Capability>,
+        selected: Spec,
+        etag: String,
         treeKey: String,
         tags: Map<String, String>,
     ): ComposeResult = try {
-        composeFromStores(request, context, channel, caps, treeKey, tags)
+        composeFromStores(context, channel, caps, selected, etag, treeKey, tags)
     } catch (_: Exception) {
-        // Pointer, spec, skeleton e cache de spec vem do mesmo backend de dados: uma falha em
-        // qualquer um deles e indisponibilidade de dependencia. Tratar em um ponto so evita que
-        // parte das leituras caia aqui e o restante suba ate o catch do singleflight, onde seria
-        // reportada como DEPENDENCY_TIMEOUT.
-        fallbackOrUnavailable(context.platform, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
+        // Skeleton e cache de spec vem do mesmo backend de dados da selecao: uma falha em qualquer
+        // um deles e indisponibilidade de dependencia. Tratar em um ponto so evita que parte das
+        // leituras caia aqui e o restante suba ate o catch do singleflight, onde seria reportada
+        // como DEPENDENCY_TIMEOUT.
+        fallbackOrUnavailable(context, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
     }
 
     private fun composeFromStores(
-        request: ComposeRequest,
         context: ClientContext,
         channel: Channel,
         caps: Set<Capability>,
+        selected: Spec,
+        etag: String,
         treeKey: String,
         tags: Map<String, String>,
     ): ComposeResult {
-        val pointer = pointerStore.find(MvpCatalog.SURFACE_HOME, context.platform, channel)
-        val candidates = specStore.listPublished(MvpCatalog.SURFACE_HOME, context.platform)
-        val selected = Select.select(pointer, candidates, context, caps, channel)
-        if (selected == null) {
-            metrics.increment(
-                "select.no_candidate",
-                mapOf(
-                    "platform" to context.platform.wire(),
-                    "appVersion" to context.appVersion.toString(),
-                    "schemaVersion" to context.schemaVersion,
-                ),
-            )
-            return fallbackOrUnavailable(context.platform, channel, FallbackReason.NO_COMPATIBLE_SPEC, tags)
-        }
         val spec = specCache.get(selected.specRevisionId, context.platform) ?: selected
         specCache.put(spec)
         val skeleton = skeletonStore.find(spec.skeletonId, spec.skeletonRevision)
             ?: skeletonStore.current(spec.skeletonId)
-            ?: return fallbackOrUnavailable(context.platform, channel, FallbackReason.NO_COMPATIBLE_SPEC, tags)
+            ?: return fallbackOrUnavailable(context, channel, FallbackReason.NO_COMPATIBLE_SPEC, tags)
         val filtered = Filter.filter(spec.sections, skeleton, caps)
         for (omitted in filtered.omitted) {
             metrics.increment(
@@ -186,11 +234,7 @@ class ComposeScreenService(
             alreadyOmitted = filtered.omitted,
         )
         if (hydrated.requiredSlotFailed) {
-            return fallbackOrUnavailable(context.platform, channel, FallbackReason.REQUIRED_SLOT_EMPTY, tags)
-        }
-        val etag = ETagFactory.of(spec.specRevisionId, context.platform, context.schemaVersion)
-        if (!request.ifNoneMatch.isNullOrBlank() && request.ifNoneMatch == etag) {
-            return ComposeResult.NotModified(etag)
+            return fallbackOrUnavailable(context, channel, FallbackReason.REQUIRED_SLOT_EMPTY, tags)
         }
         val screen = ComposedScreen(
             surface = MvpCatalog.SURFACE_HOME,
@@ -225,13 +269,13 @@ class ComposeScreenService(
     }
 
     private fun fallbackOrUnavailable(
-        platform: ClientPlatform,
+        context: ClientContext,
         channel: Channel,
         reason: FallbackReason,
         tags: Map<String, String>,
     ): ComposeResult {
         val stored = try {
-            lastGood.get(MvpCatalog.SURFACE_HOME, platform, channel)
+            lastGood.get(MvpCatalog.SURFACE_HOME, context.platform, channel)
         } catch (_: Exception) {
             null
         }
@@ -241,8 +285,7 @@ class ComposeScreenService(
                 tags + mapOf("channel" to channel.wire(), "fallbackReason" to reason.wire)
             )
             return ComposeResult.Success(
-                stored.copy(
-                    generatedAt = clock.instant(),
+                stored.withRequester(context).copy(
                     fallback = true,
                     fallbackReason = reason,
                 ),
@@ -251,8 +294,25 @@ class ComposeScreenService(
         }
         return ComposeResult.Unavailable(retryAfterSeconds, reason)
     }
+
+    /**
+     * Reidrata os campos que descrevem quem pediu, ao servir uma arvore que outro cliente compos.
+     *
+     * A chave de cache cobre plataforma, schema, faixa major.minor do app, capabilities e canal —
+     * nao cobre build, patch da versao, versao de SO nem locale. Sem isso o envelope devolveria os
+     * dados do dispositivo que compos primeiro, justamente nos campos que existem para tornar a
+     * composicao auditavel. As sections nao dependem desses campos, e por isso compartilhar a
+     * entrada continua correto; se o conteudo passar a ser localizado, o locale tera de entrar na
+     * chave em vez de ser sobrescrito aqui.
+     */
+    private fun ComposedScreen.withRequester(context: ClientContext): ComposedScreen = copy(
+        generatedAt = clock.instant(),
+        client = context,
+        locale = context.locale,
+    )
 }
 
+/** Politica que ignora o canal pedido e serve stable a todos. Padrao quando nao ha canary ativo. */
 object DefaultCanaryPolicy : CanaryPolicy {
     override fun channelFor(
         platform: ClientPlatform,
@@ -261,6 +321,12 @@ object DefaultCanaryPolicy : CanaryPolicy {
     ): Channel = Channel.STABLE
 }
 
+/**
+ * Libera canary apenas para builds em lista explicita, por plataforma.
+ *
+ * O cliente pede o canal, mas quem decide e o servidor: sem isso qualquer app se colocaria no
+ * canary so mandando um header. O canal interno segue livre, por ser destinado a testes.
+ */
 class AllowlistCanaryPolicy(
     private val allowed: Map<ClientPlatform, Set<String>>,
 ) : CanaryPolicy {

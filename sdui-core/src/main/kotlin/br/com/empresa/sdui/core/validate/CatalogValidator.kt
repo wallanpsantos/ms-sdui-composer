@@ -3,6 +3,13 @@ package br.com.empresa.sdui.core.validate
 import br.com.empresa.sdui.core.model.Catalog
 import br.com.empresa.sdui.core.model.MvpCatalog
 
+/**
+ * Garante que o catalogo ativo e exatamente o do MVP, nem a mais nem a menos.
+ *
+ * Ser exato, e nao um superconjunto, e o que impede um componente entrar em producao sem passar
+ * pela revisao de contrato. Recusa tambem qualquer primitiva generica, como row ou container: o
+ * catalogo e de componentes de negocio.
+ */
 object CatalogValidator {
     fun validate(catalog: Catalog): List<String> {
         val errors = mutableListOf<String>()

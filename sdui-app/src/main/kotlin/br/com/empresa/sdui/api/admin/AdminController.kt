@@ -36,6 +36,13 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
+/**
+ * A borda HTTP da governanca: catalogo, skeletons, specs, publicacao e rollback.
+ *
+ * Plano administrativo, separado do plano de leitura da home. A identidade do ator vem dos
+ * headers Actor-Id e Actor-Role, sem autenticacao — enquanto isso valer, estes endpoints so podem
+ * ficar acessiveis atras de uma barreira de rede.
+ */
 @RestController
 @RequestMapping("/admin/v1")
 class AdminController(
@@ -179,14 +186,17 @@ class AdminController(
     }
 }
 
+/** Corpo para abrir um pedido de publicacao. Canal ausente significa stable. */
 data class OpenPublishBody(
     val specId: String,
     val revision: Int,
     val channel: String = "stable",
 )
 
+/** Motivo da rejeicao, obrigatorio: a recusa precisa ficar registrada na auditoria. */
 data class RejectBody(val reason: String)
 
+/** Alvo opcional do rollback. Sem alvo, volta para a revisao anterior do proprio pointer. */
 data class RollbackBody(
     val targetSpecRevisionId: String? = null,
     val reason: String? = null,

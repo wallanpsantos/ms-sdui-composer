@@ -81,6 +81,57 @@ class HomeCompatibilityWebTest(
         assertThat(a).isEqualTo(b).isEqualTo("rev_01K8HOMEMAIN")
     }
 
+    @Test
+    fun `cache hit devolve o contexto de quem pediu, nao o de quem compos a arvore`() {
+        (treeCache as InMemoryHydratedScreenCache).clear()
+        val primeiro = CanonicalHeaders.ios()
+        // Mesma plataforma, schema, faixa major.minor e capabilities: os dois compartilham a
+        // entrada de cache. Build e locale variam e nao entram na chave — e tambem nao participam
+        // do targeting, entao compartilhar a arvore entre os dois e legitimo.
+        val segundo = CanonicalHeaders.ios() + mapOf(
+            "Client-Build" to "81499",
+            "Accept-Language" to "en-US",
+        )
+
+        val miss = getHome(primeiro)
+        val hit = getHome(segundo)
+        assertThat(miss.status).isEqualTo(200)
+        assertThat(hit.status).isEqualTo(200)
+
+        val envelope = jsonMapper.readTree(hit.body).get("envelope")
+        val client = envelope.get("client")
+        assertThat(client.get("build").asText()).isEqualTo("81499")
+        assertThat(envelope.get("locale").asText()).isEqualTo("en-US")
+
+        // O conteudo continua sendo o mesmo, compartilhado: so o contexto foi reidratado.
+        assertThat(envelope.get("specRevisionId").asText())
+            .isEqualTo(jsonMapper.readTree(miss.body).get("envelope").get("specRevisionId").asText())
+        assertThat(sectionIds(jsonMapper.readTree(hit.body)))
+            .isEqualTo(sectionIds(jsonMapper.readTree(miss.body)))
+    }
+
+    @Test
+    fun `cliente fora da faixa de SO nao recebe do cache a arvore composta para outro`() {
+        (treeCache as InMemoryHydratedScreenCache).clear()
+        // O spec principal exige osVersionMin 16.0, e as faixas legacy e next nao atendem 8.14.2.
+        // Os dois clientes so diferem no SO, que nao cabe na chave de cache — a selecao e que os
+        // separa, e por isso ela acontece antes da consulta ao cache.
+        val suportado = getHome(CanonicalHeaders.ios())
+        assertThat(suportado.status).isEqualTo(200)
+        assertThat(jsonMapper.readTree(suportado.body).get("envelope").get("specRevisionId").asText())
+            .isEqualTo("rev_01K8HOMEMAIN")
+
+        val antigo = getHome(CanonicalHeaders.ios() + ("OS-Version" to "15.0"))
+        val envelope = jsonMapper.readTree(antigo.body).get("envelope")
+        // Nenhuma revisao atende este cliente, entao ele cai na escada de fallback e recebe o last
+        // good que a requisicao anterior gravou — declarado como degradacao. Antes de a selecao vir
+        // para antes do cache, ele recebia rev_01K8HOMEMAIN com fallback=false, uma arvore que o
+        // targeting teria recusado.
+        assertThat(antigo.status).isEqualTo(200)
+        assertThat(envelope.get("fallback").asBoolean()).isTrue()
+        assertThat(envelope.get("fallbackReason").asText()).isEqualTo("no_compatible_spec")
+    }
+
     private fun getHome(headers: Map<String, String>): Exchange {
         val result = mockMvc.get("/v1/surfaces/home") {
             headers.forEach { (n, v) -> header(n, v) }

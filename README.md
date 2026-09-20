@@ -16,6 +16,7 @@ homologadas e contexto dinâmico do cliente móvel.
   - [Pré-requisitos](#pré-requisitos)
   - [Subindo via Gradle Wrapper](#subindo-via-gradle-wrapper)
   - [Subindo via JAR Executável](#subindo-via-jar-executável)
+  - [Subindo via Docker](#subindo-via-docker)
   - [Configurações e Variáveis de Ambiente](#configurações-e-variáveis-de-ambiente)
 - [Como Realizar Chamadas (Exemplos Práticos)](#-como-realizar-chamadas-exemplos-práticos)
   - [1. Endpoint Principal da Home (Hot Path)](#1-endpoint-principal-da-home-hot-path)
@@ -138,6 +139,42 @@ curl http://localhost:8080/actuator/health
 # {"status":"UP"}
 ```
 
+### Subindo via Docker
+
+O `Dockerfile` é multi-estágio: compila com JDK 25, extrai o JAR em camadas (`-Djarmode=tools`) e
+executa sobre `eclipse-temurin:25-jre` com usuário sem privilégio. A extração em camadas faz o
+cache do Docker acompanhar o ritmo de mudança de cada parte — alterar uma linha de Kotlin não
+reenvia os ~50 MB de dependências.
+
+```bash
+docker compose up --build
+```
+
+O serviço fica em `http://localhost:8080`, com `HEALTHCHECK` apontando para
+`/actuator/health/readiness`. Para acompanhar até ficar saudável:
+
+```bash
+docker compose ps
+```
+
+#### MongoDB e Redis
+
+O `compose.yaml` traz os dois, mas **atrás do profile `infra`**, porque o serviço ainda não os
+consome — todos os stores são in-memory e as autoconfigurações estão excluídas em
+`SduiApplication`. Eles existem para o momento em que os adapters persistentes forem cabeados:
+
+```bash
+docker compose --profile infra up -d
+```
+
+> **Atenção:** o estado vive no heap do processo. Uma segunda réplica não compartilha specs nem
+> pointer, então publicar ou fazer rollback em uma instância não afeta as demais. Enquanto a
+> persistência não for cabeada, o serviço opera como instância única. Ver `AGENTS.md`, seção 17.
+
+> **Atenção:** o plano administrativo (`/admin/v1/**`) não tem autenticação — o papel do ator vem
+> de um cabeçalho que o próprio chamador escolhe. O container não deve ser exposto fora da máquina
+> local enquanto isso valer.
+
 ### Configurações e Variáveis de Ambiente
 
 As propriedades podem ser customizadas via `application.yml` ou variáveis de ambiente com o prefixo `SDUI_`:
@@ -151,6 +188,8 @@ As propriedades podem ser customizadas via `application.yml` ou variáveis de am
 | `sdui.hydration-timeout-ms` | `80` | Timeout individual de hidratação remota de section |
 | `sdui.hydration-fanout` | `8` | Limite de seções hidratadas concorrentemente por requisição |
 | `sdui.rate-limit-capacity` | `10000` | Capacidade do Token Bucket por cliente |
+| `sdui.rate-limit-max-keys` | `100000` | Teto de buckets residentes; acima dele os ociosos e os cheios são descartados |
+| `sdui.tree-cache-max-entries` | `10000` | Teto de árvores no cache de composição |
 | `sdui.canary-ios-builds` | `[]` | Lista de builds de iOS autorizadas para canal Canary |
 | `sdui.canary-android-builds` | `[]` | Lista de builds de Android autorizadas para canal Canary |
 
@@ -229,7 +268,7 @@ $response | ConvertTo-Json -Depth 5
     "specRevisionId": "rev_01K8HOMEMAIN",
     "skeletonId": "home.default",
     "skeletonHash": "sha256:7c2b0e1a9d4f6a8c3e5b1d0f2a4c6e8b",
-    "etag": "W/\"rev_01K8HOMEMAIN-ios-3\"",
+    "etag": "W/\"rev_01K8HOMEMAIN-ios-3-ad4e3e6a255a\"",
     "generatedAt": "2026-09-19T15:30:00.000-03:00",
     "locale": "pt-BR",
     "channel": "stable",
@@ -311,14 +350,17 @@ curl -X GET http://localhost:8080/v1/surfaces/home \
   -H "Client-Version: 8.10.0" \
   -H "Client-Build: 1234" \
   -H "Accept-Language: pt-BR" \
-  -H "If-None-Match: W/\"rev_01K8HOMEMAIN-ios-3\"" \
+  -H "If-None-Match: W/\"rev_01K8HOMEMAIN-ios-3-ad4e3e6a255a\"" \
   -i
 ```
+
+O sufixo do ETag é o prefixo do hash das capabilities efetivas: clientes que suportam conjuntos
+diferentes de componentes recebem árvores diferentes e não podem compartilhar validação de cache.
 
 **Resposta HTTP 304 Not Modified:**
 ```http
 HTTP/1.1 304 Not Modified
-ETag: W/"rev_01K8HOMEMAIN-ios-3"
+ETag: W/"rev_01K8HOMEMAIN-ios-3-ad4e3e6a255a"
 Cache-Control: private, max-age=60
 Vary: API-Version, UI-Schema-Version, Client-Platform, Client-Version, Client-Build, Component-Capabilities
 ```

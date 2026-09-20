@@ -4,6 +4,14 @@ import br.com.empresa.sdui.contract.analytics.ScreenAnalyticsResponse
 import br.com.empresa.sdui.contract.client.ClientResponse
 import br.com.empresa.sdui.contract.targeting.TargetingResponse
 
+/**
+ * Metadados da composicao: identifica a revisao servida e como ela foi decidida.
+ *
+ * Carrega os tres eixos de compatibilidade — [schemaVersion] (eixo A), o que o cliente pediu em
+ * [client] (eixo C) e a faixa que o spec atende em [targeting]. [fallback] e [fallbackReason]
+ * dizem se a resposta veio da escada de degradacao (ADR-007) em vez da composicao normal, e
+ * [omitted] lista as sections que ficaram de fora com o motivo de cada uma.
+ */
 data class ScreenEnvelope(
     val surface: String,
     val platform: String,

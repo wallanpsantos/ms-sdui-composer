@@ -1,5 +1,9 @@
 package br.com.empresa.sdui.core.model
 
+/**
+ * Plataforma do cliente. iOS e Android sao isolados de ponta a ponta: pointer, cache, spec e
+ * matriz de capabilities proprios, para que uma publicacao numa plataforma nao afete a outra.
+ */
 enum class ClientPlatform {
     IOS,
     ANDROID,
@@ -17,6 +21,11 @@ enum class ClientPlatform {
     }
 }
 
+/**
+ * Canal de entrega. Cada canal tem pointer e cache proprios, o que permite expor uma revisao a
+ * builds de canary sem tocar em stable. [parse] cai para STABLE em entrada desconhecida: canal
+ * invalido nao deve virar erro de requisicao, so ausencia de canary.
+ */
 enum class Channel {
     STABLE,
     CANARY,
@@ -35,18 +44,24 @@ enum class Channel {
     }
 }
 
+/** Ciclo de vida de spec e skeleton. PUBLISHED e terminal e imutavel: mudar exige nova revisao. */
 enum class SpecStatus {
     DRAFT,
     PUBLISHED,
     REJECTED,
 }
 
+/** Estado de um pedido de publicacao. So sai de OPEN uma vez, por compare-and-set. */
 enum class PublishRequestStatus {
     OPEN,
     APPROVED,
     REJECTED,
 }
 
+/**
+ * Papel na governanca. MAKER propoe, CHECKER aprova ou rejeita, AUDITOR apenas consulta e nao
+ * escreve nada. A separacao entre os dois primeiros e o que sustenta o maker-checker.
+ */
 enum class ActorRole {
     MAKER,
     CHECKER,
@@ -59,6 +74,12 @@ enum class ActorRole {
     }
 }
 
+/**
+ * Por que a resposta veio degradada, na escada de fallback (ADR-007).
+ *
+ * [CLOSED] existe para os testes de contrato travarem o vocabulario: o cliente pode instrumentar
+ * em cima desses valores sabendo que nenhum termo novo aparece sem revisao de contrato.
+ */
 enum class FallbackReason(val wire: String) {
     NONE("none"),
     REDIS_UNAVAILABLE("redis_unavailable"),
@@ -73,6 +94,10 @@ enum class FallbackReason(val wire: String) {
     }
 }
 
+/**
+ * Por que uma section nao foi entregue: o cliente nao renderiza o tipo, ou a hidratacao falhou ou
+ * estourou o prazo. Vocabulario fechado, como em [FallbackReason].
+ */
 enum class OmittedReason(val wire: String) {
     UNSUPPORTED_TYPE("unsupported_type"),
     HYDRATION_FAILED("hydration_failed"),
@@ -84,6 +109,10 @@ enum class OmittedReason(val wire: String) {
     }
 }
 
+/**
+ * Arranjo semantico de um slot. Descreve a intencao — lista, prateleira, pager — e deixa medida,
+ * espacamento e estilo para o cliente, conforme a proibicao de aparencia no servidor.
+ */
 enum class SlotLayout {
     FIXED,
     SHELF,

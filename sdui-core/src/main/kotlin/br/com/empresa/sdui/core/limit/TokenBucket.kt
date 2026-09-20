@@ -2,8 +2,9 @@ package br.com.empresa.sdui.core.limit
 
 import br.com.empresa.sdui.core.model.ClientPlatform
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
+/** Identidade limitada. Vem de headers nao autenticados — ver a nota em [TokenBucketRateLimiter]. */
 data class RateLimitKey(
     val identity: String,
     val platform: ClientPlatform,
@@ -22,16 +23,22 @@ class TokenBucketRateLimiter(
     private val refillPerSecond: Long = 100,
     private val maxKeys: Int = 100_000,
     private val idleEvictionMs: Long = 600_000,
+    private val minEvictIntervalMs: Long = 1_000,
     private val clockMs: () -> Long = { System.currentTimeMillis() },
 ) {
     private class Bucket(val tokens: Double, val lastRefillMs: Long)
 
     private val buckets = ConcurrentHashMap<RateLimitKey, Bucket>()
-    private val evicting = AtomicBoolean(false)
+    private val lastEvictMs = AtomicLong(0)
 
     fun tryConsume(key: RateLimitKey): Boolean {
         val now = clockMs()
         if (buckets.size >= maxKeys) evict(now)
+        // Saturado mesmo depois da poda significa que ha maxKeys identidades ativas. Recusar
+        // identidade nova mantem o teto de memoria rigido; quem ja tem bucket continua atendido
+        // normalmente. A checagem nao e atomica com o compute, entao sob corrida o mapa pode
+        // passar do teto por algumas entradas — o que importa e nao crescer sem limite.
+        if (buckets.size >= maxKeys && !buckets.containsKey(key)) return false
         var granted = false
         // compute aplica a funcao de remapeamento sob o lock do bin da chave: exclusao mutua por
         // identidade, sem um lock unico serializando todo o hot path.
@@ -43,6 +50,7 @@ class TokenBucketRateLimiter(
         return granted
     }
 
+    /** Quantos buckets estao residentes agora. Serve a diagnostico e aos testes do teto. */
     fun residentKeys(): Int = buckets.size
 
     private fun refill(bucket: Bucket, now: Long): Double {
@@ -53,17 +61,20 @@ class TokenBucketRateLimiter(
     /**
      * Descarta buckets ociosos e buckets ja recompostos ate a capacidade. Um bucket cheio e
      * indistinguivel de um bucket inexistente, entao a poda nunca devolve credito a quem esta
-     * consumindo. Uma unica thread poda por vez; as demais seguem sem esperar.
+     * consumindo.
+     *
+     * A varredura e O(n) sobre o mapa, entao roda no maximo uma vez a cada [minEvictIntervalMs]:
+     * com o mapa cheio de identidades ativas nenhuma entrada sai, e sem essa guarda toda
+     * requisicao pagaria a varredura inteira — justamente sob a carga que o limitador existe para
+     * conter. O CAS no instante da ultima poda tambem garante que so uma thread poda por vez.
      */
     private fun evict(now: Long) {
-        if (!evicting.compareAndSet(false, true)) return
-        try {
-            buckets.entries.removeIf { entry ->
-                now - entry.value.lastRefillMs >= idleEvictionMs ||
-                    refill(entry.value, now) >= capacity.toDouble()
-            }
-        } finally {
-            evicting.set(false)
+        val last = lastEvictMs.get()
+        if (now - last < minEvictIntervalMs) return
+        if (!lastEvictMs.compareAndSet(last, now)) return
+        buckets.entries.removeIf { entry ->
+            now - entry.value.lastRefillMs >= idleEvictionMs ||
+                refill(entry.value, now) >= capacity.toDouble()
         }
     }
 }

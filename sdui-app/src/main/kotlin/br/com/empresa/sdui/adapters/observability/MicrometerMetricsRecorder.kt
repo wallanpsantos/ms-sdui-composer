@@ -5,6 +5,12 @@ import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Tag
 import java.util.concurrent.TimeUnit
 
+/**
+ * Implementa a porta de metricas sobre o Micrometer, exposto em /actuator/prometheus.
+ *
+ * Adapter fino de proposito: manter o Micrometer confinado aqui e o que permite ao orchestrator
+ * instrumentar sem depender do framework.
+ */
 class MicrometerMetricsRecorder(
     private val registry: MeterRegistry,
 ) : MetricsRecorder {

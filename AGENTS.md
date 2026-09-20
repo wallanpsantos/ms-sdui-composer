@@ -202,9 +202,10 @@ Consequências que valem para qualquer decisão de deploy ou de evolução:
 - Enquanto isso valer, o serviço só opera corretamente como instância única, ou com o plano de
   administração (`/admin/v1/**`) dirigido a uma instância designada.
 
-`adapters/mongo/document/Documents.kt` e `MongoTransactionalUnitOfWork` existem como preparação e
-não são referenciados por nenhum bean. Cabear os adapters persistentes é trabalho de feature, com
-ADR próprio — não uma correção pontual.
+O pacote `adapters/mongo` e o `RedisKeyspace` foram removidos: eram preparação sem nenhum consumidor,
+e código morto confunde quem chega depois. Cabear os adapters persistentes é trabalho de feature, com
+ADR próprio, e o desenho dos documentos e índices será decidido nesse momento — não sobrevive como
+esqueleto no repositório.
 
 ## 18. Diretrizes de Qualidade e Concorrência Consolidadas (Pós-Review)
 
@@ -224,7 +225,7 @@ Regras inegociáveis resultantes do ciclo de auditoria técnica (`code-review-an
    slots do skeleton. Não introduzir comparadores secundários com busca linear O (N) (`indexOf`), aproveitando a
    estabilidade
    do TimSort.
-6. **Limpeza de Chaves Redis:** Assinaturas de métodos geradores de chaves (`RedisKeyspace.kt`) devem conter apenas
+6. **Limpeza de Chaves Redis:** Assinaturas de métodos geradores de chaves (`RedisKeys.kt`) devem conter apenas
    parâmetros efetivamente interpolados na chave, e garantir `!RedisKeys.containsUserId(key)`.
 7. **Fechamento de Recursos:** Qualquer leitura de stream de arquivo ou classpath (`ClassPathResource`) deve ser
    envolvida
@@ -255,7 +256,17 @@ Regras inegociáveis resultantes da revisão multidimensional de 2026-09-20 (`co
    fica reservado ao singleflight.
 9. **Test Double Não Entra em Produção:** o fallback sem `MeterRegistry` é `NoOpMetricsRecorder`.
    `RecordingMetrics` vive em `src/test`.
-10. **Um `application.yaml` Só:** apenas `sdui-bootstrap` tem `application.yaml`. O Spring Boot resolve
+10. **Chave de Cache Coerente com a Seleção:** a árvore é chaveada por `specRevisionId`, e a seleção
+    roda antes da consulta ao cache. O `Targeting` discrimina por versão completa do app e por versão
+    de SO — dimensões que não cabem na chave sem explodir a cardinalidade. Proibido voltar a montar a
+    chave a partir do contexto do cliente: isso reintroduz a entrega de uma árvore que o targeting
+    teria recusado. O custo aceito é uma leitura de pointer e de specs publicados por requisição,
+    inclusive em acerto de cache.
+11. **Campos do Requisitante São Reidratados no Acerto de Cache:** `client`, `locale` e `generatedAt`
+    vêm sempre da requisição corrente (`withRequester`), nunca da árvore cacheada. Esses campos
+    existem para auditar a composição; servidos do cache, reportariam o dispositivo que compôs
+    primeiro.
+12. **Um `application.yaml` Só:** apenas `sdui-bootstrap` tem `application.yaml`. O Spring Boot resolve
     `classpath:/application.yaml` para um único recurso; um segundo arquivo em módulo biblioteca faz a
     configuração vencedora depender da ordem do classpath.
 
