@@ -10,7 +10,6 @@ import br.com.empresa.sdui.orchestrator.compose.SectionHydrator
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionException
 import java.util.concurrent.Executor
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit

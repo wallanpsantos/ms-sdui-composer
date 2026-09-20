@@ -10,14 +10,14 @@ bloco e repete o pico que causou a recusa.
 
 ## Tabela de desfechos
 
-| Status                     | Repetir?  | Política                                                                              |
-|----------------------------|-----------|---------------------------------------------------------------------------------------|
-| `200 OK`                   | —         | Renderizar. Guardar o `ETag` para a próxima requisição.                               |
-| `304 Not Modified`         | —         | Manter a árvore em cache local. Não há corpo.                                          |
-| `400 INVALID_HEADERS`      | **Nunca** | Terminal. É bug de cliente: os headers de negociação estão errados. Reportar e parar.  |
-| `429 RATE_LIMITED`         | Sim       | Honrar `Retry-After`. Somar jitter local de ±40%. Orçamento: **2 tentativas**.          |
-| `503 COMPOSE_UNAVAILABLE`  | Sim       | Honrar `Retry-After`. Backoff exponencial com jitter. Orçamento: **3 tentativas**.      |
-| `500 INTERNAL_ERROR`       | Não       | Terminal. Invariante quebrada no servidor; repetir não muda o desfecho.                 |
+| Status                    | Repetir?  | Política                                                                              |
+|---------------------------|-----------|---------------------------------------------------------------------------------------|
+| `200 OK`                  | —         | Renderizar. Guardar o `ETag` para a próxima requisição.                               |
+| `304 Not Modified`        | —         | Manter a árvore em cache local. Não há corpo.                                         |
+| `400 INVALID_HEADERS`     | **Nunca** | Terminal. É bug de cliente: os headers de negociação estão errados. Reportar e parar. |
+| `429 RATE_LIMITED`        | Sim       | Honrar `Retry-After`. Somar jitter local de ±40%. Orçamento: **2 tentativas**.        |
+| `503 COMPOSE_UNAVAILABLE` | Sim       | Honrar `Retry-After`. Backoff exponencial com jitter. Orçamento: **3 tentativas**.    |
+| `500 INTERNAL_ERROR`      | Não       | Terminal. Invariante quebrada no servidor; repetir não muda o desfecho.               |
 
 Esgotado o orçamento de tentativas, o app **falha rápido** e usa a última árvore que ele mesmo guardou, exibindo o
 estado degradado ao usuário. Não existe tentativa indefinida: retries sem teto num app instalado em milhões de

@@ -47,12 +47,12 @@ hidratação.
 Toda requisição abre um `TimeBudget` (`core/limit/TimeBudget.kt`). Os prazos vivem em `ComposeBudgets` e são
 configuráveis sob o prefixo `sdui`:
 
-| Prazo                  | Valor    | Propriedade                | Encolhido pelo orçamento? |
-|------------------------|----------|----------------------------|---------------------------|
-| Requisição (total)     | 1 000 ms | `request-budget-ms`        | —                         |
-| Espera do waiter       | 150 ms   | `singleflight-timeout-ms`  | Sim                       |
-| Permissão do bulkhead  | 50 ms    | `read-bulkhead-wait-ms`    | Sim                       |
-| Hidratação por section | 80 ms    | `hydration-timeout-ms`     | **Não**                   |
+| Prazo                  | Valor    | Propriedade               | Encolhido pelo orçamento? |
+|------------------------|----------|---------------------------|---------------------------|
+| Requisição (total)     | 1 000 ms | `request-budget-ms`       | —                         |
+| Espera do waiter       | 150 ms   | `singleflight-timeout-ms` | Sim                       |
+| Permissão do bulkhead  | 50 ms    | `read-bulkhead-wait-ms`   | Sim                       |
+| Hidratação por section | 80 ms    | `hydration-timeout-ms`    | **Não**                   |
 
 A regra é: **o orçamento limita espera, nunca trabalho.** As duas esperas recebem `budget.stage(teto)`, que é o
 menor entre o teto delas e o que resta — esperar por outro quando não há prazo não ajuda ninguém. O trabalho em si
@@ -137,15 +137,15 @@ verdade exige transação real, e essa é uma das justificativas do ADR de persi
 
 Nenhum caminho de degradação fica mudo. Métricas novas, todas com nome constante e dimensão em tag:
 
-| Métrica                     | Tags                                     | Para quê                              |
-|-----------------------------|------------------------------------------|---------------------------------------|
-| `compose.unavailable`       | `platform`, `schemaVersion`, `channel`, `fallbackReason` | A taxa de `503`. Alerta de página. |
-| `compose.fallback.age.ms`   | `platform`, `channel`                    | Defasagem real do que se está servindo |
-| `compose.fallback.expired`  | `platform`, `channel`                    | Last good recusado por idade          |
-| `store.failure`             | `stage`                                  | Falha de dependência de dados         |
-| `cache.write.failure`       | `cache`                                  | Cache que lê e não grava              |
-| `compose.deadline.exceeded` | `stage`                                  | Qual etapa estourou o orçamento       |
-| `compose.bulkhead.rejected` | `stage`                                  | Lotação do plano de leitura           |
+| Métrica                     | Tags                                                     | Para quê                               |
+|-----------------------------|----------------------------------------------------------|----------------------------------------|
+| `compose.unavailable`       | `platform`, `schemaVersion`, `channel`, `fallbackReason` | A taxa de `503`. Alerta de página.     |
+| `compose.fallback.age.ms`   | `platform`, `channel`                                    | Defasagem real do que se está servindo |
+| `compose.fallback.expired`  | `platform`, `channel`                                    | Last good recusado por idade           |
+| `store.failure`             | `stage`                                                  | Falha de dependência de dados          |
+| `cache.write.failure`       | `cache`                                                  | Cache que lê e não grava               |
+| `compose.deadline.exceeded` | `stage`                                                  | Qual etapa estourou o orçamento        |
+| `compose.bulkhead.rejected` | `stage`                                                  | Lotação do plano de leitura            |
 
 `compose.duration` ganha a tag `outcome` (`hit`, `miss`, `fallback`, `not_modified`, `invalid_headers`,
 `rate_limited`, `unavailable`, `error`). Sem essa dimensão, a latência de acerto de cache e a do caminho degradado
@@ -200,7 +200,8 @@ framework e o JDK basta; o Spring Boot instala a ponte de JUL para o backend de 
 - `sdui-core`: `ResiliencePrimitivesTest` — faixa e piso do jitter, encolhimento e esgotamento do orçamento,
   lotação e devolução de permissão do bulkhead.
 - `sdui-app`: `ComposeResilienceTest` — contador do `503` com motivo, last good dentro e fora do prazo, jitter do
-  `Retry-After`, sinalização de orçamento estourado **sem** abandono da composição, degradação por lotação e relato de falha de
+  `Retry-After`, sinalização de orçamento estourado **sem** abandono da composição, degradação por lotação e relato de
+  falha de
   store.
 - `sdui-app`: `AdminIdempotencyTest` — `open` concorrente com a mesma chave produzindo um único pedido, devolução da
   chave em falha, invalidação do last good por `approve` e por `rollback`, exclusividade/validade/teto da reserva.
