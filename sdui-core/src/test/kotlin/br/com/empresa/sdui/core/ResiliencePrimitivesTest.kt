@@ -87,7 +87,7 @@ class ResiliencePrimitivesTest {
     @Test
     fun `bulkhead devolve a permissao quando o trabalho lanca`() {
         val bulkhead = Bulkhead(1)
-        runCatching { bulkhead.withPermit(Duration.ofMillis(10)) { error("falha no trabalho") } }
+        runCatching { bulkhead.withPermit<Unit>(Duration.ofMillis(10)) { error("falha no trabalho") } }
         assertThat(bulkhead.availablePermits()).isEqualTo(1)
 
         val outcome = bulkhead.withPermit(Duration.ofMillis(10)) { "ok" }

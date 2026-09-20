@@ -262,6 +262,6 @@ class AdminIdempotencyTest {
         // O mapa e alimentado por header: precisa de teto, como o cache de arvore e o limitador.
         repeat(40) { store.complete(IdempotencyRecord("bulk-$it", "publish.open", "pr_$it")) }
         assertThat(store.reserve("gatilho-da-poda", "publish.open")).isTrue()
-        assertThat(store.residentEntries()).isLessThanOrEqualTo(40)
+        assertThat(store.residentEntries()).isLessThanOrEqualTo(4)
     }
 }
