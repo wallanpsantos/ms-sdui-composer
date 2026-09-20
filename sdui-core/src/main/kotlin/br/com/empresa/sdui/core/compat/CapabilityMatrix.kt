@@ -29,11 +29,10 @@ class CapabilityMatrix(
         return server + declared
     }
 
-    fun serverCaps(platform: ClientPlatform, appVersion: SemVer): Set<Capability> {
-        val exact = byPlatformVersion[platform to appVersion.majorMinor]
-        if (exact != null) return exact
-        return byPlatformVersion[platform to "*"] ?: MvpCatalog.TYPES.toSet()
-    }
+    fun serverCaps(platform: ClientPlatform, appVersion: SemVer): Set<Capability> =
+        byPlatformVersion[platform to appVersion.majorMinor]
+            ?: byPlatformVersion[platform to "*"]
+            ?: MvpCatalog.TYPES.toSet()
 
     companion object {
         fun defaultMatrix(): Map<Pair<ClientPlatform, String>, Set<Capability>> {

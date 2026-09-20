@@ -35,11 +35,6 @@ object PropWalk {
         }
     }
 
-    fun asStringMap(value: Any?): Map<String, Any?>? {
-        if (value !is Map<*, *>) return null
-        return value.entries.associate { (k, v) -> k.toString() to v }
-    }
-
     fun collectActionIds(props: Map<String, Any?>): List<String> {
         val ids = mutableListOf<String>()
         fun scan(node: Any?) {
