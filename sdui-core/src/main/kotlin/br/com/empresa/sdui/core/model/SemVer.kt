@@ -70,6 +70,10 @@ data class VersionRange(
     val min: SemVer,
     val max: SemVer?,
 ) {
+    init {
+        require(max == null || min <= max) { "VersionRange min ($min) deve ser <= max ($max)" }
+    }
+
     fun contains(version: SemVer): Boolean {
         if (version < min) return false
         val ceiling = max ?: return true

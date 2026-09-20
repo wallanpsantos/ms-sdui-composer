@@ -279,17 +279,25 @@ class ComposeScreenService(
             null
         }
         if (stored != null) {
-            metrics.increment(
-                "compose.fallback",
-                tags + mapOf("channel" to channel.wire(), "fallbackReason" to reason.wire)
-            )
-            return ComposeResult.Success(
-                stored.withRequester(context).copy(
-                    fallback = true,
-                    fallbackReason = reason,
-                ),
-                fromCache = true,
-            )
+            val effectiveCaps = matrix.effective(context)
+            val filtered = Filter.filter(stored.sections, stored.skeleton, effectiveCaps)
+            val requiredSlots = stored.skeleton.slots.filter { it.required }.map { it.id }.toSet()
+            val requiredPresent = filtered.sections.map { it.slot }.toSet()
+            if (requiredSlots.all { it in requiredPresent }) {
+                metrics.increment(
+                    "compose.fallback",
+                    tags + mapOf("channel" to channel.wire(), "fallbackReason" to reason.wire)
+                )
+                return ComposeResult.Success(
+                    stored.withRequester(context).copy(
+                        sections = filtered.sections,
+                        omitted = stored.omitted + filtered.omitted,
+                        fallback = true,
+                        fallbackReason = reason,
+                    ),
+                    fromCache = true,
+                )
+            }
         }
         return ComposeResult.Unavailable(retryAfterSeconds, reason)
     }

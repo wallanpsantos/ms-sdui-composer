@@ -209,7 +209,7 @@ class InMemoryHydratedScreenCache(
         check(!RedisKeys.containsUserId(treeKey))
         val entry = items[treeKey] ?: return null
         if (entry.expiresAt < System.currentTimeMillis()) {
-            items.remove(treeKey)
+            items.remove(treeKey, entry)
             return null
         }
         return entry.screen
@@ -343,7 +343,7 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
                 val value = compute()
                 created.complete(value)
                 return SingleflightOutcome.Leader(value)
-            } catch (error: Exception) {
+            } catch (error: Throwable) {
                 created.completeExceptionally(error)
                 throw error
             } finally {
@@ -356,6 +356,9 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
             SingleflightOutcome.Waiter(value)
         } catch (_: TimeoutException) {
             SingleflightOutcome.WaitTimeout()
+        } catch (ex: java.util.concurrent.ExecutionException) {
+            val cause = ex.cause ?: ex
+            if (cause is Exception) throw cause else throw RuntimeException(cause)
         }
     }
 }

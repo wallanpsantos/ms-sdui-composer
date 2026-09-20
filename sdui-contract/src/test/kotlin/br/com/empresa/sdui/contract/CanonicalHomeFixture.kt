@@ -13,8 +13,7 @@ internal object CanonicalHomeFixture {
 
     fun loadClasspathText(): String =
         CanonicalHomeFixture::class.java.getResourceAsStream(CLASSPATH_RESOURCE)
-            ?.bufferedReader()
-            ?.readText()
+            ?.use { it.bufferedReader().readText() }
             ?: error("Fixture $CLASSPATH_RESOURCE não encontrada no classpath de teste")
 
     fun loadClasspathTree(): JsonNode = mapper.readTree(loadClasspathText())

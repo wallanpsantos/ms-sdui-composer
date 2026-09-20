@@ -61,8 +61,15 @@ class HydrationCoordinator(
             val started = System.nanoTime()
             val original = CompletableFuture.supplyAsync(
                 {
-                    fanOut.acquire()
+                    val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
+                    val remainingMs = (timeout.toMillis() - elapsedMs).coerceAtLeast(0)
+                    if (remainingMs <= 0 || !fanOut.tryAcquire(remainingMs, TimeUnit.MILLISECONDS)) {
+                        throw TimeoutException("Fan-out semaphore acquire timeout")
+                    }
                     try {
+                        if (System.nanoTime() - started >= timeout.toNanos()) {
+                            throw TimeoutException("Timeout before hydrator invocation")
+                        }
                         hydrator.hydrate(context, section)
                     } finally {
                         fanOut.release()
