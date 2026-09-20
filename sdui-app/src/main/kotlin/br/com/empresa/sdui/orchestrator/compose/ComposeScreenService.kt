@@ -72,11 +72,10 @@ class ComposeScreenService(
 ) : ComposeScreenUseCase {
 
     override fun compose(request: ComposeRequest): ComposeResult {
-        val negotiated = Negotiate.negotiate(request.headers)
-        if (negotiated is ContextValidation.Invalid) {
-            return ComposeResult.InvalidHeaders(negotiated.violations)
+        val context = when (val negotiated = Negotiate.negotiate(request.headers)) {
+            is ContextValidation.Invalid -> return ComposeResult.InvalidHeaders(negotiated.violations)
+            is ContextValidation.Valid -> negotiated.context
         }
-        val context = (negotiated as ContextValidation.Valid).context
         val tags = mapOf(
             "schemaVersion" to context.schemaVersion,
             "appVersion" to context.appVersion.toString(),

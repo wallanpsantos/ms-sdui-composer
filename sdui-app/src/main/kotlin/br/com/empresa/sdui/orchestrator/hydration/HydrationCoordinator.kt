@@ -129,12 +129,6 @@ class HydrationCoordinator(
         var current = error
         val seen = HashSet<Throwable>()
         while (true) {
-            if (current is CompletionException) {
-                val cause = current.cause
-                if (cause == null || !seen.add(current)) return current
-                current = cause
-                continue
-            }
             val cause = current.cause
             if (cause == null || cause === current || !seen.add(current)) return current
             current = cause

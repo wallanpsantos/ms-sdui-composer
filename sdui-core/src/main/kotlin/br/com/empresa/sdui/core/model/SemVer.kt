@@ -34,14 +34,9 @@ data class SemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<S
         private val ONE = Regex("""^(\d+)$""")
 
         fun parse(raw: String?): SemVer? {
+            parseThreePart(raw)?.let { return it }
             val value = raw?.trim().orEmpty()
             if (value.isEmpty()) return null
-            THREE.matchEntire(value)?.let { m ->
-                val major = m.groupValues[1].toIntOrNull() ?: return null
-                val minor = m.groupValues[2].toIntOrNull() ?: return null
-                val patch = m.groupValues[3].toIntOrNull() ?: return null
-                return SemVer(major, minor, patch)
-            }
             TWO.matchEntire(value)?.let { m ->
                 val major = m.groupValues[1].toIntOrNull() ?: return null
                 val minor = m.groupValues[2].toIntOrNull() ?: return null

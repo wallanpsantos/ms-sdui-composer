@@ -27,22 +27,17 @@ object Filter {
         effectiveCaps: Set<Capability>,
     ): FilterResult {
         val slotOrder = skeleton.slots.mapIndexed { index, slot -> slot.id to index }.toMap()
-        val kept = mutableListOf<Section>()
-        val omitted = mutableListOf<OmittedSection>()
-        for (section in sections) {
-            if (section.capability() in effectiveCaps) {
-                kept += section
-            } else {
-                omitted += OmittedSection(
-                    id = section.id,
-                    slot = section.slot,
-                    type = section.type,
-                    typeVersion = section.typeVersion,
-                    reason = OmittedReason.UNSUPPORTED_TYPE,
-                )
-            }
+        val (supported, unsupported) = sections.partition { it.capability() in effectiveCaps }
+        val ordered = supported.sortedBy { slotOrder[it.slot] ?: Int.MAX_VALUE }
+        val omitted = unsupported.map { section ->
+            OmittedSection(
+                id = section.id,
+                slot = section.slot,
+                type = section.type,
+                typeVersion = section.typeVersion,
+                reason = OmittedReason.UNSUPPORTED_TYPE,
+            )
         }
-        val ordered = kept.sortedBy { slotOrder[it.slot] ?: Int.MAX_VALUE }
         return FilterResult(ordered, omitted)
     }
 }

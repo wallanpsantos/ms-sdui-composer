@@ -219,9 +219,9 @@ class PublishService(
         if (errors.isNotEmpty()) throw AdminValidation(errors)
         // Revisao com pai exige diff calculado: e o que o checker revisa antes de aprovar. A
         // primeira revisao de um spec nao tem pai e portanto nao tem diff.
-        if (spec.parentRevision != null) {
-            val from = spec.parentRevision ?: 0
-            diffStore.find(spec.specId, from, spec.revision)
+        val parentRev = spec.parentRevision
+        if (parentRev != null) {
+            diffStore.find(spec.specId, parentRev, spec.revision)
                 ?: throw AdminValidation(listOf("diff ausente"))
         }
         val outcome = tx.execute {

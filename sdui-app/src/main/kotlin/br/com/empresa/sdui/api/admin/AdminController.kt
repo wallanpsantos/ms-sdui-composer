@@ -155,7 +155,7 @@ class AdminController(
         @RequestBody(required = false) body: RollbackBody?,
         @RequestHeader headers: HttpHeaders,
         @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
-    ): ResponseEntity<*> {
+    ): ResponseEntity<Pointer> {
         val moved = rollback.rollback(
             RollbackCommand(
                 actor = actor(headers),

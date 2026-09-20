@@ -108,25 +108,21 @@ class HomeController(
                     val body = mapper.toResponse(result.screen)
                     val serializeStarted = System.nanoTime()
                     val json = jsonMapper.writeValueAsBytes(body)
+                    val metricTags = mapOf(
+                        "schemaVersion" to result.screen.schemaVersion,
+                        "appVersion" to result.screen.client.appVersion.toString(),
+                        "surface" to result.screen.surface,
+                        "platform" to result.screen.platform.wire(),
+                    )
                     metrics.recordTime(
                         "serialize.ms",
                         (System.nanoTime() - serializeStarted) / 1_000_000,
-                        mapOf(
-                            "schemaVersion" to result.screen.schemaVersion,
-                            "appVersion" to result.screen.client.appVersion.toString(),
-                            "surface" to result.screen.surface,
-                            "platform" to result.screen.platform.wire(),
-                        ),
+                        metricTags,
                     )
                     metrics.recordBytes(
                         "payload.bytes",
                         json.size.toLong(),
-                        mapOf(
-                            "schemaVersion" to result.screen.schemaVersion,
-                            "appVersion" to result.screen.client.appVersion.toString(),
-                            "surface" to result.screen.surface,
-                            "platform" to result.screen.platform.wire(),
-                        ),
+                        metricTags,
                     )
                     ResponseEntity.ok()
                         .header("ETag", result.screen.etag)

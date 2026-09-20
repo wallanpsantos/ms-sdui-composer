@@ -71,20 +71,20 @@ object Negotiate {
             violations += ContextViolation("OS-Version", "invalid")
         }
 
-        if (violations.isNotEmpty()) {
+        if (platform == null || appVersion == null || build == null || schema == null || locale == null || apiVersion == null || violations.isNotEmpty()) {
             return ContextValidation.Invalid(violations)
         }
 
         return ContextValidation.Valid(
             ClientContext(
-                platform = platform!!,
-                appVersion = appVersion!!,
-                build = build!!,
+                platform = platform,
+                appVersion = appVersion,
+                build = build,
                 osVersion = osVersion,
                 osVersionRaw = osRaw ?: "",
-                schemaVersion = schema!!,
-                locale = locale!!,
-                apiVersion = apiVersion!!,
+                schemaVersion = schema,
+                locale = locale,
+                apiVersion = apiVersion,
                 headerCapabilities = Capability.parseList(headers.componentCapabilities),
                 channelHint = Channel.parse(headers.channel),
             ),

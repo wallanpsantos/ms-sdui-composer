@@ -117,11 +117,10 @@ object SpecValidator {
                 apiVersion = "1",
                 headerCapabilities = emptyList(),
             )
+            val effective = matrix.effective(context)
             Combo(
-                label = "${spec.platform.wire()} $version caps=${
-                    matrix.effective(context).joinToString { it.wire() }
-                }",
-                caps = matrix.effective(context),
+                label = "${spec.platform.wire()} $version caps=${effective.joinToString { it.wire() }}",
+                caps = effective,
             )
         }
     }
