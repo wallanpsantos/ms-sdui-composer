@@ -1,0 +1,32 @@
+# O contexto de build so precisa do wrapper, dos descritores e do codigo-fonte.
+# Tudo o que e gerado localmente sai: reenvia-lo atrasa o build e, pior, um build/ da maquina do
+# desenvolvedor pode contaminar a imagem com classes compiladas por outro JDK.
+
+.git
+.gitignore
+.gradle
+build
+*/build
+build-logic/build
+.kotlin
+*/.kotlin
+
+.idea
+*.iml
+.vscode
+
+.remember
+.agents
+.claude
+
+docs
+*.md
+!README.md
+
+Dockerfile
+.dockerignore
+compose.yaml
+
+*.log
+.DS_Store
+Thumbs.db
