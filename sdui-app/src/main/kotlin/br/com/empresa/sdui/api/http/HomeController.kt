@@ -60,6 +60,9 @@ class HomeController(
                         channel = channel,
                     ),
                     ifNoneMatch = ifNoneMatch,
+                    // Identidade nao autenticada: serve para repartir a capacidade entre chamadores
+                    // bem-comportados, nao para conter um cliente que troque os headers. O teto por
+                    // cliente depende de autenticacao no gateway.
                     identity = "${clientPlatform.orEmpty()}:${clientBuild.orEmpty()}",
                 ),
             )

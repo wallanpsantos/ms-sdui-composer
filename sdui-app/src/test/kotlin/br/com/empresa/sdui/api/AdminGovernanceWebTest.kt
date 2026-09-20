@@ -270,6 +270,53 @@ class AdminGovernanceWebTest(
     }
 
     @Test
+    fun `open e reject repetidos com a mesma Idempotency-Key nao duplicam o pedido`() {
+        val draft = drafts.createSpecDraft(
+            DraftSpecCommand(
+                Actor("maker-1", ActorRole.MAKER),
+                specStore.findByRevisionId("rev_01K8HOMEMAIN")!!.copy(
+                    specId = "spec_home_ios_idem",
+                    revision = specStore.nextRevision("spec_home_ios_idem"),
+                    specRevisionId = "rev_idem_${UUID.randomUUID()}",
+                    status = SpecStatus.DRAFT,
+                    parentRevision = null,
+                ),
+            ),
+        )
+        val command = OpenPublishCommand(
+            actor = Actor("maker-1", ActorRole.MAKER),
+            specId = draft.specId,
+            revision = draft.revision,
+            channel = Channel.STABLE,
+            idempotencyKey = "open-idem-1",
+        )
+        val primeiro = publish.open(command)
+        val repetido = publish.open(command)
+        assertThat(repetido.requestId).isEqualTo(primeiro.requestId)
+
+        val rejeitado = mockMvc.post("/admin/v1/publish-requests/${primeiro.requestId}/reject") {
+            header("Actor-Id", "checker-2")
+            header("Actor-Role", "CHECKER")
+            header("Idempotency-Key", "reject-idem-1")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"reason":"nao agora"}"""
+        }.andReturn()
+        assertThat(rejeitado.response.status).isEqualTo(200)
+
+        // O pedido ja saiu de OPEN: sem idempotencia o retry viraria 409.
+        val retry = mockMvc.post("/admin/v1/publish-requests/${primeiro.requestId}/reject") {
+            header("Actor-Id", "checker-2")
+            header("Actor-Role", "CHECKER")
+            header("Idempotency-Key", "reject-idem-1")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"reason":"nao agora"}"""
+        }.andReturn()
+        assertThat(retry.response.status).isEqualTo(200)
+        assertThat(jsonMapper.readTree(retry.response.contentAsString).get("status").asText())
+            .isEqualTo("REJECTED")
+    }
+
+    @Test
     fun `publish recusa slot portante so com account_card 2 em faixa que so declara 1`() {
         val current = specStore.findByRevisionId("rev_01K8HOMEMAIN")!!
         val accountsV2 = current.sections.map { section ->
