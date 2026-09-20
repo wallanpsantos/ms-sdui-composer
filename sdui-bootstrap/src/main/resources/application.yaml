@@ -19,6 +19,11 @@ management:
     tags:
       application: ${spring.application.name}
 
+logging:
+  structured:
+    format:
+      console: ecs
+
 sdui:
   seed-ios: true
   rate-limit-capacity: 10000

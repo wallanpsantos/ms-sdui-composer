@@ -6,6 +6,7 @@ import br.com.empresa.sdui.orchestrator.admin.AdminDenied
 import br.com.empresa.sdui.orchestrator.admin.AdminInFlight
 import br.com.empresa.sdui.orchestrator.admin.AdminNotFound
 import br.com.empresa.sdui.orchestrator.admin.AdminValidation
+import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -19,14 +20,21 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
  * conhecer HTTP. O corpo e sempre ApiErrorResponse, o mesmo de toda a API.
  */
 @RestControllerAdvice
-class ApiExceptionHandler : ResponseEntityExceptionHandler() {
+class ApiExceptionHandler(
+    private val metrics: MetricsRecorder,
+) : ResponseEntityExceptionHandler() {
     @ExceptionHandler(AdminDenied::class)
-    fun denied(ex: AdminDenied): ResponseEntity<ApiErrorResponse> =
-        ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiErrorResponse("FORBIDDEN", ex.message ?: "forbidden"))
+    fun denied(ex: AdminDenied): ResponseEntity<ApiErrorResponse> {
+        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to "denied"))
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(ApiErrorResponse("FORBIDDEN", ex.message ?: "forbidden"))
+    }
 
     @ExceptionHandler(AdminConflict::class)
-    fun conflict(ex: AdminConflict): ResponseEntity<ApiErrorResponse> =
-        ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse("CONFLICT", ex.message ?: "conflict"))
+    fun conflict(ex: AdminConflict): ResponseEntity<ApiErrorResponse> {
+        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to "conflict"))
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse("CONFLICT", ex.message ?: "conflict"))
+    }
 
     /**
      * Chave de idempotencia em voo. Tambem 409, mas com codigo proprio: o operador precisa
@@ -34,17 +42,24 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
      * porque so o segundo caso se resolve esperando.
      */
     @ExceptionHandler(AdminInFlight::class)
-    fun inFlight(ex: AdminInFlight): ResponseEntity<ApiErrorResponse> =
-        ResponseEntity.status(HttpStatus.CONFLICT)
+    fun inFlight(ex: AdminInFlight): ResponseEntity<ApiErrorResponse> {
+        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to "in_flight"))
+        return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(ApiErrorResponse("IDEMPOTENT_IN_FLIGHT", ex.message ?: "operacao em voo"))
+    }
 
     @ExceptionHandler(AdminValidation::class)
-    fun validation(ex: AdminValidation): ResponseEntity<ApiErrorResponse> =
-        ResponseEntity.badRequest().body(ApiErrorResponse("VALIDATION", "rascunho invalido", ex.errors))
+    fun validation(ex: AdminValidation): ResponseEntity<ApiErrorResponse> {
+        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to "validation"))
+        return ResponseEntity.badRequest().body(ApiErrorResponse("VALIDATION", "rascunho invalido", ex.errors))
+    }
 
     @ExceptionHandler(AdminNotFound::class)
-    fun notFound(ex: AdminNotFound): ResponseEntity<ApiErrorResponse> =
-        ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse("NOT_FOUND", ex.message ?: "not found"))
+    fun notFound(ex: AdminNotFound): ResponseEntity<ApiErrorResponse> {
+        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to "not_found"))
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(ApiErrorResponse("NOT_FOUND", ex.message ?: "not found"))
+    }
 
     /**
      * Rede de seguranca para o que nao foi previsto.
@@ -55,8 +70,15 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
      */
     @ExceptionHandler(Exception::class)
     fun unexpected(ex: Exception): ResponseEntity<ApiErrorResponse> {
+        metrics.increment(METRIC_SERVER_ERROR)
         logger.error("falha nao tratada ao atender a requisicao", ex)
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ApiErrorResponse("INTERNAL_ERROR", "erro interno"))
     }
+
+    private companion object {
+        const val METRIC_ADMIN_ERROR: String = "admin.error"
+        const val METRIC_SERVER_ERROR: String = "server.unexpected_error"
+    }
 }
+

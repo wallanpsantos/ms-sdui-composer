@@ -256,14 +256,14 @@ curl -X GET http://localhost:8080/v1/surfaces/home \
 
 ```powershell
 $headers = @{
-    "API-Version"         = "1"
-    "UI-Schema-Version"   = "3"
-    "Client-Platform"     = "ios"
-    "Client-Version"      = "8.10.0"
-    "Client-Build"        = "1234"
-    "Accept-Language"     = "pt-BR"
-    "OS-Version"          = "17.5.1"
-    "SDUI-Channel"        = "stable"
+    "API-Version" = "1"
+    "UI-Schema-Version" = "3"
+    "Client-Platform" = "ios"
+    "Client-Version" = "8.10.0"
+    "Client-Build" = "1234"
+    "Accept-Language" = "pt-BR"
+    "OS-Version" = "17.5.1"
+    "SDUI-Channel" = "stable"
 }
 
 $response = Invoke-RestMethod -Uri "http://localhost:8080/v1/surfaces/home" -Headers $headers -Method Get
@@ -320,13 +320,41 @@ $response | ConvertTo-Json -Depth 5
     "id": "home.default",
     "layout": "single_column_vertical",
     "slots": [
-      { "id": "header", "layout": "fixed", "title": null },
-      { "id": "shortcuts", "layout": "shelf", "title": null },
-      { "id": "accounts", "layout": "list", "title": "Conta" },
-      { "id": "cards", "layout": "list", "title": "Cartão de crédito" },
-      { "id": "offers", "layout": "list", "title": "Crédito" },
-      { "id": "coverage", "layout": "list", "title": "Seguros" },
-      { "id": "foryou", "layout": "pager", "title": "Para você" }
+      {
+        "id": "header",
+        "layout": "fixed",
+        "title": null
+      },
+      {
+        "id": "shortcuts",
+        "layout": "shelf",
+        "title": null
+      },
+      {
+        "id": "accounts",
+        "layout": "list",
+        "title": "Conta"
+      },
+      {
+        "id": "cards",
+        "layout": "list",
+        "title": "Cartão de crédito"
+      },
+      {
+        "id": "offers",
+        "layout": "list",
+        "title": "Crédito"
+      },
+      {
+        "id": "coverage",
+        "layout": "list",
+        "title": "Seguros"
+      },
+      {
+        "id": "foryou",
+        "layout": "pager",
+        "title": "Para você"
+      }
     ]
   },
   "sections": [
@@ -336,7 +364,9 @@ $response | ConvertTo-Json -Depth 5
       "type": "top_bar",
       "typeVersion": 1,
       "layout": null,
-      "props": { "greeting": "Olá, Cliente" },
+      "props": {
+        "greeting": "Olá, Cliente"
+      },
       "actions": [],
       "analytics": {
         "event": "sdui_section_shown",

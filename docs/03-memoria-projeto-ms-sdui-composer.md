@@ -119,6 +119,20 @@ Durante a revisão técnica multidimensional do MVP (`H00` a `H18`), foram sanad
     pré-calculados.
 13. **Guarda de Profundidade de Recursão (`ScreenResponseMapper.kt`, `JsonMaps.kt`):** Limite de 32 níveis em `toNode`
     prevenindo `StackOverflowError` sob payloads aninhados.
+14. **Correlation ID e Rastreabilidade (`CorrelationIdFilter.kt` e `ComposeTraceContext.kt`):** Captura de
+    `X-Request-Id`
+    com sanitização e geração de UUID v4 de fallback, propagado para o SLF4J MDC (`requestId`, `surface`, `platform`,
+    `schemaVersion`).
+    Não emite cabeçalhos `X-` na resposta da Home em estrita conformidade com o contrato.
+15. **Telemetria de Governança no Plano Administrativo (`AdminController.kt`, `ApiExceptionHandler.kt`):** Métricas
+    Micrometer (`admin.spec.draft`, `admin.publish.open`, `admin.publish.approved`, `admin.publish.rejected`,
+    `admin.rollback`,
+    `admin.error`) e logs estruturados em operações de mutação e rollback.
+16. **Structured Logging Nativo (`application.yaml`):** Configuração de console estruturado no padrão ECS JSON
+    (`logging.structured.format.console: ecs`) incorporando automaticamente todos os campos do MDC.
+17. **Especificação de Alertas Prometheus (`regras-de-alerta-prometheus.md`):** Alertas orientados a sintomas (SLO de
+    latência, taxa de indisponibilidade 503, esgotamento de bulkhead e gatilho de rollback) vinculados aos runbooks
+    operacionais.
 
 ---
 

@@ -339,3 +339,21 @@ Regras inegociáveis consolidadas no ciclo de auditoria de concorrência e otimi
     - `PropWalk.referencesForeignSection` deve interromper a busca (`found = true`) imediatamente ao detectar
       a primeira violação, poupando travessias profundas desnecessárias em specs inválidos.
 
+## 22. Diretrizes de Observabilidade e Instrumentação
+
+Regras consolidadas no ciclo de observabilidade e instrumentação:
+
+1. **Correlation ID e MDC no SLF4J:** Requisições capturam `X-Request-Id` (ou geram UUID v4) via `CorrelationIdFilter`,
+   alimentando a chave `requestId` no MDC do SLF4J com limpeza estrita no `finally`.
+2. **Preservação do Contrato de Headers:** O servidor **nunca** emite cabeçalhos customizados com prefixo `X-` na
+   resposta de `GET /v1/surfaces/home` (RFC 6648 e conformidade com `HomeComposeContractWebTest`).
+3. **Sincronização de Contexto de Diagnóstico:** `ComposeTraceContext` sincroniza os campos técnicos (`surface`,
+   `platform`,
+   `schemaVersion`) diretamente no MDC do SLF4J no `open()`, limpando-os no `close()`.
+4. **Telemetria no Plano Administrativo:** Mutações no `/admin/v1/**` (criação de rascunho, abertura de publicação,
+   aprovação,
+   rejeição e rollback) emitem métricas Micrometer (`admin.*`) e logs estruturados contendo ator e motivo, sem PII.
+5. **Structured Logging (ECS JSON):** O console emite logs estruturados no padrão Elastic Common Schema (ECS),
+   garantindo indexação imediata de campos de MDC e rastreamento ponta a ponta em plataformas de telemetria.
+
+
