@@ -74,7 +74,7 @@ class TokenBucketRateLimiter(
         if (!lastEvictMs.compareAndSet(last, now)) return
         buckets.entries.removeIf { entry ->
             now - entry.value.lastRefillMs >= idleEvictionMs ||
-                refill(entry.value, now) >= capacity.toDouble()
+                    refill(entry.value, now) >= capacity.toDouble()
         }
     }
 }

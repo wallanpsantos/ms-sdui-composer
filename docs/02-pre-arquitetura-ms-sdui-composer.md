@@ -1830,7 +1830,8 @@ referencia o §11 para o veto ao `ScopedValue`. A decisão de `ThreadLocal` vive
 
 ### ADR-003 — Transação de publish: porta `TransactionalUnitOfWork`
 
-**Status:** `SUPERSEDIDO pelo ADR-013` (A porta `TransactionalUnitOfWork` permanece; o mecanismo de `@Transactional` foi substituído por `TransactionTemplate` programático).
+**Status:** `SUPERSEDIDO pelo ADR-013` (A porta `TransactionalUnitOfWork` permanece; o mecanismo de `@Transactional` foi
+substituído por `TransactionTemplate` programático).
 
 **Contexto.** O plano §7.5 é explícito: `@Transactional` não vai em controller, o serviço de publish é o único que abre
 transação, e compose não abre transação. A regra do orchestrator (§4.2) é não ter Spring,

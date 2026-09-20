@@ -224,8 +224,8 @@ class InMemoryHydratedScreenCache(
     override fun invalidate(surface: String, platform: ClientPlatform, channel: Channel) {
         items.keys.removeIf { key ->
             key.startsWith("sdui:tree:$surface:") &&
-                key.contains(":${platform.wire()}:") &&
-                key.endsWith(":${channel.wire()}")
+                    key.contains(":${platform.wire()}:") &&
+                    key.endsWith(":${channel.wire()}")
         }
     }
 
