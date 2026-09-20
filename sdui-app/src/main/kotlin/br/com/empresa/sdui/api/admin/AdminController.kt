@@ -97,7 +97,7 @@ class AdminController(
     ): Skeleton {
         val currentActor = actor(headers)
         val saved = drafts.createSkeletonDraft(DraftSkeletonCommand(currentActor, skeleton.copy(skeletonId = id)))
-        metrics.increment("admin.skeleton.upsert", mapOf("skeletonId" to id))
+        metrics.increment("admin.skeleton.upsert")
         logger.info("skeleton draft upserted: skeletonId={}, actor={}", id, currentActor.id)
         return saved
     }
@@ -167,7 +167,7 @@ class AdminController(
         metrics.increment("admin.publish.open", mapOf("channel" to body.channel))
         logger.info(
             "publish request opened: id={}, specId={}, revision={}, channel={}, actor={}",
-            created.id,
+            created.requestId,
             body.specId,
             body.revision,
             body.channel,
@@ -190,7 +190,7 @@ class AdminController(
             id,
             currentActor.id,
             currentActor.role,
-            approved.targetSpecRevisionId,
+            approved.specRevisionId,
         )
         return approved
     }

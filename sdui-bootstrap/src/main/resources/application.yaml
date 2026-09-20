@@ -18,6 +18,10 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        compose.duration: true
+        section.hydrate.ms: true
 
 logging:
   structured:

@@ -38,18 +38,18 @@ groups:
   - name: ms-sdui-composer-alerts
     rules:
       - alert: SDUIHomeHighLatencyP99
-        expr: histogram_quantile(0.99, sum(rate(compose_duration_milliseconds_bucket{surface="home",outcome="hit"}[5m])) by (le)) > 400
+        expr: histogram_quantile(0.99, sum(rate(compose_duration_seconds_bucket{surface="home",outcome="hit"}[5m])) by (le)) > 0.4
         for: 5m
         labels:
           severity: page
           service: ms-sdui-composer
         annotations:
           summary: "Violação de SLO de latência P99 no hot path da Home (cache hit > 400ms)"
-          description: "O percentil P99 de composição da Home em cache hit atingiu {{ $value }}ms (SLO: <= 400ms) durante 5 minutos."
+          description: "O percentil P99 de composição da Home em cache hit atingiu {{ $value }}s (SLO: <= 0.4s / 400ms) durante 5 minutos."
           runbook_url: "docs/runbooks/ios-canary-rollback.md"
 
       - alert: SDUIHomeHighUnavailability
-        expr: (sum(rate(compose_unavailable_total[5m])) / sum(rate(compose_duration_milliseconds_count{surface="home"}[5m]))) > 0.005
+        expr: (sum(rate(compose_unavailable_total[5m])) / sum(rate(compose_duration_seconds_count{surface="home"}[5m]))) > 0.005
         for: 3m
         labels:
           severity: page
@@ -82,7 +82,7 @@ groups:
           runbook_url: "docs/runbooks/ios-canary-rollback.md"
 
       - alert: SDUIRateLimitSpike
-        expr: (sum(rate(compose_rate_limited_total[5m])) / sum(rate(compose_duration_milliseconds_count{surface="home"}[5m]))) > 0.05
+        expr: (sum(rate(compose_rate_limited_total[5m])) / sum(rate(compose_duration_seconds_count{surface="home"}[5m]))) > 0.05
         for: 5m
         labels:
           severity: ticket

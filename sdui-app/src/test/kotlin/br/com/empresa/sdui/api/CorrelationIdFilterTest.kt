@@ -10,7 +10,7 @@ import org.slf4j.MDC
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import org.springframework.mock.web.MockFilterChain
+import jakarta.servlet.FilterChain
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.web.servlet.MockMvc
@@ -29,7 +29,7 @@ class CorrelationIdFilterTest(
         val response = MockHttpServletResponse()
 
         var capturedMdc: String? = null
-        val chain = MockFilterChain { _, _ ->
+        val chain = FilterChain { _, _ ->
             capturedMdc = MDC.get(CorrelationIdFilter.MDC_KEY_REQUEST_ID)
         }
 
@@ -45,7 +45,7 @@ class CorrelationIdFilterTest(
         val response = MockHttpServletResponse()
 
         var capturedMdc: String? = null
-        val chain = MockFilterChain { _, _ ->
+        val chain = FilterChain { _, _ ->
             capturedMdc = MDC.get(CorrelationIdFilter.MDC_KEY_REQUEST_ID)
         }
 
@@ -63,7 +63,7 @@ class CorrelationIdFilterTest(
         val response = MockHttpServletResponse()
 
         var capturedMdc: String? = null
-        val chain = MockFilterChain { _, _ ->
+        val chain = FilterChain { _, _ ->
             capturedMdc = MDC.get(CorrelationIdFilter.MDC_KEY_REQUEST_ID)
         }
 
@@ -72,6 +72,42 @@ class CorrelationIdFilterTest(
         assertThat(capturedMdc).isNotEqualTo("invalido\r\nCRLF-injection")
         assertThat(capturedMdc).matches("""^[0-9a-fA-F-]{36}$""")
         assertThat(MDC.get(CorrelationIdFilter.MDC_KEY_REQUEST_ID)).isNull()
+    }
+
+    @Test
+    fun `filtro carimba entryPoint home para rotas de superfice e limpa no encerramento`() {
+        val request = MockHttpServletRequest("GET", "/v1/surfaces/home")
+        val response = MockHttpServletResponse()
+
+        var capturedEntryPoint: String? = null
+        val chain = FilterChain { _, _ ->
+            capturedEntryPoint = MDC.get(CorrelationIdFilter.MDC_KEY_ENTRY_POINT)
+        }
+
+        filter.doFilter(request, response, chain)
+
+        assertThat(capturedEntryPoint).isEqualTo(CorrelationIdFilter.ENTRY_POINT_HOME)
+        assertThat(MDC.get(CorrelationIdFilter.MDC_KEY_ENTRY_POINT)).isNull()
+    }
+
+    @Test
+    fun `filtro carimba entryPoint admin e actuator para suas respectivas rotas`() {
+        val adminRequest = MockHttpServletRequest("GET", "/admin/v1/specs")
+        val actuatorRequest = MockHttpServletRequest("GET", "/actuator/health")
+
+        var adminEntryPoint: String? = null
+        filter.doFilter(adminRequest, MockHttpServletResponse(), FilterChain { _, _ ->
+            adminEntryPoint = MDC.get(CorrelationIdFilter.MDC_KEY_ENTRY_POINT)
+        })
+
+        var actuatorEntryPoint: String? = null
+        filter.doFilter(actuatorRequest, MockHttpServletResponse(), FilterChain { _, _ ->
+            actuatorEntryPoint = MDC.get(CorrelationIdFilter.MDC_KEY_ENTRY_POINT)
+        })
+
+        assertThat(adminEntryPoint).isEqualTo(CorrelationIdFilter.ENTRY_POINT_ADMIN)
+        assertThat(actuatorEntryPoint).isEqualTo(CorrelationIdFilter.ENTRY_POINT_ACTUATOR)
+        assertThat(MDC.get(CorrelationIdFilter.MDC_KEY_ENTRY_POINT)).isNull()
     }
 
     @Test

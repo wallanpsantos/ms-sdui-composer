@@ -36,10 +36,20 @@ class CorrelationIdFilter : OncePerRequestFilter() {
             UUID.randomUUID().toString()
         }
 
+        val uri = request.requestURI.orEmpty()
+        val entryPoint = when {
+            uri.startsWith("/v1/surfaces") -> ENTRY_POINT_HOME
+            uri.startsWith("/admin") -> ENTRY_POINT_ADMIN
+            uri.startsWith("/actuator") -> ENTRY_POINT_ACTUATOR
+            else -> ENTRY_POINT_HTTP
+        }
+
         MDC.put(MDC_KEY_REQUEST_ID, requestId)
+        MDC.put(MDC_KEY_ENTRY_POINT, entryPoint)
         try {
             filterChain.doFilter(request, response)
         } finally {
+            MDC.remove(MDC_KEY_ENTRY_POINT)
             MDC.remove(MDC_KEY_REQUEST_ID)
         }
     }
@@ -48,6 +58,14 @@ class CorrelationIdFilter : OncePerRequestFilter() {
         const val HEADER_X_REQUEST_ID: String = "X-Request-Id"
         const val HEADER_REQUEST_ID: String = "Request-Id"
         const val MDC_KEY_REQUEST_ID: String = "requestId"
+        const val MDC_KEY_ENTRY_POINT: String = "entryPoint"
+
+        const val ENTRY_POINT_HOME: String = "home"
+        const val ENTRY_POINT_ADMIN: String = "admin"
+        const val ENTRY_POINT_ACTUATOR: String = "actuator"
+        const val ENTRY_POINT_HTTP: String = "http"
+        const val ENTRY_POINT_SEED: String = "seed"
+
         private val REQUEST_ID_REGEX = Regex("^[A-Za-z0-9_-]{1,64}$")
     }
 }

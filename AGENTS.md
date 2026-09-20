@@ -355,5 +355,15 @@ Regras consolidadas no ciclo de observabilidade e instrumentação:
    rejeição e rollback) emitem métricas Micrometer (`admin.*`) e logs estruturados contendo ator e motivo, sem PII.
 5. **Structured Logging (ECS JSON):** O console emite logs estruturados no padrão Elastic Common Schema (ECS),
    garantindo indexação imediata de campos de MDC e rastreamento ponta a ponta em plataformas de telemetria.
-
-
+6. **Propagação de MDC no Fan-out (`MdcPropagatingExecutor`):** Virtual threads assíncronas de hidratação recebem o
+   contexto MDC herdado da thread principal através de executor decorador em `adapters`, garantindo continuidade de
+   rastreabilidade sem violar a pureza do `sdui-orchestrator`.
+7. **Ponto de Entrada Carimbado (`entryPoint` no MDC):** Requisições e processos carimbam `entryPoint` (`home`,
+   `admin`, `management`, `seed`) no MDC, eliminando diagnósticos por eliminação em sinks de logs compartilhados.
+8. **Histogram Buckets no Prometheus:** Timers críticos (`compose.duration` e `section.hydrate.ms`) possuem
+   `percentiles-histogram: true` configurado no `application.yaml`, viabilizando alertas e painéis de P95/P99
+   sobre `compose_duration_seconds_bucket`.
+9. **Gauges de Recursos USE:** `rate_limiter.resident_keys` e `compose.bulkhead.available_permits` são expostos
+   como gauges instantâneos no Micrometer via `MeterBinder`, monitorando saturação e utilização de recursos internos.
+10. **Proteção contra Cardinalidade em Métricas:** Nenhuma métrica administrativa ou de hot path interpola parâmetros
+    arbitrários de path em tags (ex: `admin.skeleton.upsert` não tagueia `skeletonId`, confinado ao log estruturado).

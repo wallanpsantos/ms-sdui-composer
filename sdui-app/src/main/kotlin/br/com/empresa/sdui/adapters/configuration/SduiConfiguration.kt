@@ -51,7 +51,11 @@ import br.com.empresa.sdui.orchestrator.port.outbound.SkeletonStore
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecCache
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
 import br.com.empresa.sdui.orchestrator.port.outbound.TransactionalUnitOfWork
+import br.com.empresa.sdui.adapters.observability.MdcPropagatingExecutor
+import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.binder.MeterBinder
+import org.slf4j.MDC
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -64,6 +68,7 @@ import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.KotlinModule
 import java.time.Clock
 import java.time.Duration
+import java.util.concurrent.Executor
 import java.util.concurrent.Semaphore
 
 /**
@@ -223,13 +228,33 @@ class SduiConfiguration {
         )
 
     @Bean
-    fun hydrationCoordinator(metrics: MetricsRecorder, properties: SduiProperties): HydrationCoordinator =
-        HydrationCoordinator(
+    fun hydrationCoordinator(metrics: MetricsRecorder, properties: SduiProperties): HydrationCoordinator {
+        val virtualThreadFactory = Thread.ofVirtual().name("sdui-hydrate-", 0).factory()
+        val baseExecutor = Executor { runnable -> virtualThreadFactory.newThread(runnable).start() }
+        return HydrationCoordinator(
             hydrators = listOf(PassThroughHydrator()),
             fanOut = Semaphore(properties.hydrationFanout),
             timeout = Duration.ofMillis(properties.hydrationTimeoutMs),
             metrics = metrics,
+            executor = MdcPropagatingExecutor(baseExecutor),
         )
+    }
+
+    /**
+     * Registra medidores de medicao instantanea (USE - Utilization/Saturation) no Micrometer.
+     */
+    @Bean
+    fun sduiMeterBinder(
+        rateLimiter: TokenBucketRateLimiter,
+        readBulkhead: Bulkhead,
+    ): MeterBinder = MeterBinder { registry ->
+        Gauge.builder("rate_limiter.resident_keys", rateLimiter) { it.residentKeys().toDouble() }
+            .description("Numero de buckets residentes no limitador de taxa")
+            .register(registry)
+        Gauge.builder("compose.bulkhead.available_permits", readBulkhead) { it.availablePermits().toDouble() }
+            .description("Permissoes livres no bulkhead de leitura da Home")
+            .register(registry)
+    }
 
     @Bean
     fun composeScreenUseCase(
@@ -338,8 +363,13 @@ class SduiConfiguration {
     @Bean
     fun homeSeedRunner(homeSeed: HomeSeed, properties: SduiProperties): ApplicationRunner = ApplicationRunner {
         if (properties.seedIos) {
-            val resource = ClassPathResource("seed/contrato-sdui-home-definitivo.json")
-            homeSeed.seedFromCanonicalFixture(resource.inputStream.bufferedReader().use { it.readText() })
+            MDC.put("entryPoint", "seed")
+            try {
+                val resource = ClassPathResource("seed/contrato-sdui-home-definitivo.json")
+                homeSeed.seedFromCanonicalFixture(resource.inputStream.bufferedReader().use { it.readText() })
+            } finally {
+                MDC.remove("entryPoint")
+            }
         }
     }
 }
