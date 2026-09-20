@@ -119,7 +119,8 @@ Durante a revisão técnica multidimensional do MVP (`H00` a `H18`), foram sanad
     - Proibido atributos de CSS/visual no payload (`color`, `padding`, `margin`, `radius`, etc.).
     - Proibido tipos genéricos (`row`, `column`, `container`, `card` genérico).
     - Proibido tráfego ou persistência de PII/segredos (CPF, PAN, senhas, tokens).
-    - Proibido `@Transactional` em qualquer classe do projeto (transações programáticas via `TransactionalUnitOfWork` com `TransactionTemplate` — ADR-013).
+    - Proibido `@Transactional` em qualquer classe do projeto (transações programáticas via `TransactionalUnitOfWork`
+      com `TransactionTemplate` — ADR-013).
     - Proibido `Fragment`, `FragmentResolver` ou endpoints de fragmento no MVP (ADR-004).
 
 ---

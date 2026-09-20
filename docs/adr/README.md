@@ -29,7 +29,8 @@ Os ADRs fundamentais da pré-arquitetura (`docs/02-pre-arquitetura-ms-sdui-compo
 - **ADR-001:** Divisão em 4 módulos de produção (`contract`, `core`, `app`, `bootstrap`) e 1 de teste
   (`integration-test`). (`ACEITO`)
 - **ADR-002:** Isolamento estrito de `ComposeTraceContext` (fora de `core` e `orchestrator`). (`ACEITO`)
-- **ADR-003:** Transação de publish com `TransactionalUnitOfWork` anotada com `@Transactional`. (`SUPERSEDIDO pelo ADR-013`)
+- **ADR-003:** Transação de publish com `TransactionalUnitOfWork` anotada com `@Transactional`.
+  (`SUPERSEDIDO pelo ADR-013`)
 - **ADR-004:** Adoção de `Screen` e eliminação de `Fragment` no MVP. (`ACEITO`)
 - **ADR-005:** Adoção de Jackson 3 (`tools.jackson`) gerenciado pelo Spring Boot 4.1. (`ACEITO`)
 - **ADR-006:** Invalidação seletiva de cache Redis via scan desacoplado. (`ACEITO`)
@@ -39,4 +40,5 @@ Os ADRs fundamentais da pré-arquitetura (`docs/02-pre-arquitetura-ms-sdui-compo
 - **ADR-010:** Rejeição de `SectionComponentType` genérico e seletores de estilo no payload. (`ACEITO`)
 - **ADR-011:** Conjunto fechado de Actions do MVP (`navigate`, `open_bottom_sheet`, `track`, `noop`). (`ACEITO`)
 - **ADR-012:** Exclusão de coroutines e bibliotecas reativas em favor de Spring MVC + Virtual Threads. (`ACEITO`)
-- **ADR-013:** Transação de publish programática com `TransactionTemplate` (sem proxies AOP e sem anotações `@Transactional`). (`ACEITO`)
+- **ADR-013:** Transação de publish programática com `TransactionTemplate` (sem proxies AOP e sem anotações
+  `@Transactional`). (`ACEITO`)

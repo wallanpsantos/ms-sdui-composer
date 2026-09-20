@@ -31,7 +31,7 @@ services:
       SDUI_HYDRATION_TIMEOUT_MS: "80"
       SDUI_HYDRATION_FANOUT: "8"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health/readiness"]
+      test: [ "CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health/readiness" ]
       interval: 15s
       timeout: 3s
       start_period: 40s
@@ -45,7 +45,7 @@ services:
           memory: 1g
 
   mongo:
-    profiles: ["infra"]
+    profiles: [ "infra" ]
     image: mongo:8.3
     container_name: sdui-mongo
     ports:
@@ -53,7 +53,7 @@ services:
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: [ "CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')" ]
       interval: 15s
       timeout: 5s
       start_period: 20s
@@ -61,14 +61,14 @@ services:
     restart: unless-stopped
 
   redis:
-    profiles: ["infra"]
+    profiles: [ "infra" ]
     image: redis:8-alpine
     container_name: sdui-redis
     ports:
       - "6379:6379"
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    command: [ "redis-server", "--save", "", "--appendonly", "no" ]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 15s
       timeout: 3s
       start_period: 10s

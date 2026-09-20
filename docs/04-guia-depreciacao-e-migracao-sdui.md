@@ -224,7 +224,8 @@ engenheiros.
 - **Histórico (ADR-003):** `MongoTransactionalUnitOfWork` utilizava `@Transactional` do Spring, exigindo proxy
   dinâmico CGLIB, classe `open` e uma exceção nominal na suíte do ArchUnit (`ArchitectureTest.kt`).
 - **Implementação Consolidada (ADR-013):** A porta `TransactionalUnitOfWork` foi migrada para execução programática com
-  `TransactionTemplate`. O mecanismo dispensa proxies AOP, elimina classes abertas desnecessárias e permitiu fortalecer a
+  `TransactionTemplate`. O mecanismo dispensa proxies AOP, elimina classes abertas desnecessárias e permitiu fortalecer
+  a
   regra do ArchUnit para "nenhuma classe de produção declara `@Transactional`" (sem exceções nominais).
 - **Status da Migração:** `CONCLUÍDA / APROVADA`. ADR-013 promovido a `ACEITO` e ADR-003 marcado como `SUPERSEDIDO`.
 
