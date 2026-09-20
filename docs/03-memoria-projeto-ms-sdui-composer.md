@@ -22,7 +22,7 @@ cliente.
 
 ## 2. Stack Tecnológica e Baseline
 
-- **Linguagem:** Kotlin 2.4.20 (`allWarningsAsErrors = true`, `-Xannotation-default-target=param-property`).
+- **Linguagem:** Kotlin 2.4.20 (`allWarningsAsErrors = true`).
 - **JVM / Plataforma:** Java 25 LTS via Gradle toolchain (`jvmToolchain(25)`).
 - **Framework:** Spring Boot 4.1.1 (Spring Framework 7.0.9 gerenciado pelo BOM).
 - **JSON:** Jackson 3 (`tools.jackson.core:jackson-databind` 3.1.5, `tools.jackson.module:jackson-module-kotlin` 3.1.5,

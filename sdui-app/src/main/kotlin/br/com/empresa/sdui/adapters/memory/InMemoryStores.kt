@@ -249,7 +249,7 @@ class InMemoryProjectionStore : ProjectionStore {
 
 class InMemoryTransactionalUnitOfWork : TransactionalUnitOfWork {
     private val lock = ReentrantLock()
-    override fun <T> execute(work: () -> T): T = lock.withLock { work() }
+    override fun <T : Any> execute(work: () -> T): T = lock.withLock { work() }
 }
 
 class InMemoryComposeSingleflight : ComposeSingleflight {

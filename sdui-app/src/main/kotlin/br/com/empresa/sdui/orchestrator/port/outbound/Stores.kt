@@ -89,7 +89,7 @@ interface ProjectionStore {
 }
 
 interface TransactionalUnitOfWork {
-    fun <T> execute(work: () -> T): T
+    fun <T : Any> execute(work: () -> T): T
 }
 
 sealed interface SingleflightOutcome<out T> {

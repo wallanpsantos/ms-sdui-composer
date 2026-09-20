@@ -1,5 +1,3 @@
-@file:Suppress("DEPRECATION")
-
 package br.com.empresa.sdui.adapters.seed
 
 import br.com.empresa.sdui.core.model.Action
@@ -88,6 +86,7 @@ class HomeSeed(
         return skeletonStore.save(skeleton)
     }
 
+    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     private fun seedIosCurrent(root: JsonNode, skeleton: Skeleton) {
         val envelope = root.get("envelope")
         val sectionsNode = root.get("sections")

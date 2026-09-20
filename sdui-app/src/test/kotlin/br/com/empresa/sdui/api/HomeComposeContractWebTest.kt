@@ -85,11 +85,13 @@ class HomeComposeContractWebTest(
         val forbidden = listOf(
             "color", "typography", "margin", "padding", "gap", "width", "height",
             "radius", "orientation", "shimmer", "ripple", "haptic", "columns", "itemWidth",
+            "row", "column", "container",
         )
         PropScan.scan(body).forEach { key ->
             assertThat(key.lowercase()).isNotIn(forbidden)
         }
-        assertThat(body.toString().lowercase()).doesNotContain("\"cpf\"")
+        assertThat(body.toString().lowercase()).doesNotContain("cpf")
+        assertThat(body.toString()).doesNotContainPattern("[0-9]{3}\\.[0-9]{3}\\.[0-9]{3}-[0-9]{2}")
         val sections = body.get("sections")
         val types = (0 until sections.size()).map {
             val section = sections.get(it)

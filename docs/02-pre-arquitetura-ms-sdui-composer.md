@@ -1173,7 +1173,6 @@ fun lib(alias: String) = libs.findLibrary(alias).get()
 kotlin {
     jvmToolchain(25)
     compilerOptions {
-        freeCompilerArgs.add("-Xannotation-default-target=param-property")
         allWarningsAsErrors.set(true)
     }
 }
@@ -1204,8 +1203,10 @@ val verifyForbiddenDependencies by tasks.registering(VerifyDependencies::class) 
 tasks.named("check") { dependsOn(verifyForbiddenDependencies) }
 ```
 
-`-Xannotation-default-target=param-property` faz annotations em parâmetros de construtor (`@JsonProperty`, `@Id`,
-`@field:...`) caírem no parâmetro e na propriedade, como o Spring e o Jackson esperam.
+O flag `-Xannotation-default-target=param-property` foi previsto aqui para que annotations em parâmetros de construtor
+(`@JsonProperty`, `@Id`, `@field:...`) caíssem no parâmetro e na propriedade, como o Spring e o Jackson esperam. Ele
+**não está mais no build**: nenhuma classe de produção usa annotations em propriedades de construtor, então o alvo não
+tem efeito observável. Se uma annotation desse tipo for introduzida, reavaliar o flag antes de confiar no alvo padrão.
 
 `sdui.kotlin-library.gradle.kts` acrescenta:
 
@@ -1926,8 +1927,8 @@ requests administrativos falha. No Jackson 3 o módulo também mudou de groupId:
 - `sdui-app`: `tools.jackson.module:jackson-module-kotlin`, sem versão; o `JsonMapper` do Boot o registra.
 - Nunca `com.fasterxml.jackson.module:jackson-module-kotlin`, `spring.jackson2` ou `spring-boot-jackson2`: são
   ferramentas de migração, não escolha de greenfield.
-- Compilador com `-Xannotation-default-target=param-property`, para annotations Jackson em parâmetros de construtor
-  caírem onde o Jackson as procura.
+- Compilador sem `-Xannotation-default-target=param-property`: o flag saiu do build por não haver annotations Jackson em
+  parâmetros de construtor. Reavaliar caso alguma seja introduzida.
 
 **Consequência.** O envelope usa o `JsonMapper` imutável do Boot, com ISO-8601 por padrão. **Os testes de serialização
 vivem em `sdui-app`**, não em `sdui-contract`: só ali existe o `JsonMapper` que o Boot autoconfigura, e o requisito é

@@ -1,5 +1,3 @@
-@file:Suppress("DEPRECATION")
-
 package br.com.empresa.sdui.adapters.seed
 
 import tools.jackson.databind.JsonNode
@@ -8,6 +6,7 @@ import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
 object JsonMaps {
+    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     fun toValue(node: JsonNode): Any? = when {
         node.isNull -> null
         node.isBoolean -> node.asBoolean()
