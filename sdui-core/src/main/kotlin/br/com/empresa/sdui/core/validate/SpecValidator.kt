@@ -11,6 +11,12 @@ import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.Spec
 
 object SpecValidator {
+    /**
+     * O envelope publica este valor como `skeletonHash`. Exigir o formato na governanca e o que
+     * permite ao compose usar o checksum direto, sem valor de reserva no hot path.
+     */
+    private val CHECKSUM = Regex("""^sha256:[0-9a-f]+$""")
+
     fun validateDraft(
         spec: Spec,
         skeleton: Skeleton,
@@ -20,6 +26,9 @@ object SpecValidator {
         val errors = mutableListOf<String>()
         if (skeleton.skeletonId != spec.skeletonId) {
             errors += "skeletonId divergente"
+        }
+        if (!CHECKSUM.matches(spec.checksum)) {
+            errors += "checksum deve ser sha256:<hex>: '${spec.checksum}'"
         }
         val counts = mutableMapOf<String, Int>()
         val sectionIds = spec.sections.map { it.id }.toSet()

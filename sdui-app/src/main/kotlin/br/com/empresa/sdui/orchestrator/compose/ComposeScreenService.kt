@@ -122,17 +122,26 @@ class ComposeScreenService(
         caps: Set<Capability>,
         treeKey: String,
         tags: Map<String, String>,
+    ): ComposeResult = try {
+        composeFromStores(request, context, channel, caps, treeKey, tags)
+    } catch (_: Exception) {
+        // Pointer, spec, skeleton e cache de spec vem do mesmo backend de dados: uma falha em
+        // qualquer um deles e indisponibilidade de dependencia. Tratar em um ponto so evita que
+        // parte das leituras caia aqui e o restante suba ate o catch do singleflight, onde seria
+        // reportada como DEPENDENCY_TIMEOUT.
+        fallbackOrUnavailable(context.platform, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
+    }
+
+    private fun composeFromStores(
+        request: ComposeRequest,
+        context: ClientContext,
+        channel: Channel,
+        caps: Set<Capability>,
+        treeKey: String,
+        tags: Map<String, String>,
     ): ComposeResult {
-        val pointer = try {
-            pointerStore.find(MvpCatalog.SURFACE_HOME, context.platform, channel)
-        } catch (_: Exception) {
-            return fallbackOrUnavailable(context.platform, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
-        }
-        val candidates = try {
-            specStore.listPublished(MvpCatalog.SURFACE_HOME, context.platform)
-        } catch (_: Exception) {
-            return fallbackOrUnavailable(context.platform, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
-        }
+        val pointer = pointerStore.find(MvpCatalog.SURFACE_HOME, context.platform, channel)
+        val candidates = specStore.listPublished(MvpCatalog.SURFACE_HOME, context.platform)
         val selected = Select.select(pointer, candidates, context, caps, channel)
         if (selected == null) {
             metrics.increment(
@@ -189,8 +198,10 @@ class ComposeScreenService(
             schemaVersion = context.schemaVersion,
             specRevisionId = spec.specRevisionId,
             skeletonId = skeleton.skeletonId,
-            skeletonHash = spec.checksum.takeIf { it.startsWith("sha256:") }
-                ?: "sha256:7c2b0e1a9d4f6a8c3e5b1d0f2a4c6e8b",
+            // O checksum do spec publicado ja e validado no formato sha256: pela governanca
+            // (SpecValidator); nao ha literal de reserva, um valor inventado aqui viajaria no
+            // envelope como se fosse integridade real.
+            skeletonHash = spec.checksum,
             etag = etag,
             generatedAt = clock.instant(),
             locale = context.locale,

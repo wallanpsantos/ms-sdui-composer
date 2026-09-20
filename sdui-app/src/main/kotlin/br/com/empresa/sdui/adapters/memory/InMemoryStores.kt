@@ -21,7 +21,6 @@ import br.com.empresa.sdui.orchestrator.port.outbound.DiffStore
 import br.com.empresa.sdui.orchestrator.port.outbound.HydratedScreenCache
 import br.com.empresa.sdui.orchestrator.port.outbound.IdempotencyStore
 import br.com.empresa.sdui.orchestrator.port.outbound.LastGoodScreenStore
-import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import br.com.empresa.sdui.orchestrator.port.outbound.PointerStore
 import br.com.empresa.sdui.orchestrator.port.outbound.ProjectionStore
 import br.com.empresa.sdui.orchestrator.port.outbound.PublishRequestStore
@@ -35,6 +34,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -179,10 +179,20 @@ class InMemoryIdempotencyStore : IdempotencyStore {
     }
 }
 
-class InMemoryHydratedScreenCache : HydratedScreenCache {
+/**
+ * Cache de arvore com teto de entradas.
+ *
+ * A chave inclui o capsHash, que depende de um header do cliente; sem teto, um chamador que varia
+ * esse header grava um [ComposedScreen] novo por requisicao e nada e removido antes de alguem pedir
+ * exatamente aquela chave de volta. O teto torna o consumo maximo previsivel.
+ */
+class InMemoryHydratedScreenCache(
+    private val maxEntries: Int = 10_000,
+) : HydratedScreenCache {
     private data class Entry(val screen: ComposedScreen, val expiresAt: Long)
 
     private val items = ConcurrentHashMap<String, Entry>()
+    private val pruning = AtomicBoolean(false)
 
     override fun get(treeKey: String): ComposedScreen? {
         check(!RedisKeys.containsUserId(treeKey))
@@ -196,13 +206,38 @@ class InMemoryHydratedScreenCache : HydratedScreenCache {
 
     override fun put(treeKey: String, screen: ComposedScreen, ttl: Duration) {
         check(!RedisKeys.containsUserId(treeKey))
+        if (items.size >= maxEntries) prune()
         items[treeKey] = Entry(screen, System.currentTimeMillis() + ttl.toMillis())
     }
 
     override fun invalidate(surface: String, platform: ClientPlatform, channel: Channel) {
-        val suffix = "${platform.wire()}:"
         items.keys.removeIf { key ->
-            key.startsWith("sdui:tree:$surface:") && key.contains(suffix) && key.endsWith(":${channel.wire()}")
+            key.startsWith("sdui:tree:$surface:") &&
+                key.contains(":${platform.wire()}:") &&
+                key.endsWith(":${channel.wire()}")
+        }
+    }
+
+    fun residentEntries(): Int = items.size
+
+    /**
+     * Descarta expirados e, se ainda assim faltar folga, as entradas que expiram primeiro. Uma
+     * unica thread poda por vez; as demais gravam sem esperar e a poda seguinte as alcanca.
+     */
+    private fun prune() {
+        if (!pruning.compareAndSet(false, true)) return
+        try {
+            val now = System.currentTimeMillis()
+            items.entries.removeIf { it.value.expiresAt < now }
+            val excess = items.size - maxEntries / 2
+            if (excess > 0) {
+                items.entries
+                    .sortedBy { it.value.expiresAt }
+                    .take(excess)
+                    .forEach { items.remove(it.key, it.value) }
+            }
+        } finally {
+            pruning.set(false)
         }
     }
 
@@ -281,25 +316,4 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
             throw error
         }
     }
-}
-
-class RecordingMetrics : MetricsRecorder {
-    data class Sample(val name: String, val tags: Map<String, String>, val value: Long? = null)
-
-    val samples = mutableListOf<Sample>()
-    private val lock = ReentrantLock()
-
-    override fun increment(name: String, tags: Map<String, String>) {
-        lock.withLock { samples += Sample(name, tags) }
-    }
-
-    override fun recordTime(name: String, durationMs: Long, tags: Map<String, String>) {
-        lock.withLock { samples += Sample(name, tags, durationMs) }
-    }
-
-    override fun recordBytes(name: String, bytes: Long, tags: Map<String, String>) {
-        lock.withLock { samples += Sample(name, tags, bytes) }
-    }
-
-    fun names(): List<String> = lock.withLock { samples.map { it.name } }
 }

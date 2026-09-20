@@ -190,7 +190,23 @@ java -version
   BUILD SUCCESSFUL
 ```
 
-## 17. Diretrizes de Qualidade e Concorrência Consolidadas (Pós-Review)
+## 17. Estado de Persistência (limitação operacional vigente)
+
+Nenhum adapter de MongoDB ou Redis está cabeado. Todos os stores registrados em `SduiConfiguration`
+são in-memory, e as autoconfigurações de Mongo e Redis estão excluídas em `SduiApplication`.
+Consequências que valem para qualquer decisão de deploy ou de evolução:
+
+- O estado não sobrevive a restart. O que existe após subir é o que o seed reconstrói.
+- O estado não é compartilhado entre instâncias: publicar, aprovar ou fazer rollback em um pod não
+  muda nada nos demais, e o pointer pode divergir entre réplicas.
+- Enquanto isso valer, o serviço só opera corretamente como instância única, ou com o plano de
+  administração (`/admin/v1/**`) dirigido a uma instância designada.
+
+`adapters/mongo/document/Documents.kt` e `MongoTransactionalUnitOfWork` existem como preparação e
+não são referenciados por nenhum bean. Cabear os adapters persistentes é trabalho de feature, com
+ADR próprio — não uma correção pontual.
+
+## 18. Diretrizes de Qualidade e Concorrência Consolidadas (Pós-Review)
 
 Regras inegociáveis resultantes do ciclo de auditoria técnica (`code-review-and-quality` e `performance-optimization`):
 
@@ -213,4 +229,33 @@ Regras inegociáveis resultantes do ciclo de auditoria técnica (`code-review-an
 7. **Fechamento de Recursos:** Qualquer leitura de stream de arquivo ou classpath (`ClassPathResource`) deve ser
    envolvida
    por `.use { }` para garantir encerramento do recurso e evitar vazamentos de file descriptors.
+
+## 19. Diretrizes do Segundo Ciclo de Revisão
+
+Regras inegociáveis resultantes da revisão multidimensional de 2026-09-20 (`code-review-and-quality`):
+
+1. **Capabilities do Header São Filtradas:** `CapabilityMatrix.effective` só soma ao conjunto do servidor
+   as capabilities que pertencem ao universo conhecido (`byPlatformVersion` + `MvpCatalog.TYPES`). Uma
+   capability arbitrária nunca casaria com uma section, mas entraria no `capsHash` e criaria uma chave de
+   cache nova por requisição. `Capability.parseList` deduplica e aplica `MAX_HEADER_CAPABILITIES`.
+2. **Todo Cache e Mapa Alimentado por Entrada do Cliente Tem Teto:** `InMemoryHydratedScreenCache`
+   (`treeCacheMaxEntries`) e `TokenBucketRateLimiter` (`rateLimitMaxKeys`) podam entradas. Proibido
+   introduzir mapa residente cuja chave derive de header sem limite de tamanho.
+3. **Sem Lock Global no Hot Path:** o rate limiter usa `ConcurrentHashMap.compute`, que dá exclusão
+   mútua por chave. Proibido reintroduzir um `ReentrantLock` único cobrindo todas as identidades.
+4. **Nome de Métrica é Constante:** dimensão vai em tag, nunca interpolada no nome do meter.
+5. **Cache Fora da Transação:** `specCache` e `treeCache` só são escritos depois do commit. Escrita de
+   cache dentro de `tx.execute` publicaria estado que um rollback ainda pode desfazer.
+6. **`Idempotency-Key` é Honrada ou Não é Aceita:** `open`, `approve`, `reject` e `rollback` consultam e
+   gravam `IdempotencyStore`. Proibido parâmetro de idempotência ignorado na assinatura.
+7. **Sem Valor de Integridade Inventado:** o `skeletonHash` do envelope é o `checksum` do spec. O formato
+   `sha256:<hex>` é exigido por `SpecValidator` na governança; não existe literal de reserva no hot path.
+8. **Falha de Dependência de Dados é Tratada em Um Ponto:** `ComposeScreenService.composeFresh` envolve
+   todas as leituras de store num único `catch` que reporta `REDIS_UNAVAILABLE`. `DEPENDENCY_TIMEOUT`
+   fica reservado ao singleflight.
+9. **Test Double Não Entra em Produção:** o fallback sem `MeterRegistry` é `NoOpMetricsRecorder`.
+   `RecordingMetrics` vive em `src/test`.
+10. **Um `application.yaml` Só:** apenas `sdui-bootstrap` tem `application.yaml`. O Spring Boot resolve
+    `classpath:/application.yaml` para um único recurso; um segundo arquivo em módulo biblioteca faz a
+    configuração vencedora depender da ordem do classpath.
 

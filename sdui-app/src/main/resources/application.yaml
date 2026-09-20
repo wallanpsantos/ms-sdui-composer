@@ -1,8 +1,0 @@
-sdui:
-  seed-ios: true
-  rate-limit-capacity: 10000
-  rate-limit-refill-per-second: 10000
-  tree-ttl-seconds: 60
-  hydration-timeout-ms: 80
-  hydration-fanout: 8
-  retry-after-seconds: 5

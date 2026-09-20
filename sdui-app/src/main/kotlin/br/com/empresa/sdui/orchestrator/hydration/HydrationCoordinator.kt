@@ -60,7 +60,7 @@ class HydrationCoordinator(
                 .handle { result, error ->
                     val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
                     metrics.recordTime(
-                        "section.${section.type}.ms",
+                        SECTION_HYDRATE_TIMER,
                         elapsedMs,
                         mapOf(
                             "type" to section.type,
@@ -121,5 +121,13 @@ class HydrationCoordinator(
             if (cause == null || cause === current || !seen.add(current)) return current
             current = cause
         }
+    }
+
+    private companion object {
+        /**
+         * Nome fixo: o tipo do componente ja viaja na tag `type`. Interpolar o tipo no nome criaria
+         * um meter por componente e multiplicaria as series no registry.
+         */
+        const val SECTION_HYDRATE_TIMER: String = "section.hydrate.ms"
     }
 }

@@ -135,6 +135,11 @@ class PublishService(
 
     override fun open(command: OpenPublishCommand): PublishRequest {
         requireRole(command.actor.role, ActorRole.MAKER)
+        command.idempotencyKey?.let { key ->
+            idempotency.find(key)?.let { record ->
+                return publishStore.find(record.resultRef) ?: throw AdminNotFound("publish ${record.resultRef}")
+            }
+        }
         val spec = specStore.findBySpecIdAndRevision(command.specId, command.revision)
             ?: throw AdminNotFound("spec ${command.specId}#${command.revision}")
         if (spec.status == SpecStatus.PUBLISHED) {
@@ -164,7 +169,11 @@ class PublishService(
             makerId = command.actor.id,
             status = PublishRequestStatus.OPEN,
         )
-        return publishStore.save(request)
+        val saved = publishStore.save(request)
+        command.idempotencyKey?.let { key ->
+            idempotency.put(IdempotencyRecord(key, "publish.open", saved.requestId))
+        }
+        return saved
     }
 
     override fun approve(command: DecidePublishCommand): PublishRequest {
@@ -188,7 +197,7 @@ class PublishService(
         if (errors.isNotEmpty()) throw AdminValidation(errors)
         diffStore.find(spec.specId, spec.parentRevision ?: (spec.revision - 1).coerceAtLeast(0), spec.revision)
             ?: spec.parentRevision?.let { throw AdminValidation(listOf("diff ausente")) }
-        return tx.execute {
+        val outcome = tx.execute {
             val approved = open.copy(status = PublishRequestStatus.APPROVED, checkerId = command.actor.id)
             val won = publishStore.compareAndSetStatus(open.requestId, PublishRequestStatus.OPEN, approved)
                 ?: throw AdminConflict("approve concorrente")
@@ -214,8 +223,6 @@ class PublishService(
                     version = (currentPointer?.version ?: 0) + 1,
                 ),
             )
-            specCache.put(published)
-            treeCache.invalidate(published.surface, published.platform, open.channel)
             auditLog.append(
                 AuditEvent(
                     id = UUID.randomUUID().toString(),
@@ -233,12 +240,20 @@ class PublishService(
                 ),
             )
             idempotency.put(IdempotencyRecord(command.idempotencyKey, "approve", won.requestId))
-            won
+            PublishOutcome(won, published)
         }
+        // Escritas de cache ficam fora da transacao: nao sao transacionais e, aplicadas antes do
+        // commit, entregariam aos leitores uma revisao que um rollback ainda pode desfazer.
+        specCache.put(outcome.spec)
+        treeCache.invalidate(outcome.spec.surface, outcome.spec.platform, open.channel)
+        return outcome.request
     }
 
     override fun reject(command: DecidePublishCommand, reason: String): PublishRequest {
         requireRole(command.actor.role, ActorRole.CHECKER)
+        idempotency.find(command.idempotencyKey)?.let { record ->
+            return publishStore.find(record.resultRef) ?: throw AdminNotFound("publish ${record.resultRef}")
+        }
         val open = publishStore.find(command.requestId) ?: throw AdminNotFound("publish ${command.requestId}")
         if (open.makerId == command.actor.id && open.channel != Channel.INTERNAL) {
             throw AdminDenied("maker nao rejeita o proprio pedido como checker unico sem papel")
@@ -262,9 +277,12 @@ class PublishService(
                 requestId = open.requestId,
             ),
         )
+        idempotency.put(IdempotencyRecord(command.idempotencyKey, "publish.reject", won.requestId))
         return won
     }
 }
+
+private data class PublishOutcome(val request: PublishRequest, val spec: Spec)
 
 class RollbackService(
     private val pointerStore: PointerStore,
@@ -293,17 +311,14 @@ class RollbackService(
         if (target.platform != command.platform) {
             throw AdminValidation(listOf("rollback nao cruza plataforma"))
         }
-        return tx.execute {
+        val saved = tx.execute {
             val moved = pointer.copy(
                 specId = target.specId,
                 specRevisionId = target.specRevisionId,
                 previousSpecRevisionId = pointer.specRevisionId,
                 version = pointer.version + 1,
             )
-            val saved = pointerStore.save(moved)
-            specCache.invalidate(pointer.specRevisionId ?: target.specRevisionId, command.platform)
-            specCache.put(target)
-            treeCache.invalidate(command.surface, command.platform, command.channel)
+            val persisted = pointerStore.save(moved)
             auditLog.append(
                 AuditEvent(
                     id = UUID.randomUUID().toString(),
@@ -327,8 +342,13 @@ class RollbackService(
                     "${command.surface}:${command.platform.wire()}:${command.channel.wire()}"
                 )
             )
-            saved
+            persisted
         }
+        // Mesma razao do approve: o cache so pode refletir o ponteiro depois que ele commitou.
+        specCache.invalidate(pointer.specRevisionId ?: target.specRevisionId, command.platform)
+        specCache.put(target)
+        treeCache.invalidate(command.surface, command.platform, command.channel)
+        return saved
     }
 }
 

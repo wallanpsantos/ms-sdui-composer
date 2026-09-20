@@ -21,12 +21,18 @@ data class Capability(
             return Capability(type, version)
         }
 
+        /** Teto de capabilities lidas do header; o excedente e descartado sem invalidar a requisicao. */
+        const val MAX_HEADER_CAPABILITIES: Int = 64
+
         fun parseList(header: String?): List<Capability> {
             if (header.isNullOrBlank()) return emptyList()
-            return header.split(",")
+            return header.splitToSequence(",")
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .mapNotNull { parse(it) }
+                .distinct()
+                .take(MAX_HEADER_CAPABILITIES)
+                .toList()
         }
     }
 }
