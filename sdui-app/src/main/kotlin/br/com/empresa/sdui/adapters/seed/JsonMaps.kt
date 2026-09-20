@@ -5,6 +5,13 @@ import tools.jackson.databind.json.JsonMapper
 import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
 
+/**
+ * Converte entre JsonNode e as estruturas Kotlin que o dominio usa nas props.
+ *
+ * Existe porque o core e puro e nao conhece Jackson: a traducao precisa acontecer no adapter.
+ * Preserva a distincao entre inteiro e decimal na ida, para um valor nao mudar de tipo ao passar
+ * pelo servidor.
+ */
 object JsonMaps {
     @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     fun toValue(node: JsonNode): Any? = when {

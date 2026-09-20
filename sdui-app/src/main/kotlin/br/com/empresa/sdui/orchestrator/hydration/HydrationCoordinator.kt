@@ -16,12 +16,26 @@ import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
+/**
+ * Saida da hidratacao: o que foi preenchido, o que caiu e se um slot portante ficou vazio.
+ *
+ * [requiredSlotFailed] e o sinal que leva a composicao inteira para o fallback, em vez de entregar
+ * uma home sem header ou sem contas.
+ */
 data class HydratedTree(
     val sections: List<Section>,
     val omitted: List<OmittedSection>,
     val requiredSlotFailed: Boolean,
 )
 
+/**
+ * Hidrata as sections em paralelo, com prazo e teto de concorrencia.
+ *
+ * Cada section vai para uma virtual thread e disputa permissao no semaforo de fan-out, que limita
+ * quantas chamadas de dados acontecem ao mesmo tempo. O prazo e por section: quem estoura vira
+ * omissao com HYDRATION_TIMEOUT e as demais seguem, o que mantem o tempo total da requisicao
+ * previsivel mesmo com uma fonte lenta.
+ */
 class HydrationCoordinator(
     private val hydrators: List<SectionHydrator>,
     private val fanOut: Semaphore,
@@ -60,7 +74,7 @@ class HydrationCoordinator(
                 .handle { result, error ->
                     val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
                     metrics.recordTime(
-                        "section.${section.type}.ms",
+                        SECTION_HYDRATE_TIMER,
                         elapsedMs,
                         mapOf(
                             "type" to section.type,
@@ -70,7 +84,11 @@ class HydrationCoordinator(
                         ),
                     )
                     val hydration = if (error != null) {
-                        original.cancel(true)
+                        // Sem cancel(): uma task de supplyAsync nao e interrompida por
+                        // CompletableFuture.cancel, entao a chamada daria falsa impressao de que o
+                        // trabalho parou. Ele segue ate o fim e so entao devolve o permit do
+                        // semaforo — o que limita o fan-out e nao a duracao da requisicao, que o
+                        // orTimeout ja encerrou.
                         val root = rootCause(error)
                         if (root is TimeoutException) {
                             HydrationResult.Failed(OmittedReason.HYDRATION_TIMEOUT)
@@ -121,5 +139,13 @@ class HydrationCoordinator(
             if (cause == null || cause === current || !seen.add(current)) return current
             current = cause
         }
+    }
+
+    private companion object {
+        /**
+         * Nome fixo: o tipo do componente ja viaja na tag `type`. Interpolar o tipo no nome criaria
+         * um meter por componente e multiplicaria as series no registry.
+         */
+        const val SECTION_HYDRATE_TIMER: String = "section.hydrate.ms"
     }
 }

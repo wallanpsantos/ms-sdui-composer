@@ -20,10 +20,21 @@ import tools.jackson.databind.node.ObjectNode
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
+/**
+ * Converte a arvore do dominio no contrato JSON publicado.
+ *
+ * A fronteira que mantem o modelo interno livre para evoluir sem mexer no que iOS e Android
+ * consomem: qualquer renomeacao ou reorganizacao de dominio para aqui. Tambem e onde as props,
+ * que sao mapa livre, viram JsonNode preservando os tipos originais.
+ */
 class ScreenResponseMapper(
     private val mapper: JsonMapper,
 ) {
     fun toResponse(screen: ComposedScreen): ScreenResponse {
+        // Offset fixo por exigencia do contrato: a fixture canonica publica generatedAt em
+        // -03:00 (ver docs/artifacts/contrato-sdui-home-definitivo.json). O Brasil nao observa
+        // horario de verao desde 2019, entao o valor e constante; mudar para UTC seria quebra de
+        // contrato com os clientes moveis.
         val generatedAt = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
             screen.generatedAt.atOffset(ZoneOffset.of("-03:00")),
         )

@@ -1,11 +1,13 @@
 package br.com.empresa.sdui.core.model
 
+/** Destino de uma action no modelo de dominio. Rota app://, bottom sheet nativo ou evento. */
 data class ActionPayload(
     val route: String? = null,
     val sheet: String? = null,
     val event: String? = null,
 )
 
+/** Intencao que o dispatcher nativo executa. [type] vem do catalogo fechado de MvpCatalog. */
 data class Action(
     val id: String,
     val type: String,
@@ -13,6 +15,13 @@ data class Action(
     val payload: ActionPayload? = null,
 )
 
+/**
+ * Bloco autocontido de UI: um dos tres conceitos da triade SDUI, com Screen e Action.
+ *
+ * Ocupa um [slot] do skeleton e declara o que precisa ser renderizado via [type] e [typeVersion].
+ * [props] e um mapa livre porque o conteudo varia por tipo de componente — a disciplina sobre ele
+ * vem dos guards, nao do tipo estatico. Autocontida por regra: uma section nao referencia outra.
+ */
 data class Section(
     val id: String,
     val slot: String,
@@ -23,6 +32,12 @@ data class Section(
     val actions: List<Action> = emptyList(),
 )
 
+/**
+ * Registro de uma section que o pipeline decidiu nao entregar.
+ *
+ * Omitir em vez de falhar e a regra do MVP (ADR-007). A excecao sao os slots portantes: se um
+ * deles fica vazio, a composicao inteira cai para a escada de fallback.
+ */
 data class OmittedSection(
     val id: String,
     val slot: String,

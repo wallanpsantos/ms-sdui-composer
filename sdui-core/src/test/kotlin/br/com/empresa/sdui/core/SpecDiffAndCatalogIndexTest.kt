@@ -77,7 +77,7 @@ class SpecDiffAndCatalogIndexTest {
             band = "current",
         ),
         sections = sections,
-        checksum = "sha256:x",
+        checksum = "sha256:abc123",
         publishedAt = Instant.parse("2026-09-09T20:00:00Z"),
         publishedBy = "c",
         madeBy = "m",

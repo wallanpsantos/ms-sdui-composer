@@ -41,7 +41,10 @@ class HomeRuntimeProtectionWebTest(
         val first = getHome(CanonicalHeaders.ios())
         assertThat(first.status).isEqualTo(200)
         val etag = first.headers["ETag"]?.first()
-        assertThat(etag).isEqualTo("W/\"rev_01K8HOMEMAIN-ios-3\"")
+        // O sufixo e o prefixo do capsHash: clientes com capabilities diferentes recebem sections
+        // diferentes e nao podem compartilhar ETag.
+        assertThat(etag).startsWith("W/\"rev_01K8HOMEMAIN-ios-3-")
+        assertThat(etag).endsWith("\"")
         val notModified = getHome(CanonicalHeaders.ios(), ifNoneMatch = etag)
         assertThat(notModified.status).isEqualTo(304)
         assertThat(notModified.body).isNullOrEmpty()

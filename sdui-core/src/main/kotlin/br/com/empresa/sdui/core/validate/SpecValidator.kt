@@ -10,7 +10,24 @@ import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.Spec
 
+/**
+ * Valida um spec antes de ele poder ser publicado.
+ *
+ * Reune as regras que nao devem chegar a producao: placement coerente com o skeleton, tipo dentro
+ * do catalogo e nao generico, ausencia de aparencia e de PII nas props, actions integras e section
+ * autocontida. Alem disso simula as pontas da faixa de targeting e recusa o spec se algum slot
+ * portante puder ficar vazio para uma delas — e mais barato falhar aqui do que servir uma home sem
+ * header ou sem contas.
+ *
+ * Devolve a lista de erros em vez de lancar, para o chamador reportar tudo de uma vez.
+ */
 object SpecValidator {
+    /**
+     * O envelope publica este valor como `skeletonHash`. Exigir o formato na governanca e o que
+     * permite ao compose usar o checksum direto, sem valor de reserva no hot path.
+     */
+    private val CHECKSUM = Regex("""^sha256:[0-9a-f]+$""")
+
     fun validateDraft(
         spec: Spec,
         skeleton: Skeleton,
@@ -20,6 +37,9 @@ object SpecValidator {
         val errors = mutableListOf<String>()
         if (skeleton.skeletonId != spec.skeletonId) {
             errors += "skeletonId divergente"
+        }
+        if (!CHECKSUM.matches(spec.checksum)) {
+            errors += "checksum deve ser sha256:<hex>: '${spec.checksum}'"
         }
         val counts = mutableMapOf<String, Int>()
         val sectionIds = spec.sections.map { it.id }.toSet()

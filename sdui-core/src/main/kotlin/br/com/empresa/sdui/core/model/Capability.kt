@@ -1,5 +1,12 @@
 package br.com.empresa.sdui.core.model
 
+/**
+ * Um tipo de componente numa versao que o cliente sabe renderizar: o eixo B de compatibilidade.
+ *
+ * A unidade de negociacao entre servidor e app. Uma section so e entregue se a capability dela
+ * estiver no conjunto efetivo do cliente; caso contrario Filter a omite. Serializa como
+ * `type@typeVersion`, formato usado no header Component-Capabilities e no capsHash.
+ */
 data class Capability(
     val type: String,
     val typeVersion: Int,
@@ -21,16 +28,30 @@ data class Capability(
             return Capability(type, version)
         }
 
+        /** Teto de capabilities lidas do header; o excedente e descartado sem invalidar a requisicao. */
+        const val MAX_HEADER_CAPABILITIES: Int = 64
+
         fun parseList(header: String?): List<Capability> {
             if (header.isNullOrBlank()) return emptyList()
-            return header.split(",")
+            return header.splitToSequence(",")
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .mapNotNull { parse(it) }
+                .distinct()
+                .take(MAX_HEADER_CAPABILITIES)
+                .toList()
         }
     }
 }
 
+/**
+ * Vocabulario fechado do MVP: o que existe, o que e proibido e como a home se organiza.
+ *
+ * Centraliza as constantes que varias camadas precisam concordar — os sete tipos do catalogo, a
+ * ordem dos slots, os slots portantes, as actions permitidas — e as duas listas de recusa que os
+ * guards aplicam: [VISUAL_KEYS], porque aparencia e decisao do cliente, e [PII_KEYS], porque dado
+ * regulado nao trafega em payload, cache, log ou metrica.
+ */
 object MvpCatalog {
     const val SCHEMA_VERSION: String = "3"
     const val SURFACE_HOME: String = "home"

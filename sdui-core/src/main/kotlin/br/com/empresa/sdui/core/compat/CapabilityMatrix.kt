@@ -6,12 +6,27 @@ import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.SemVer
 
+/**
+ * O que o servidor assume que cada faixa de app sabe renderizar, mais o que o cliente declara.
+ *
+ * Existe porque nem todo app atualizado suporta todo componente: versoes antigas de iOS ficam com
+ * um subconjunto, e o header Component-Capabilities permite ao cliente corrigir essa suposicao
+ * para mais. O resultado alimenta o filtro de sections e o capsHash da chave de cache.
+ */
 class CapabilityMatrix(
     private val byPlatformVersion: Map<Pair<ClientPlatform, String>, Set<Capability>> = defaultMatrix(),
 ) {
+    /**
+     * Universo finito de capabilities que o servidor reconhece. O delta declarado pelo cliente e
+     * filtrado por este conjunto: uma capability arbitraria nunca casaria com uma section de spec,
+     * mas entraria no capsHash e produziria uma chave de cache de arvore nova a cada requisicao.
+     */
+    private val known: Set<Capability> = byPlatformVersion.values.flatten().toSet() + MvpCatalog.TYPES
+
     fun effective(context: ClientContext): Set<Capability> {
         val server = serverCaps(context.platform, context.appVersion)
-        return server + context.headerCapabilities.toSet()
+        val declared = context.headerCapabilities.filter { it in known }
+        return server + declared
     }
 
     fun serverCaps(platform: ClientPlatform, appVersion: SemVer): Set<Capability> {

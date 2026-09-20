@@ -14,8 +14,8 @@ import br.com.empresa.sdui.adapters.memory.InMemorySkeletonStore
 import br.com.empresa.sdui.adapters.memory.InMemorySpecCache
 import br.com.empresa.sdui.adapters.memory.InMemorySpecStore
 import br.com.empresa.sdui.adapters.memory.InMemoryTransactionalUnitOfWork
-import br.com.empresa.sdui.adapters.memory.RecordingMetrics
 import br.com.empresa.sdui.adapters.observability.MicrometerMetricsRecorder
+import br.com.empresa.sdui.adapters.observability.NoOpMetricsRecorder
 import br.com.empresa.sdui.adapters.seed.HomeSeed
 import br.com.empresa.sdui.core.compat.CapabilityMatrix
 import br.com.empresa.sdui.core.limit.TokenBucketRateLimiter
@@ -64,19 +64,44 @@ import java.time.Clock
 import java.time.Duration
 import java.util.concurrent.Semaphore
 
+/**
+ * Parametros operacionais, ajustaveis sem recompilar sob o prefixo `sdui`.
+ *
+ * Reune o que se mexe em producao: prazos, limites de concorrencia, tetos de memoria, allowlists
+ * de canary. Os defaults aqui valem quando nada e configurado.
+ */
 @ConfigurationProperties(prefix = "sdui")
 data class SduiProperties(
     val canaryIosBuilds: List<String> = emptyList(),
     val canaryAndroidBuilds: List<String> = emptyList(),
     val rateLimitCapacity: Long = 10_000,
     val rateLimitRefillPerSecond: Long = 10_000,
+    /** Teto de buckets residentes no limitador; acima dele os ociosos e os cheios sao descartados. */
+    val rateLimitMaxKeys: Int = 100_000,
     val treeTtlSeconds: Long = 60,
+    /** Teto de arvores no cache de composicao. Ver [InMemoryHydratedScreenCache]. */
+    val treeCacheMaxEntries: Int = 10_000,
     val hydrationTimeoutMs: Long = 80,
     val hydrationFanout: Int = 8,
     val retryAfterSeconds: Long = 5,
     val seedIos: Boolean = true,
 )
 
+/**
+ * Beans do servico.
+ *
+ * **Estado em memoria.** Todos os stores registrados aqui sao in-memory: specs, skeletons, catalogo,
+ * pointer, publish requests, audit log, idempotencia e caches vivem no heap do processo. Nao ha
+ * adapter de MongoDB nem de Redis cabeado — as autoconfiguracoes dos dois estao excluidas em
+ * `SduiApplication`. Na pratica isso significa que:
+ *
+ * - o estado nao sobrevive a um restart; o que existe apos subir e o que o seed reconstroi;
+ * - o estado nao e compartilhado entre instancias: publicar, aprovar ou fazer rollback em um pod
+ *   nao muda nada nos demais, e o pointer pode divergir entre replicas.
+ *
+ * Enquanto os adapters persistentes nao existirem, o servico so opera corretamente como instancia
+ * unica, ou com o plano de administracao dirigido a uma instancia designada.
+ */
 @Configuration
 @EnableConfigurationProperties(SduiProperties::class)
 class SduiConfiguration {
@@ -114,7 +139,8 @@ class SduiConfiguration {
     fun idempotencyStore(): IdempotencyStore = InMemoryIdempotencyStore()
 
     @Bean
-    fun hydratedScreenCache(): HydratedScreenCache = InMemoryHydratedScreenCache()
+    fun hydratedScreenCache(properties: SduiProperties): HydratedScreenCache =
+        InMemoryHydratedScreenCache(properties.treeCacheMaxEntries)
 
     @Bean
     fun lastGoodScreenStore(): LastGoodScreenStore = InMemoryLastGoodScreenStore()
@@ -137,12 +163,16 @@ class SduiConfiguration {
     @Bean
     fun metricsRecorder(meterRegistry: ObjectProvider<MeterRegistry>): MetricsRecorder {
         val registry = meterRegistry.ifAvailable
-        return if (registry != null) MicrometerMetricsRecorder(registry) else RecordingMetrics()
+        return if (registry != null) MicrometerMetricsRecorder(registry) else NoOpMetricsRecorder
     }
 
     @Bean
     fun rateLimiter(properties: SduiProperties): TokenBucketRateLimiter =
-        TokenBucketRateLimiter(properties.rateLimitCapacity, properties.rateLimitRefillPerSecond)
+        TokenBucketRateLimiter(
+            capacity = properties.rateLimitCapacity,
+            refillPerSecond = properties.rateLimitRefillPerSecond,
+            maxKeys = properties.rateLimitMaxKeys,
+        )
 
     @Bean
     fun canaryPolicy(properties: SduiProperties): CanaryPolicy =

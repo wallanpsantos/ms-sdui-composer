@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import tools.jackson.databind.json.JsonMapper
 
+/** Beans da camada de borda. Separado da configuracao de adapters para a api nao depender deles. */
 @Configuration
 class ApiBeans {
     @Bean

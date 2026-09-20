@@ -7,6 +7,7 @@ import br.com.empresa.sdui.core.model.Capability
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.ClientPlatform
+import br.com.empresa.sdui.core.model.ETagFactory
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.RedisKeys
@@ -118,10 +119,10 @@ class SelectFilterKeysTest {
     }
 
     @Test
-    fun `tree key inclui surface platform schema app major minor hash e channel e nunca userId`() {
+    fun `tree key inclui surface platform schema revisao hash e channel e nunca userId`() {
         val caps = MvpCatalog.TYPES.toSet()
-        val key = RedisKeys.tree("home", ClientPlatform.IOS, "3", "8.14", CapsHash.sha256(caps), Channel.STABLE)
-        assertThat(key).startsWith("sdui:tree:home:ios:3:8.14:")
+        val key = RedisKeys.tree("home", ClientPlatform.IOS, "3", "rev_main", CapsHash.sha256(caps), Channel.STABLE)
+        assertThat(key).startsWith("sdui:tree:home:ios:3:rev_main:")
         assertThat(key).endsWith(":stable")
         assertThat(key).doesNotContain("userId")
         assertThat(RedisKeys.containsUserId(key)).isFalse()
@@ -130,12 +131,52 @@ class SelectFilterKeysTest {
     }
 
     @Test
-    fun `matriz une capabilities do servidor com delta do header`() {
+    fun `etag distingue capabilities diferentes na mesma revisao`() {
+        val completo = CapsHash.sha256(MvpCatalog.TYPES.toSet())
+        val reduzido = CapsHash.sha256(setOf(Capability("top_bar", 1)))
+        val a = ETagFactory.of("rev_main", ClientPlatform.IOS, "3", completo)
+        val b = ETagFactory.of("rev_main", ClientPlatform.IOS, "3", reduzido)
+        assertThat(a).isNotEqualTo(b)
+        assertThat(a).startsWith("W/\"rev_main-ios-3-")
+        // Mesmo conjunto, mesmo etag: senao a revalidacao nunca devolveria 304.
+        assertThat(ETagFactory.of("rev_main", ClientPlatform.IOS, "3", completo)).isEqualTo(a)
+    }
+
+    @Test
+    fun `revisoes diferentes nunca compartilham entrada de cache`() {
+        val caps = CapsHash.sha256(MvpCatalog.TYPES.toSet())
+        val main = RedisKeys.tree("home", ClientPlatform.IOS, "3", "rev_main", caps, Channel.STABLE)
+        val legacy = RedisKeys.tree("home", ClientPlatform.IOS, "3", "rev_legacy", caps, Channel.STABLE)
+        assertThat(main).isNotEqualTo(legacy)
+    }
+
+    @Test
+    fun `matriz une o delta conhecido do header e descarta capability fora do universo do servidor`() {
         val matrix = CapabilityMatrix()
-        val ctx = context(ClientPlatform.IOS).copy(headerCapabilities = listOf(Capability("future_card", 1)))
-        val effective = matrix.effective(ctx)
-        assertThat(effective).containsAll(MvpCatalog.TYPES)
-        assertThat(effective).contains(Capability("future_card", 1))
+        val legacy = context(ClientPlatform.IOS).copy(
+            appVersion = SemVer(8, 4, 0),
+            headerCapabilities = listOf(Capability("card_product", 1), Capability("future_card", 1)),
+        )
+        val effective = matrix.effective(legacy)
+        assertThat(effective).contains(Capability("top_bar", 1), Capability("card_product", 1))
+        assertThat(effective).doesNotContain(Capability("future_card", 1))
+    }
+
+    @Test
+    fun `capabilities desconhecidas no header nao mudam o capsHash e portanto nao criam chave nova`() {
+        val matrix = CapabilityMatrix()
+        val limpo = context(ClientPlatform.IOS)
+        val poluido = limpo.copy(headerCapabilities = List(50) { Capability("lixo_$it", 1) })
+        assertThat(CapsHash.sha256(matrix.effective(poluido)))
+            .isEqualTo(CapsHash.sha256(matrix.effective(limpo)))
+    }
+
+    @Test
+    fun `header de capabilities e deduplicado e limitado`() {
+        val excedente = (1..200).joinToString(",") { "top_bar@1" }
+        assertThat(Capability.parseList(excedente)).containsExactly(Capability("top_bar", 1))
+        val distintas = (1..200).joinToString(",") { "tipo_$it@1" }
+        assertThat(Capability.parseList(distintas)).hasSize(Capability.MAX_HEADER_CAPABILITIES)
     }
 
     private fun context(platform: ClientPlatform) = ClientContext(
@@ -170,7 +211,7 @@ class SelectFilterKeysTest {
             band = "current",
         ),
         sections = emptyList(),
-        checksum = "sha256:x",
+        checksum = "sha256:abc123",
         publishedAt = Instant.parse("2026-09-09T20:00:00Z"),
         publishedBy = "c",
         madeBy = "m",

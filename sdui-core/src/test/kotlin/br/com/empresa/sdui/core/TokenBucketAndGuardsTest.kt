@@ -24,6 +24,63 @@ class TokenBucketAndGuardsTest {
     }
 
     @Test
+    fun `identidades novas nao acumulam buckets indefinidamente`() {
+        var now = 0L
+        val limiter = TokenBucketRateLimiter(
+            capacity = 1,
+            refillPerSecond = 1,
+            maxKeys = 4,
+            idleEvictionMs = 1_000,
+            clockMs = { now },
+        )
+        repeat(4) { limiter.tryConsume(RateLimitKey("build-$it", ClientPlatform.IOS)) }
+        assertThat(limiter.residentKeys()).isEqualTo(4)
+
+        now = 5_000
+        limiter.tryConsume(RateLimitKey("build-novo", ClientPlatform.IOS))
+        assertThat(limiter.residentKeys()).isEqualTo(1)
+    }
+
+    @Test
+    fun `poda nao devolve credito a quem esta consumindo`() {
+        var now = 0L
+        val limiter = TokenBucketRateLimiter(
+            capacity = 2,
+            refillPerSecond = 0,
+            maxKeys = 1,
+            idleEvictionMs = 10_000,
+            clockMs = { now },
+        )
+        val key = RateLimitKey("81420", ClientPlatform.IOS)
+        assertThat(limiter.tryConsume(key)).isTrue()
+        assertThat(limiter.tryConsume(key)).isTrue()
+        now = 1_000
+        // o mapa esta no teto, entao a poda roda a cada chamada: o bucket vazio e nao ocioso fica.
+        assertThat(limiter.tryConsume(key)).isFalse()
+    }
+
+    @Test
+    fun `mapa saturado de identidades ativas recusa identidade nova em vez de crescer`() {
+        var now = 0L
+        val limiter = TokenBucketRateLimiter(
+            capacity = 10,
+            refillPerSecond = 0,
+            maxKeys = 3,
+            idleEvictionMs = 600_000,
+            clockMs = { now },
+        )
+        // Tres identidades ativas: consumiram token, nao estao cheias nem ociosas, entao a poda
+        // nao tem o que remover.
+        repeat(3) { limiter.tryConsume(RateLimitKey("ativo-$it", ClientPlatform.IOS)) }
+        now = 60_000
+
+        assertThat(limiter.tryConsume(RateLimitKey("identidade-nova", ClientPlatform.IOS))).isFalse()
+        assertThat(limiter.residentKeys()).isEqualTo(3)
+        // Quem ja tem bucket segue sendo atendido.
+        assertThat(limiter.tryConsume(RateLimitKey("ativo-0", ClientPlatform.IOS))).isTrue()
+    }
+
+    @Test
     fun `guards recusam visual PII e catalogo generico`() {
         assertThat(VisualGuard.violations(mapOf("color" to "#fff"))).isNotEmpty()
         assertThat(PiiGuard.violations(mapOf("cpf" to "123.456.789-00"))).isNotEmpty()

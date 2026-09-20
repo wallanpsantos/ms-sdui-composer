@@ -1,5 +1,12 @@
 package br.com.empresa.sdui.core.model
 
+/**
+ * Versao semantica comparavel, usada na faixa de aplicativo e de SO (eixo C).
+ *
+ * O parsing devolve null em vez de lancar: versao malformada e erro de cliente, que vira 400 na
+ * negociacao, nunca 500. [ordinal] achata a versao num inteiro ordenavel para indice de consulta,
+ * e [majorMinor] e o que entra na chave de cache — patch nao muda a arvore composta.
+ */
 data class SemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<SemVer> {
     init {
         require(major >= 0 && minor >= 0 && patch >= 0) { "semver components must be >= 0" }
@@ -58,6 +65,12 @@ data class SemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<S
     }
 }
 
+/**
+ * Faixa de versoes que um spec atende, com maximo opcional.
+ *
+ * [max] nulo significa faixa aberta: vale para todas as versoes acima do minimo, que e o caso
+ * comum de um spec destinado ao app mais recente em diante.
+ */
 data class VersionRange(
     val min: SemVer,
     val max: SemVer?,

@@ -9,6 +9,21 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.TaskAction
 
+/**
+ * Task de build que falha quando uma dependencia de grupo proibido aparece no runtimeClasspath.
+ *
+ * Serve a duas regras, com listas diferentes: em todos os modulos barra bibliotecas que exigiriam
+ * ADR para entrar — gRPC, Protobuf, GraphQL, MapStruct, Kafka — e, nos modulos de biblioteca
+ * pura (sdui-core e sdui-contract), barra tambem Spring, driver de MongoDB, Lettuce e a API de
+ * servlet.
+ *
+ * Varre o grafo resolvido inteiro, e nao so as dependencias declaradas, porque a violacao
+ * normalmente chega por transitividade. Plataformas (BOM) sao ignoradas: aparecem no grafo mas
+ * nao levam codigo ao classpath.
+ *
+ * Complementa o ArchUnit: la se verifica o que o codigo importa, aqui o que ele teria como
+ * importar.
+ */
 abstract class VerifyDependencies : DefaultTask() {
 
     @get:Input
