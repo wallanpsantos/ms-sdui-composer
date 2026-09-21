@@ -6,94 +6,89 @@ on:
       - main
       - develop
     tags:
-      - 'v*.*.*'        # dispara em tags de release: v1.0.0, v2.1.3, etc.
+      - 'v*.*.*' # dispara em tags de release: v1.0.0, v2.1.3, etc.
   pull_request:
     branches:
       - main
       - develop
 
-jobs:
-  # ── Wrapper Validation ──────────────────────────────────────────
-  # Validates the gradle-wrapper.jar checksum against the official
-  # Gradle registry BEFORE any code is compiled or executed.
-  # This prevents supply-chain attacks via a tampered wrapper JAR.
-  validate_wrapper:
-    name: Validate Gradle Wrapper
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v7.0.1
-      - name: Validate Gradle Wrapper JAR checksum
-        uses: gradle/actions/wrapper-validation@v6
+# Default seguro: nenhum token de escrita, jobs elevam permissão quando necessário.
+permissions:
+  contents: read
 
+# Cancela execuções anteriores do mesmo ref (evita builds paralelos obsoletos em pushes rápidos).
+concurrency:
+  group: gradle-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
   # ── Build & Test ────────────────────────────────────────────────
+  # setup-gradle já valida o gradle-wrapper.jar (validate-wrappers: true por
+  # padrão), então o job dedicado de wrapper-validation não é mais necessário.
   build_and_test:
     name: Build and Test
     runs-on: ubuntu-latest
-    needs: validate_wrapper  # Only runs if the wrapper JAR is valid
+    timeout-minutes: 20
     permissions:
       contents: read
+    env:
+      # Resolvido no topo do job para permitir `if` condicional no step do Sonar.
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7.0.1
         with:
-          # fetch-depth: 0 faz um clone completo (full clone) em vez do shallow clone padrão.
-          # O Sonar precisa do histórico completo do Git para:
-          #   - Atribuir issues automaticamente ao autor da linha (blame/auto-assignment)
-          #   - Calcular métricas de novo código vs. código existente corretamente
-          # Sem isso, o Sonar analisa apenas o commit mais recente e perde o contexto de SCM.
+          # fetch-depth: 0 faz um clone completo — o Sonar precisa do histórico
+          # para blame/auto-assignment e para métricas de "new code" vs. código existente.
           fetch-depth: 0
+
       - name: Set up JDK 25
         uses: actions/setup-java@v6.0.1
         with:
-          distribution: temurinjava-version: '25'
-          
+          distribution: temurin # BUG original: "temurinjava-version" era uma chave inválida
+          java-version: '25'
 
-      # gradle/actions/setup-gradle substitui o actions/cache manual:
-      # gerencia ~/.gradle/caches e ~/.gradle/wrapper automaticamente entre runs.
-      # Gradle 9.7.1 é o runtime do wrapper (gradle-wrapper.properties).
+      # gradle/actions/setup-gradle gerencia ~/.gradle/caches e o wrapper entre runs.
+      # cache-read-only em PRs evita que branches temporárias poluam o cache.
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
-          # PRs apenas leem o cache — somente pushes nas branches principais gravam,
-          # evitando que branches temporárias poluam o cache compartilhado.
           cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
-          # `caches` → dependências resolvidas, outputs do Build Cache e metadata do Gradle
-          # `notifications` → controla avisos de versão do Gradle (evita re-download desnecessário)
           gradle-home-cache-includes: |
             caches
             notifications
-          # Desativa o envio automático de Build Scans para o Gradle Enterprise/Develocity.
-          # Sem isso, o Gradle pode tentar publicar métricas de build externamente em todo run de CI.
+          # Configuration cache acelera builds subsequentes (Gradle 9.x).
+          configuration-cache-enabled: true
+          # Sem build scans automáticos — evita publicar métricas de CI externamente.
           build-scan-publish: false
 
+      # chmod +x para casos onde o bit executável não foi commitado no Git.
+      # Solução definitiva: `git update-index --chmod=+x gradlew` e commit.
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      # `build` compila, roda os testes (com JaCoCo) e monta o JAR.
-      # `-x nativeCompile` pula o step lento do GraalVM AOT — desnecessário no CI.
-      # Em builds de release (tag) e na main, `clean` é injetado para garantir artefato 100% limpo.
-      # Em PRs e pushes no develop, o Gradle recompila apenas o que mudou via Build Cache.
+      # clean apenas em release/main: garante artefato 100% limpo.
+      # Em PRs e develop, o Build Cache recompila só o que mudou.
       - name: Build with Gradle
         run: >-
           ./gradlew
           ${{ (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main') && 'clean ' || '' }}build
           -x nativeCompile
+          --stacktrace
 
+      # Roda somente quando a secret existe (PRs de forks não têm acesso a secrets).
       - name: Run SonarCloud Analysis
+        if: ${{ env.SONAR_TOKEN != '' }}
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
           SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
-        run: ./gradlew sonar
-          -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
-          -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+        run: >-
+          ./gradlew sonar
+          -Dsonar.projectKey=$SONAR_PROJECT_KEY
+          -Dsonar.organization=$SONAR_ORGANIZATION
           -Dsonar.host.url=https://sonarcloud.io
 
-      # Upload the JaCoCo XML report so it can be consumed by coverage tools
-      # (e.g. Codecov, SonarCloud) or inspected manually.
+      # Relatório JaCoCo (XML + HTML) para inspeção manual ou consumo por Codecov.
       - name: Upload JaCoCo coverage report
         if: always()
         uses: actions/upload-artifact@v7.0.1
@@ -102,41 +97,46 @@ jobs:
           path: build/reports/jacoco/test/
           retention-days: 7
 
-      # Upload only the application JAR, excluding plain/sources jars.
+      # Apenas o bootJar — exclusões explícitas de plain/sources.
       - name: Archive build artifacts
         if: success()
         uses: actions/upload-artifact@v7.0.1
         with:
           name: jar-files
-          path: build/libs/*.jar
+          path: |
+            build/libs/*.jar
+            !build/libs/*-plain.jar
+            !build/libs/*-sources.jar
           if-no-files-found: warn
           retention-days: 7
 
   # ── Dependency Graph ────────────────────────────────────────────
-  # Generates and submits a dependency graph to enable Dependabot Alerts.
-  # Runs only on pushes to the default branches (not on PRs) to avoid
-  # submitting duplicate graphs for the same code.
+  # Só em pushes (não em PRs) para não submeter grafos duplicados.
   dependency-submission:
     name: Dependency Submission
     runs-on: ubuntu-latest
-    needs: validate_wrapper  # Only runs if the wrapper JAR is valid
+    timeout-minutes: 10
     if: github.event_name == 'push'
     permissions:
-      contents: write  # Required to submit the dependency graph
+      contents: write # necessário para submeter o grafo de dependências
     steps:
       - name: Check out the repository
         uses: actions/checkout@v7.0.1
+
       - name: Set up JDK 25
         uses: actions/setup-java@v6.0.1
         with:
-          distribution: temurinjava-version: '25'
-          - name: Setup Gradle
+          distribution: temurin
+          java-version: '25'
+
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
           cache-read-only: false
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
-      # See: https://github.com/gradle/actions/blob/main/docs/dependency-submission.md
+
+      # https://github.com/gradle/actions/blob/main/docs/dependency-submission.md
       - name: Generate and submit dependency graph
         uses: gradle/actions/dependency-submission@v6

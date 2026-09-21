@@ -38,8 +38,16 @@ O pointer de `surface + platform + channel` ganha um campo opcional:
     "id": "exp_home_shortcuts_grid",
     "endsAt": "2026-11-30T00:00:00Z",
     "arms": [
-      { "name": "control", "specRevisionId": "rev_home_a", "weight": 50 },
-      { "name": "grid",    "specRevisionId": "rev_home_b", "weight": 50 }
+      {
+        "name": "control",
+        "specRevisionId": "rev_home_a",
+        "weight": 50
+      },
+      {
+        "name": "grid",
+        "specRevisionId": "rev_home_b",
+        "weight": 50
+      }
     ]
   }
 }
