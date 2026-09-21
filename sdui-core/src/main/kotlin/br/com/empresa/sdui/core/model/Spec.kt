@@ -20,13 +20,12 @@ data class Targeting(
 ) {
     fun matches(context: ClientContext, effectiveCaps: Set<Capability>): Boolean {
         if (platform != context.platform) return false
-        val requestedSchema = SemVer.parse(context.schemaVersion) ?: return false
-        if (!schemaVersion.contains(requestedSchema)) return false
+        if (!schemaVersion.contains(context.parsedSchemaVersion)) return false
         if (!appVersion.contains(context.appVersion)) return false
         val os = osVersion
         val clientOs = context.osVersion
         if (os != null && clientOs != null && !os.contains(clientOs)) return false
-        return requiredCapabilities.all { it in effectiveCaps }
+        return requiredCapabilities.isEmpty() || requiredCapabilities.all { it in effectiveCaps }
     }
 
     fun wireMin(): String = appVersion.min.toString()
