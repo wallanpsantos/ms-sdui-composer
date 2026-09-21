@@ -10,6 +10,9 @@ homologadas e contexto dinâmico do cliente móvel.
 ## 📋 Sumário
 
 - [Visão Geral e Arquitetura](#-visão-geral-e-arquitetura)
+- [Escopo do Serviço e Superfícies Hostis (ADR-015)](#-escopo-do-serviço-e-superfícies-hostis-adr-015)
+- [Montagens Variáveis e Skeletons Suportados (ADR-018)](#-montagens-variáveis-e-skeletons-suportados-adr-018)
+- [Design System Nativo e Ausência de Atributos Visuais (ADR-010 e ADR-019)](#-design-system-nativo-e-ausência-de-atributos-visuais-adr-010-e-adr-019)
 - [Stack Tecnológica e Baseline](#-stack-tecnológica-e-baseline)
 - [Estrutura de Módulos](#-estrutura-de-módulos)
 - [Como Subir a Aplicação Localmente](#-como-subir-a-aplicação-localmente)
@@ -60,6 +63,80 @@ diretamente, não retém sessões de usuário e não persiste árvores hidratada
                   ▼
          6. COMPOSE   ── Serialização direta em ByteArray, geração de ETag e resposta HTTP.
 ```
+
+---
+
+## 🎯 Escopo do Serviço e Superfícies Hostis (ADR-015)
+
+O Server-Driven UI é uma ferramenta de **orquestração de apresentação dinâmica**, não um substituto para fluxos nativos
+transacionais. O escopo do `ms-sdui-composer` é delimitado por princípios estritos de governança e segurança:
+
+### Superfícies Elegíveis para SDUI
+
+- **Home:** Superfície primária de entrada, agregação de produtos e atalhos dinâmicos.
+- **Hubs de Produtos:** Vitrines de cartões, crédito, investimentos e seguros onde a composição varia com frequência.
+- **Vitrines Promocionais e Campanhas Sazonais:** Banners e prateleiras com alta rotatividade de negócio sem necessidade
+  de release nas lojas de aplicativos.
+
+### Superfícies Estritamente Proibidas / Fora de Escopo
+
+- ❌ **Autenticação, Login e Passcode:** Telas de entrada de credenciais, digitação de PIN, biometria ou validação de OTP
+  devem ser 100% nativas por segurança bancária.
+- ❌ **Onboarding e KYC Regulado:** Captura de documentos, biometria facial e termos legais exigem fluxo de validação
+  estrito e determinístico no cliente nativo.
+- ❌ **Checkout e Carrinho Transacional:** Fluxos de compra com cálculo de frete, aplicação de cupons concorrentes e
+  cobrança requerem orquestração transacional de checkout dedicada.
+- ❌ **Chat em Tempo Real e Atendimento:** Mensageria via WebSocket, push streams e threads de suporte são geridos por
+  backends específicos de mensageria.
+- ❌ **Mapas e Rastreamento em Tempo Real:** Mapas interativos, rotas GPS e telemetria contínua pertencem a SDKs nativos
+  de geolocalização.
+
+### Blindagem de Segurança e Ações Proibidas
+
+1. **Zero PII no Hot Path:** Nenhuma seção ou propriedade pode trafegar dados sensíveis regulados (`cpf`, `token`,
+   `password`, `pin`, `otp`, `passcode`, `cvv`).
+2. **Conjunto Fechado de Actions:** Apenas intenções declarativas e auditáveis (`navigate`, `open_bottom_sheet`,
+   `track`, `noop`). Ações de mutação arbitrária de rede como `callApi`, `addToCart` ou `completeOnboarding` são
+   rejeitadas incondicionalmente no schema.
+
+---
+
+## 🧩 Montagens Variáveis e Skeletons Suportados (ADR-018)
+
+O `ms-sdui-composer` desacopla a **surface** do seu **layout estrutural**, permitindo que uma mesma surface (`home`)
+possua múltiplas opções de montagem versionadas via skeletons canônicos:
+
+| Skeleton               | Surface | Layout Raiz              | Ordem e Disposição dos Slots                                                                                                                                                                       | Caso de Uso Principal                                                                                  |
+|:-----------------------|:-------:|:-------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------|
+| **`home.default`**     | `home`  | `single_column_vertical` | 1. `header` (`fixed`)<br>2. `shortcuts` (`shelf`)<br>3. `accounts` (`list` - portante)<br>4. `cards` (`list`)<br>5. `offers` (`list`)<br>6. `coverage` (`list`)<br>7. `foryou` (`pager`)           | Layout clássico sequencial para usuários correntistas habituais.                                       |
+| **`home.cards_first`** | `home`  | `single_column_vertical` | 1. `header` (`fixed`)<br>2. `cards` (`grid_2_columns`)<br>3. `shortcuts` (`shelf`)<br>4. `accounts` (`list` - portante)<br>5. `offers` (`list`)<br>6. `coverage` (`list`)<br>7. `foryou` (`pager`) | Foco em cartões de crédito e faturas, exibidos em grade de 2 colunas no topo logo abaixo do cabeçalho. |
+
+### Vocabulário Fechado de Slots e Layouts Permitidos
+
+Para impedir vazamento de CSS ou layouts arbitrários definidos no servidor, cada slot aceita apenas layouts homologados
+pelo Design System nativo (`allowedLayouts`):
+
+- `header`: `fixed`
+- `shortcuts`: `shelf`, `grid_4_columns`
+- `accounts`: `list`, `compact_card` (Slot portante obrigatório)
+- `cards`: `list`, `grid_2_columns`, `carousel`
+- `offers`: `list`, `shelf`
+- `coverage`: `list`, `compact_card`
+- `foryou`: `pager`, `carousel`
+
+---
+
+## 🎨 Design System Nativo e Ausência de Atributos Visuais (ADR-010 e ADR-019)
+
+O servidor Server-Driven UI é um provedor de **conteúdo estruturado e intenções**, **nunca** de estilo ou renderização:
+
+- **Proibição de CSS e Geometria:** Nenhuma chave como `color`, `background`, `font`, `padding`, `margin`, `radius`,
+  `width`, `height`, `orientation` é aceita em props de seções.
+- **Proibição de Variantes Visuais Disfarçadas (ADR-019):** A chave `variant: "compact"` foi formalmente eliminada do
+  `shortcut_shelf@1` e adicionada à lista restrita de atributos visuais. Decisões de densidade visual e responsividade
+  pertencem às classes de tamanho nativas (`WindowSizeClass` no Android e `SizeClass` no iOS).
+- **Catálogo Canônico em `@1`:** 7 tipos homologados no MVP (`top_bar`, `shortcut_shelf`, `account_card`,
+  `card_product`, `credit_offer`, `coverage_card`, `decision_card`).
 
 ---
 
@@ -441,15 +518,21 @@ curl -X GET http://localhost:8080/v1/surfaces/home \
 
 ---
 
-### 4. Escada de Fallback e Resiliência (HTTP 503)
+### 4. Escada de Fallback e Resiliência (HTTP 503 e Degradação Graciosa)
 
-Se um cliente descontinuado requisitar uma Home e não houver nenhuma spec compatível nem `lastgood` cacheado:
+Se ocorrer indisponibilidade temporária de dependências ou ausência de spec compatível, o serviço percorre a **Escada
+Determinística de Fallback (ADR-007 e ADR-014)**:
 
-**Resposta HTTP 503 Service Unavailable:**
+1. **`200 OK` (Composição Regular):** Árvore completa montada com sucesso.
+2. **`200 OK` com Omissão Graciosa:** Seções opcionais com falha são omitidas (slots portantes `header` e `accounts` são
+   protegidos).
+3. **`200 OK` com `fallback: true` (Last Good):** Se um slot portante falhar, serve a última composição válida cacheada
+   (`sdui.max-fallback-age-seconds` = 86400s).
+4. **`503 Service Unavailable`:** Caso o last good expire ou não exista, responde com indisponibilidade controlada:
 
 ```http
 HTTP/1.1 503 Service Unavailable
-Retry-After: 5
+Retry-After: 6
 Content-Type: application/json
 
 {
@@ -458,6 +541,10 @@ Content-Type: application/json
   "details": ["no_compatible_spec"]
 }
 ```
+
+> **Nota de Resiliência (ADR-014):** O valor de `Retry-After` aplica jitter pseudoaleatório de ±40% sobre a base
+> configurada (`sdui.retry-after-seconds`), dispersando as tentativas de retry das coortes móveis e impedindo o efeito de
+> manada (*thundering herd*).
 
 ---
 
@@ -612,7 +699,8 @@ A documentação técnica detalhada do projeto está versionada na pasta [`docs/
 ### Subdiretórios Estruturados
 
 - [`docs/adr/`](docs/adr/README.md) — Registros de Decisões Arquiteturais (ADRs 001 a 013 na pré-arquitetura e ADRs 014
-  a 019 com arquivos dedicados: [`ADR-014`](docs/adr/ADR-014-politica-de-resiliencia-de-integracao.md) a [`ADR-019`](docs/adr/ADR-019-remocao-de-variant-do-shortcut-shelf.md)).
+  a 019 com arquivos dedicados: [`ADR-014`](docs/adr/ADR-014-politica-de-resiliencia-de-integracao.md) a [
+  `ADR-019`](docs/adr/ADR-019-remocao-de-variant-do-shortcut-shelf.md)).
 - [`docs/runbooks/`](docs/runbooks/) — Procedimentos operacionais para rollback de Canary
   ([iOS](docs/runbooks/ios-canary-rollback.md) e [Android](docs/runbooks/android-canary-rollback.md))
   e [Contrato de Retry para Clientes Móveis](docs/runbooks/contrato-de-retry-clientes-moveis.md).
