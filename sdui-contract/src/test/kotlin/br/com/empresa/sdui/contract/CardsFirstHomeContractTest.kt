@@ -2,17 +2,21 @@
 
 package br.com.empresa.sdui.contract
 
+import br.com.empresa.sdui.contract.screen.ScreenResponse
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.KotlinModule
 
 class CardsFirstHomeContractTest {
 
     companion object {
         private const val RESOURCE = "/fixtures/contrato-sdui-home-cards-first.json"
-        private val mapper: JsonMapper = JsonMapper.builder().build()
+        private val mapper: JsonMapper = JsonMapper.builder()
+            .addModule(KotlinModule.Builder().build())
+            .build()
         private lateinit var rootNode: JsonNode
 
         @JvmStatic
