@@ -1,6 +1,6 @@
 # ADR-019: Remoção de `variant` do `shortcut_shelf@1` Antes da Primeira Release
 
-**Status:** `PROPOSTO`
+**Status:** `ACEITO`
 
 **Data:** 2026-09-21
 

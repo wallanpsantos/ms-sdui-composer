@@ -3,10 +3,10 @@
     "surface": "home",
     "platform": "ios",
     "schemaVersion": "3",
-    "specRevisionId": "rev_01K8HOMEMAIN",
-    "skeletonId": "home.default",
+    "specRevisionId": "rev_01K8HOMECARDSFIRST",
+    "skeletonId": "home.cards_first",
     "skeletonHash": "sha256:7c2b0e1a9d4f6a8c3e5b1d0f2a4c6e8b",
-    "etag": "W/\"rev_01K8HOMEMAIN-ios-3-ad4e3e6a255a\"",
+    "etag": "W/\"rev_01K8HOMECARDSFIRST-ios-3-cardsfirst\"",
     "generatedAt": "2026-09-11T11:25:00-03:00",
     "locale": "pt-BR",
     "channel": "stable",
@@ -32,24 +32,20 @@
       "event": "sdui_home_composed",
       "surface": "home",
       "platform": "ios",
-      "experience": "home_ios_current",
+      "experience": "home_ios_cards_first",
       "schemaVersion": "3",
-      "specRevisionId": "rev_01K8HOMEMAIN",
+      "specRevisionId": "rev_01K8HOMECARDSFIRST",
       "sectionCount": 8,
       "fallback": false
     }
   },
   "skeleton": {
-    "id": "home.default",
+    "id": "home.cards_first",
     "layout": "vertical_scroll",
     "slots": [
       {
         "id": "header",
         "layout": "fixed"
-      },
-      {
-        "id": "shortcuts",
-        "layout": "shelf"
       },
       {
         "id": "accounts",
@@ -60,6 +56,10 @@
         "id": "cards",
         "layout": "list",
         "title": "Cartão de crédito"
+      },
+      {
+        "id": "shortcuts",
+        "layout": "grid"
       },
       {
         "id": "offers",
@@ -107,7 +107,136 @@
         "componentVersion": 1,
         "slot": "header",
         "sectionId": "sec_header_1",
-        "specRevisionId": "rev_01K8HOMEMAIN"
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    },
+    {
+      "id": "sec_account_1",
+      "slot": "accounts",
+      "type": "account_card",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "title": "Conta",
+        "concealable": true,
+        "concealed": true,
+        "rows": [
+          {
+            "id": "row_balance",
+            "label": "Saldo em conta",
+            "valueDisplay": "R$ ••••••",
+            "valueDisplayRevealed": "R$ 5.289,38",
+            "concealable": true
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_acc_details",
+          "type": "navigate",
+          "label": "Ver extrato",
+          "payload": {
+            "route": "app://account/statement"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "account_card",
+        "componentVersion": 1,
+        "slot": "accounts",
+        "sectionId": "sec_account_1",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    },
+    {
+      "id": "sec_card_1",
+      "slot": "cards",
+      "type": "card_product",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "brandLabel": "Mastercard Black",
+        "last4": "8821",
+        "rows": [
+          {
+            "id": "row_invoice",
+            "label": "Fatura atual",
+            "valueDisplay": "R$ 3.412,90",
+            "valueDisplayRevealed": "R$ 3.412,90",
+            "concealable": false
+          },
+          {
+            "id": "row_limit",
+            "label": "Limite disponível",
+            "valueDisplay": "R$ 16.587,10",
+            "valueDisplayRevealed": "R$ 16.587,10",
+            "concealable": true
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_card_invoice",
+          "type": "navigate",
+          "label": "Pagar fatura",
+          "payload": {
+            "route": "app://cards/8821/invoice"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "card_product",
+        "componentVersion": 1,
+        "slot": "cards",
+        "sectionId": "sec_card_1",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    },
+    {
+      "id": "sec_card_2",
+      "slot": "cards",
+      "type": "card_product",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "brandLabel": "Visa Platinum",
+        "last4": "1044",
+        "rows": [
+          {
+            "id": "row_invoice_visa",
+            "label": "Fatura atual",
+            "valueDisplay": "R$ 840,00",
+            "valueDisplayRevealed": "R$ 840,00",
+            "concealable": false
+          },
+          {
+            "id": "row_limit_visa",
+            "label": "Limite disponível",
+            "valueDisplay": "R$ 4.160,00",
+            "valueDisplayRevealed": "R$ 4.160,00",
+            "concealable": true
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_card_visa",
+          "type": "navigate",
+          "label": "Ver cartão",
+          "payload": {
+            "route": "app://cards/1044"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "card_product",
+        "componentVersion": 1,
+        "slot": "cards",
+        "sectionId": "sec_card_2",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
       }
     },
     {
@@ -115,7 +244,7 @@
       "slot": "shortcuts",
       "type": "shortcut_shelf",
       "typeVersion": 1,
-      "layout": "shelf",
+      "layout": "grid",
       "props": {
         "items": [
           {
@@ -188,136 +317,7 @@
         "componentVersion": 1,
         "slot": "shortcuts",
         "sectionId": "sec_shortcuts_1",
-        "specRevisionId": "rev_01K8HOMEMAIN"
-      }
-    },
-    {
-      "id": "sec_account_1",
-      "slot": "accounts",
-      "type": "account_card",
-      "typeVersion": 1,
-      "layout": "list",
-      "props": {
-        "title": "Conta",
-        "concealable": true,
-        "concealed": true,
-        "rows": [
-          {
-            "id": "row_balance",
-            "label": "Saldo em conta",
-            "valueDisplay": "R$ ••••••",
-            "valueDisplayRevealed": "R$ 5.289,38",
-            "concealable": true
-          }
-        ]
-      },
-      "actions": [
-        {
-          "id": "act_acc_details",
-          "type": "navigate",
-          "label": "Ver extrato",
-          "payload": {
-            "route": "app://account/statement"
-          }
-        }
-      ],
-      "analytics": {
-        "event": "sdui_section_shown",
-        "component": "account_card",
-        "componentVersion": 1,
-        "slot": "accounts",
-        "sectionId": "sec_account_1",
-        "specRevisionId": "rev_01K8HOMEMAIN"
-      }
-    },
-    {
-      "id": "sec_card_1",
-      "slot": "cards",
-      "type": "card_product",
-      "typeVersion": 1,
-      "layout": "list",
-      "props": {
-        "brandLabel": "Mastercard Black",
-        "last4": "8821",
-        "rows": [
-          {
-            "id": "row_invoice",
-            "label": "Fatura atual",
-            "valueDisplay": "R$ 3.412,90",
-            "valueDisplayRevealed": "R$ 3.412,90",
-            "concealable": false
-          },
-          {
-            "id": "row_limit",
-            "label": "Limite disponível",
-            "valueDisplay": "R$ 16.587,10",
-            "valueDisplayRevealed": "R$ 16.587,10",
-            "concealable": true
-          }
-        ]
-      },
-      "actions": [
-        {
-          "id": "act_card_invoice",
-          "type": "navigate",
-          "label": "Pagar fatura",
-          "payload": {
-            "route": "app://cards/8821/invoice"
-          }
-        }
-      ],
-      "analytics": {
-        "event": "sdui_section_shown",
-        "component": "card_product",
-        "componentVersion": 1,
-        "slot": "cards",
-        "sectionId": "sec_card_1",
-        "specRevisionId": "rev_01K8HOMEMAIN"
-      }
-    },
-    {
-      "id": "sec_card_2",
-      "slot": "cards",
-      "type": "card_product",
-      "typeVersion": 1,
-      "layout": "list",
-      "props": {
-        "brandLabel": "Visa Platinum",
-        "last4": "1044",
-        "rows": [
-          {
-            "id": "row_invoice_visa",
-            "label": "Fatura atual",
-            "valueDisplay": "R$ 840,00",
-            "valueDisplayRevealed": "R$ 840,00",
-            "concealable": false
-          },
-          {
-            "id": "row_limit_visa",
-            "label": "Limite disponível",
-            "valueDisplay": "R$ 4.160,00",
-            "valueDisplayRevealed": "R$ 4.160,00",
-            "concealable": true
-          }
-        ]
-      },
-      "actions": [
-        {
-          "id": "act_card_visa",
-          "type": "navigate",
-          "label": "Ver cartão",
-          "payload": {
-            "route": "app://cards/1044"
-          }
-        }
-      ],
-      "analytics": {
-        "event": "sdui_section_shown",
-        "component": "card_product",
-        "componentVersion": 1,
-        "slot": "cards",
-        "sectionId": "sec_card_2",
-        "specRevisionId": "rev_01K8HOMEMAIN"
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
       }
     },
     {
@@ -356,7 +356,7 @@
         "componentVersion": 1,
         "slot": "offers",
         "sectionId": "sec_offer_1",
-        "specRevisionId": "rev_01K8HOMEMAIN"
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
       }
     },
     {
@@ -393,7 +393,7 @@
         "componentVersion": 1,
         "slot": "coverage",
         "sectionId": "sec_coverage_1",
-        "specRevisionId": "rev_01K8HOMEMAIN"
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
       }
     },
     {
@@ -429,7 +429,7 @@
         "componentVersion": 1,
         "slot": "foryou",
         "sectionId": "sec_foryou_1",
-        "specRevisionId": "rev_01K8HOMEMAIN"
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
       }
     }
   ]

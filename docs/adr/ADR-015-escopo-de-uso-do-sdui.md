@@ -1,6 +1,6 @@
 # ADR-015: Escopo de Uso do SDUI — Surfaces Elegíveis e Surfaces Hostis
 
-**Status:** `PROPOSTO`
+**Status:** `ACEITO`
 
 **Data:** 2026-09-21
 

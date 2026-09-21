@@ -485,18 +485,18 @@ cpf, pan, cvv, password, senha, token, jwt, secret, accountNumber, agencia, cont
 
 Priorizado pelo custo de adiar: numa fase de desenvolvimento, o que mexe no modelo vem antes do que só acrescenta.
 
-| Prioridade | Item                                                                                                         | Por que agora                                                                           |
-|------------|--------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
-| **P0**     | ADR-018: ordem dos slots como dado do skeleton, `allowedLayouts` por slot, regra de ordem para os apps       | É o objetivo do serviço, e fica mais caro a cada história construída sobre a ordem fixa |
-| **P0**     | ADR-019: remover `variant` da fixture e do teste de exceção                                                  | Uma alteração hoje; um `@2` e convivência de versões depois                             |
-| **P0**     | Fixture com segunda montagem da Home, para testes de renderer iOS e Android                                  | Sem ela, um app com ordem fixa no código passa despercebido                             |
-| **P1**     | Unificar `VISUAL_KEYS` e a lista do `NoVisualAttributesTest`; levar a seção 10.2 ao guard                    | Regra sem verificação não protege                                                       |
-| **P1**     | Fixture de regressão com spec no formato do `docs/05`                                                        | Critério do ADR-016                                                                     |
-| **P1**     | Revisar o ADR-015 com o time e aplicá-lo à próxima surface                                                   | Critérios precisam ser testados contra um caso real                                     |
-| **P2**     | Avaliar `pin`, `otp`, `passcode` em `PII_KEYS`                                                               | Critério do ADR-015                                                                     |
-| **P2**     | Decidir transações recentes na Home                                                                          | Único candidato da seção 5 com lastro de produto                                        |
-| **P2**     | Reservar o campo `experiment` no pointer (ADR-017)                                                           | Barato enquanto o modelo de pointer ainda não tem dados reais                           |
-| **P3**     | Guia de renderer para iOS e Android (registry por `type@typeVersion`, dispatcher de actions, ordem recebida) | Item aproveitado do `docs/05`                                                           |
+| Prioridade | Item                                                                                                         | Status        | Por que agora                                                                                             |
+|------------|--------------------------------------------------------------------------------------------------------------|---------------|-----------------------------------------------------------------------------------------------------------|
+| **P0**     | ADR-018: ordem dos slots como dado do skeleton, `allowedLayouts` por slot, regra de ordem para os apps       | **CONCLUÍDO** | Invariantes no `SkeletonValidator`, `allowedLayouts` no `SlotDefinition`, seed e testes implementados.    |
+| **P0**     | ADR-019: remover `variant` da fixture e do teste de exceção                                                  | **CONCLUÍDO** | `variant` removido de fixtures/seed e proibido em `VISUAL_KEYS` e guards.                                 |
+| **P0**     | Fixture com segunda montagem da Home, para testes de renderer iOS e Android                                  | **CONCLUÍDO** | `contrato-sdui-home-cards-first.json` criada e testada em `CardsFirstHomeContractTest`.                   |
+| **P1**     | Unificar `VISUAL_KEYS` e a lista do `NoVisualAttributesTest`; levar a seção 10.2 ao guard                    | **CONCLUÍDO** | `VisualKeysAlignmentTest` garante integridade estrita entre os módulos.                                   |
+| **P1**     | Fixture de regressão com spec no formato do `docs/05`                                                        | **CONCLUÍDO** | `proposta-docs-05-hostil.json` criada e validada em `RejectedProposalContractTest` e `SpecValidatorTest`. |
+| **P1**     | Revisar o ADR-015 com o time e aplicá-lo à próxima surface                                                   | Em aberto     | Critérios formalizados no ADR-015 (`ACEITO`); aplicação no desenho da próxima surface.                    |
+| **P2**     | Avaliar `pin`, `otp`, `passcode` em `PII_KEYS`                                                               | **CONCLUÍDO** | `pin`, `otp`, `passcode` adicionados a `MvpCatalog.PII_KEYS` e validados pelo `PiiGuard`.                 |
+| **P2**     | Decidir transações recentes na Home                                                                          | Em aberto     | Único candidato da seção 5 com lastro de produto; aguarda backlog de produto.                             |
+| **P2**     | Reservar o campo `experiment` no pointer (ADR-017)                                                           | **CONCLUÍDO** | `ExperimentArm`, `ExperimentConfig` e campo `experiment` adicionados ao `Pointer`.                        |
+| **P3**     | Guia de renderer para iOS e Android (registry por `type@typeVersion`, dispatcher de actions, ordem recebida) | Em aberto     | Item aproveitado do `docs/05` para documentação dos apps clientes.                                        |
 
 ---
 

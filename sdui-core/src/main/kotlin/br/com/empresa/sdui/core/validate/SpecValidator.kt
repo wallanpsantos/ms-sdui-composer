@@ -38,6 +38,9 @@ object SpecValidator {
         if (skeleton.skeletonId != spec.skeletonId) {
             errors += "skeletonId divergente"
         }
+        if (skeleton.layout != MvpCatalog.SKELETON_LAYOUT) {
+            errors += "layout de skeleton invalido: ${skeleton.layout}"
+        }
         if (!CHECKSUM.matches(spec.checksum)) {
             errors += "checksum deve ser sha256:<hex>: '${spec.checksum}'"
         }
@@ -70,6 +73,9 @@ object SpecValidator {
             errors += VisualGuard.violations(section.props)
             errors += PiiGuard.violations(section.props)
             errors += ActionGuard.validate(section.id, section.actions, section.props)
+            if (section.layout != null && SlotLayout.parse(section.layout) == null) {
+                errors += "layout invalido na section ${section.id}: ${section.layout}"
+            }
             if (PropWalk.referencesForeignSection(section.props, section.id, sectionIds)) {
                 errors += "section ${section.id} referencia outra section"
             }

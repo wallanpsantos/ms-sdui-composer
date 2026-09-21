@@ -612,8 +612,10 @@ A documentação detalhada do projeto está versionada na pasta [`docs/`](docs/R
 
 ### Subdiretórios Estruturados
 
-- [`docs/adr/`](docs/adr/README.md) — Registros de Decisões Arquiteturais (ADRs 001 a 013 na pré-arquitetura e [
-  `ADR-014`](docs/adr/ADR-014-politica-de-resiliencia-de-integracao.md) para resiliência).
+- [`docs/adr/`](docs/adr/README.md) — Registros de Decisões Arquiteturais (ADRs 001 a 013 na pré-arquitetura e ADRs 014
+  a 019
+  com arquivos dedicados: [`ADR-014`](docs/adr/ADR-014-politica-de-resiliencia-de-integracao.md) a [
+  `ADR-019`](docs/adr/ADR-019-remocao-de-variant-do-shortcut-shelf.md)).
 - [`docs/runbooks/`](docs/runbooks/) — Procedimentos operacionais para rollback de Canary
   ([iOS](docs/runbooks/ios-canary-rollback.md) e [Android](docs/runbooks/android-canary-rollback.md))
   e [Contrato de Retry para Clientes Móveis](docs/runbooks/contrato-de-retry-clientes-moveis.md).

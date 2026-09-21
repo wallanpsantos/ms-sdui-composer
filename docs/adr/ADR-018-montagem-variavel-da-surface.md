@@ -1,6 +1,6 @@
 # ADR-018: Montagem Variável da Surface — Ordem e Layout dos Slots como Dado Versionado
 
-**Status:** `PROPOSTO`
+**Status:** `ACEITO`
 
 **Data:** 2026-09-21
 

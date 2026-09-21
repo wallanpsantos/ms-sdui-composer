@@ -10,12 +10,13 @@ import tools.jackson.databind.JsonNode
 class NoVisualAttributesTest {
 
     companion object {
-        private val FORBIDDEN_VISUAL_KEYS = setOf(
+        internal val FORBIDDEN_VISUAL_KEYS = setOf(
             "color", "background", "font", "typography",
             "margin", "padding", "gap",
             "width", "height", "radius", "rounded", "cornerRadius", "shadow",
             "orientation", "circle", "rectangle", "shimmer", "ripple", "haptic",
             "dp", "pt", "itemWidth", "itemHeight", "breakpoint", "formFactor",
+            "columns", "componentType", "appearance", "presentation", "style", "size", "variant",
         )
 
         private lateinit var rootNode: JsonNode
@@ -57,19 +58,14 @@ class NoVisualAttributesTest {
     }
 
     @Test
-    fun `somente shortcut_shelf utiliza variant para densidade de produto`() {
+    fun `nenhuma section utiliza variant (ADR-019)`() {
         val sections = rootNode.get("sections")
         for (i in 0 until sections.size()) {
             val sec = sections.get(i)
-            val type = sec.get("type").asText()
             val props = sec.get("props")
-
-            if (props.has("variant")) {
-                assertThat(type)
-                    .`as`("Apenas shortcut_shelf tem autorização para usar variant como densidade de itens (ADR-010)")
-                    .isEqualTo("shortcut_shelf")
-                assertThat(props.get("variant").asText())
-                    .isIn("compact", "regular")
+            if (props != null && props.has("variant")) {
+                val secId = sec.get("id")?.asText() ?: "sec_$i"
+                throw AssertionError("Section '$secId' possui 'variant', proibido por ADR-019")
             }
         }
     }

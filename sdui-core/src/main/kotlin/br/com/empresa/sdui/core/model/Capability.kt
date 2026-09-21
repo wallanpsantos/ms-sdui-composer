@@ -57,6 +57,7 @@ object MvpCatalog {
     const val SCHEMA_VERSION: String = "3"
     const val SURFACE_HOME: String = "home"
     const val SKELETON_HOME_DEFAULT: String = "home.default"
+    const val SKELETON_HOME_CARDS_FIRST: String = "home.cards_first"
     const val SKELETON_LAYOUT: String = "vertical_scroll"
 
     val TYPES: List<Capability> = listOf(
@@ -79,6 +80,18 @@ object MvpCatalog {
         "header", "shortcuts", "accounts", "cards", "offers", "coverage", "foryou",
     )
 
+    val SLOT_VOCABULARY: Set<String> = SLOT_ORDER.toSet()
+
+    val DEFAULT_ALLOWED_LAYOUTS: Map<String, List<SlotLayout>> = mapOf(
+        "header" to listOf(SlotLayout.FIXED),
+        "shortcuts" to listOf(SlotLayout.SHELF, SlotLayout.GRID),
+        "accounts" to listOf(SlotLayout.LIST, SlotLayout.FIXED),
+        "cards" to listOf(SlotLayout.LIST, SlotLayout.PAGER),
+        "offers" to listOf(SlotLayout.LIST, SlotLayout.PAGER),
+        "coverage" to listOf(SlotLayout.LIST, SlotLayout.SHELF),
+        "foryou" to listOf(SlotLayout.PAGER, SlotLayout.LIST),
+    )
+
     val REQUIRED_SLOTS: Set<String> = setOf("header", "accounts")
 
     val ALLOWED_ACTIONS: Set<String> = setOf("navigate", "open_bottom_sheet", "track", "noop")
@@ -89,11 +102,11 @@ object MvpCatalog {
         "width", "height", "radius", "rounded", "cornerRadius", "shadow",
         "orientation", "circle", "rectangle", "shimmer", "ripple", "haptic",
         "dp", "pt", "itemWidth", "itemHeight", "breakpoint", "formFactor",
-        "columns",
+        "columns", "componentType", "appearance", "presentation", "style", "size", "variant",
     )
 
     val PII_KEYS: Set<String> = setOf(
         "cpf", "pan", "cvv", "password", "senha", "token", "jwt", "secret",
-        "accountNumber", "agencia", "conta",
+        "accountNumber", "agencia", "conta", "pin", "otp", "passcode",
     )
 }

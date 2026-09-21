@@ -46,6 +46,7 @@ class HomeSeed(
     fun seedFromCanonicalFixture(fixtureJson: String) {
         seedCatalog()
         val skeleton = seedSkeleton()
+        seedCardsFirstSkeleton()
         val root = mapper.readTree(fixtureJson)
         seedIosCurrent(root, skeleton)
         seedIosLegacy()
@@ -87,6 +88,33 @@ class HomeSeed(
                     listOf("card_product"),
                     required = false
                 ),
+                SlotDefinition("offers", SlotLayout.LIST, "Crédito", 4, listOf("credit_offer"), required = false),
+                SlotDefinition("coverage", SlotLayout.LIST, "Seguros", 3, listOf("coverage_card"), required = false),
+                SlotDefinition("foryou", SlotLayout.PAGER, "Para você", 2, listOf("decision_card"), required = false),
+            ),
+            status = SpecStatus.PUBLISHED,
+        )
+        return skeletonStore.save(skeleton)
+    }
+
+    fun seedCardsFirstSkeleton(): Skeleton {
+        val skeleton = Skeleton(
+            skeletonId = MvpCatalog.SKELETON_HOME_CARDS_FIRST,
+            revision = 1,
+            surface = MvpCatalog.SURFACE_HOME,
+            layout = MvpCatalog.SKELETON_LAYOUT,
+            slots = listOf(
+                SlotDefinition("header", SlotLayout.FIXED, null, 1, listOf("top_bar"), required = true),
+                SlotDefinition("accounts", SlotLayout.LIST, "Conta", 1, listOf("account_card"), required = true),
+                SlotDefinition(
+                    "cards",
+                    SlotLayout.LIST,
+                    "Cartão de crédito",
+                    3,
+                    listOf("card_product"),
+                    required = false
+                ),
+                SlotDefinition("shortcuts", SlotLayout.GRID, null, 1, listOf("shortcut_shelf"), required = false),
                 SlotDefinition("offers", SlotLayout.LIST, "Crédito", 4, listOf("credit_offer"), required = false),
                 SlotDefinition("coverage", SlotLayout.LIST, "Seguros", 3, listOf("coverage_card"), required = false),
                 SlotDefinition("foryou", SlotLayout.PAGER, "Para você", 2, listOf("decision_card"), required = false),

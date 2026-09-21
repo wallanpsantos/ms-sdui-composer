@@ -42,16 +42,6 @@ Os ADRs fundamentais da pré-arquitetura (`docs/02-pre-arquitetura-ms-sdui-compo
 - **ADR-012:** Exclusão de coroutines e bibliotecas reativas em favor de Spring MVC + Virtual Threads. (`ACEITO`)
 - **ADR-013:** Transação de publish programática com `TransactionTemplate` (sem proxies AOP e sem anotações
   `@Transactional`). (`ACEITO`)
-- **ADR-015:** Escopo de uso do SDUI — critérios de elegibilidade e surfaces hostis. (`PROPOSTO`)
-  Arquivo: [`ADR-015-escopo-de-uso-do-sdui.md`](ADR-015-escopo-de-uso-do-sdui.md)
-- **ADR-016:** Rejeição da proposta `docs/05-importante-proposta-melhoria.md`. (`REJEITADO`)
-  Arquivo: [`ADR-016-rejeicao-da-proposta-docs-05.md`](ADR-016-rejeicao-da-proposta-docs-05.md)
-- **ADR-017:** Experimentação por revisão de spec. (`PROPOSTO`)
-  Arquivo: [`ADR-017-experimentacao-por-revisao-de-spec.md`](ADR-017-experimentacao-por-revisao-de-spec.md)
-- **ADR-018:** Montagem variável da surface — ordem e layout dos slots como dado versionado. (`PROPOSTO`)
-  Arquivo: [`ADR-018-montagem-variavel-da-surface.md`](ADR-018-montagem-variavel-da-surface.md)
-- **ADR-019:** Remoção de `variant` do `shortcut_shelf@1` antes da primeira release. (`PROPOSTO`)
-  Arquivo: [`ADR-019-remocao-de-variant-do-shortcut-shelf.md`](ADR-019-remocao-de-variant-do-shortcut-shelf.md)
 
 ## ADRs com arquivo próprio
 
@@ -59,3 +49,13 @@ Os ADRs fundamentais da pré-arquitetura (`docs/02-pre-arquitetura-ms-sdui-compo
   deliberada de retry, `Retry-After` com jitter, idade máxima do fallback, idempotência por reserva e
   observabilidade obrigatória de todo desfecho degradado. (`ACEITO`)
   Arquivo: [`ADR-014-politica-de-resiliencia-de-integracao.md`](ADR-014-politica-de-resiliencia-de-integracao.md)
+- **ADR-015:** Escopo de uso do SDUI — surfaces elegíveis e surfaces hostis. (`ACEITO`)
+  Arquivo: [`ADR-015-escopo-de-uso-do-sdui.md`](ADR-015-escopo-de-uso-do-sdui.md)
+- **ADR-016:** Rejeição da proposta `docs/05-importante-proposta-melhoria.md`. (`REJEITADO`)
+  Arquivo: [`ADR-016-rejeicao-da-proposta-docs-05.md`](ADR-016-rejeicao-da-proposta-docs-05.md)
+- **ADR-017:** Experimentação por revisão de spec. (`PROPOSTO — modelo reservado no Pointer`)
+  Arquivo: [`ADR-017-experimentacao-por-revisao-de-spec.md`](ADR-017-experimentacao-por-revisao-de-spec.md)
+- **ADR-018:** Montagem variável da surface — ordem e layout dos slots como dado versionado. (`ACEITO`)
+  Arquivo: [`ADR-018-montagem-variavel-da-surface.md`](ADR-018-montagem-variavel-da-surface.md)
+- **ADR-019:** Remoção de `variant` do `shortcut_shelf@1` antes da primeira release. (`ACEITO`)
+  Arquivo: [`ADR-019-remocao-de-variant-do-shortcut-shelf.md`](ADR-019-remocao-de-variant-do-shortcut-shelf.md)

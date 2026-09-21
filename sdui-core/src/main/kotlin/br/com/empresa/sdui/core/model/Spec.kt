@@ -64,6 +64,24 @@ data class Spec(
 }
 
 /**
+ * Braço de experimentacao (ADR-017): mapeia para uma revisao inteira de spec [specRevisionId].
+ */
+data class ExperimentArm(
+    val name: String,
+    val specRevisionId: String,
+    val weight: Int,
+)
+
+/**
+ * Configuracao de experimentacao associada ao Pointer (ADR-017).
+ */
+data class ExperimentConfig(
+    val id: String,
+    val endsAt: Instant,
+    val arms: List<ExperimentArm>,
+)
+
+/**
  * Qual revisao esta em vigor para uma surface, plataforma e canal.
  *
  * O unico estado mutavel da governanca, e por isso o ponto de rollback: [previousSpecRevisionId]
@@ -78,6 +96,7 @@ data class Pointer(
     val specRevisionId: String?,
     val previousSpecRevisionId: String?,
     val version: Long,
+    val experiment: ExperimentConfig? = null,
 )
 
 /**

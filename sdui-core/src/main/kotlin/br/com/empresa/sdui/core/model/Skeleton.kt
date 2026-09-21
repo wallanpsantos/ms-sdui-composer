@@ -14,6 +14,7 @@ data class SlotDefinition(
     val maxInstances: Int,
     val allowedTypes: List<String>,
     val required: Boolean,
+    val allowedLayouts: List<SlotLayout> = MvpCatalog.DEFAULT_ALLOWED_LAYOUTS[id] ?: listOf(layout),
 )
 
 /**

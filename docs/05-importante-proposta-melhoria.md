@@ -1,3 +1,6 @@
+> **Status: REJEITADO (ADR-016, 2026-09-21).** Registro histórico, não especificação.
+> As necessidades aproveitadas estão no ADR-015, no ADR-017 e no ADR-018.
+
 ## Visão geral
 
 Os dois artigos descrevem o mesmo padrão arquitetural — Server-Driven UI (SDUI) — com focos complementares: o texto de
