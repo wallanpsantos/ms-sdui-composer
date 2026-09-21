@@ -1,79 +1,142 @@
-# Mobile UI/UX e Design System — Guia de Referência Visual
+# Mobile UI/UX and Design System - Visual Reference Guide
 
-> Este documento estabelece o guia arquitetural de Mobile UI/UX e Design System baseado nas referê£ªncias visuais disponí£§veis neste diretó³¢¢rio.
+> **Objective:** This document establishes the Mobile UI/UX and Design System architectural guide based on visual references in `docs/images/`. It serves as the source of truth for the MS SDUI Composer Sections, Layouts, and Actions catalog.
+>
+> **Core principle:** The same Server-Driven UI mechanism can build screens from different domains (coffee, crypto, banking, ecommerce, delivery, logistics, fintech) using the **same Sections and Layouts catalog**.
 
-## Visã££o geral
+---
 
-Este documento documenta as interfaces de Mobile UI/UX que o backend SDUI deve ser capaz de montar via Server-Driven UI. Cada imagem representa um domí£§nio de produto diferente, mas todas sã££o compostas pelo **mesmo catá¡¢logo de Sections e Layouts**.
+## Fundamental SDUI Principles
 
-**Princí£§pios fundamentais:**
+1. **Backend decides what** (structure, content, order, actions); **client decides how** (native appearance, dark mode, typography, spacing).
+2. **Semantic Sections catalog** - Components named by product concept (`hero_banner`, `product_card`, `transaction_list`), not by generic layout (`Row`, `Column`).
+3. **Screen-independent Sections** - The same Section can appear in Home, Search, Detail without duplication.
+4. **Not "backend sends CSS"** - Server does not send color, typography, margin, padding, gap, dp/pt. This is client's native Design System.
 
-1. **Backend decide o quê** (estrutura, conteú‚do, ordem, açöµ£§es); cliente decide como (aparê£ªncia nativa).** [web:1]
-2. **Catá¡¢logo semâ£¢ntico de Sections** — componentes nomeados pelo conceito de produto (`hero_banner`, `product_card`, `transaction_list`), nã££o por layout gené©¢rico (`Row`, `Column`). [web:1][web:2]
-3. **Sections independentes de Screen** — a mesma Section pode aparecer em Home, Search, Detail sem duplicaç££o. [web:1][web:2]
-4. **Nã££o é "backend manda CSS"** — o servidor nã££o envia cor, tipografia, margin, padding, gap, width, height, rounded, dp/pt. Isso é Design System nativo do cliente. [web:1]
+---
 
-## Tabela de mapeamento global
+## Global Mapping Table
 
-| Imagem | Domí£§nio | Screens | Sections principais | Layout |
-|--------|---------|---------|---------------------|--------|
-| `coffee-app-wireframe-to-design-home.jpg` | Coffee Shop | home, menu, detail, cart | `hero_banner`, `category_grid`, `product_list`, `product_card`, `cart_summary`, `footer_cta` | `single_column` |
-| `coffee-app-all-screens-flow.jpg` | Coffee Shop | home, menu, detail, cart, checkout | `hero_banner`, `category_grid`, `product_list`, `promo_banner`, `cart_summary`, `footer_cta` | `single_column` |
-| `crypto-wallet-home-withdraw.jpg` | Crypto Wallet | home, withdraw | `balance_card`, `quick_action_grid`, `product_list`, `transaction_list`, `withdraw_form` | `single_column` |
-| `banking-app-home-cards-transactions.jpg` | Banking / Fintech | home | `account_list`, `quick_action_grid`, `transaction_list`, `insight_card` | `single_column` |
-| `finance-app-card-expenses-light-dark.jpg` | Finance (Cartã££o) | card_detail | `balance_card`, `transaction_list`, `insight_card`, `tag_pill` | `single_column` |
-| `fintech-onboarding-passcode-phone.jpg` | Fintech Onboarding | onboarding, setup_passcode | `onboarding_page`, `pagination_indicator`, `footer_cta`, `passcode_input` | `single_column` |
-| `ecommerce-fashion-catalog-detail-cart.jpg` | Ecommerce Fashion | catalog, product_detail, cart | `tag_pill`, `product_list`, `product_card`, `hero_banner`, `quick_action_grid`, `cart_summary`, `footer_cta` | `single_column` / `scrollable_grid` |
-| `food-delivery-pizza-home-categories.jpg` | Food Delivery | home, restaurant_menu, cart | `hero_banner`, `category_grid`, `product_list`, `promo_banner`, `cart_summary`, `footer_cta` | `single_column` |
-| `logistics-shipment-tracking-map.jpg` | Logistics / Tracking | shipment_tracking | `order_status_card`, `delivery_timeline`, `driver_card`, `chat_thread`, `chat_input` | `single_column` / `two_pane` |
-| `nubank-home-sections-comparison.jpg` | Fintech (Nubank) | home | `balance_card`, `quick_action_grid`, `transaction_list`, `product_list`, `insight_card` | `single_column` |
+| # | Image | Domain | Screens | Main Sections | Layout |
+|---|-------|---------|---------|---------------|--------|
+| 1 | `coffee-app-wireframe-to-design-home.jpg` | Coffee Shop | home, menu, detail, cart | `hero_banner`, `category_grid`, `product_list`, `product_card`, `cart_summary`, `footer_cta` | `single_column` |
+| 2 | `coffee-app-all-screens-flow.jpg` | Coffee Shop | home, menu, detail, cart, checkout | `hero_banner`, `category_grid`, `product_list`, `promo_banner`, `cart_summary`, `footer_cta` | `single_column` |
+| 3 | `crypto-wallet-home-withdraw.jpg` | Crypto Wallet | home, withdraw | `balance_card`, `quick_action_grid`, `product_list`, `transaction_list`, `withdraw_form` | `single_column` |
+| 4 | `banking-app-home-cards-transactions.jpg` | Banking / Fintech | home | `account_list`, `quick_action_grid`, `transaction_list`, `insight_card` | `single_column` |
+| 5 | `finance-app-card-expenses-light-dark.jpg` | Finance (Card) | card_detail | `balance_card`, `transaction_list`, `insight_card`, `tag_pill` | `single_column` |
+| 6 | `fintech-onboarding-passcode-phone.jpg` | Fintech Onboarding | onboarding, setup_passcode | `onboarding_page`, `pagination_indicator`, `footer_cta`, `passcode_input` | `single_column` |
+| 7 | `ecommerce-fashion-catalog-detail-cart.jpg` | Ecommerce Fashion | catalog, product_detail, cart | `tag_pill`, `product_list`, `product_card`, `hero_banner`, `quick_action_grid`, `cart_summary`, `footer_cta` | `single_column` / `scrollable_grid` |
+| 8 | `food-delivery-pizza-home-categories.jpg` | Food Delivery | home, restaurant_menu, cart | `hero_banner`, `category_grid`, `product_list`, `promo_banner`, `cart_summary`, `footer_cta` | `single_column` |
+| 9 | `logistics-shipment-tracking-map.jpg` | Logistics / Tracking | shipment_tracking | `order_status_card`, `delivery_timeline`, `driver_card`, `chat_thread`, `chat_input` | `single_column` / `two_pane` |
+| 10 | `nubank-home-sections-comparison.jpg` | Fintech (Nubank) | home | `balance_card`, `quick_action_grid`, `transaction_list`, `product_list`, `insight_card` | `single_column` |
 
-## Catá¡¢logo de Sections por domí£§nio
+---
 
-| Domí£§nio | Sections |
-|----------|----------||
-| **Coffee Shop** | `hero_banner`, `category_grid`, `category_pill`, `product_list`, `product_card`, `promo_banner`, `cart_summary`, `footer_cta` |
-| **Crypto / Banking** | `balance_card`, `account_list`, `quick_action_grid`, `quick_action`, `transaction_list`, `transaction_row`, `insight_card`, `withdraw_form` |
-| **Ecommerce** | `tag_pill`, `product_list`, `product_card`, `hero_banner`, `quick_action_grid`, `cart_summary`, `footer_cta` |
-| **Food Delivery** | `hero_banner`, `category_grid`, `product_list`, `promo_banner`, `cart_summary`, `footer_cta` |
-| **Logistics** | `order_status_card`, `delivery_timeline`, `timeline_step`, `driver_card`, `chat_thread`, `chat_message`, `chat_input` |
-| **Fintech Onboarding** | `onboarding_page`, `pagination_indicator`, `footer_cta`, `passcode_input` |
+## Sections Catalog by Domain
 
-## Layouts de Screen
+### Coffee Shop
+- `hero_banner` - Top hero with daily promotion
+- `category_grid` - Categories grid (Espresso, Latte, Pastries)
+- `category_pill` - Individual category pill
+- `product_list` - Vertical or horizontal product list
+- `product_card` - Individual product card (name, price, image)
+- `promo_banner` - Seasonal promotional banner
+- `cart_summary` - Cart summary (itemCount, subtotal, total)
+- `footer_cta` - Footer CTA (e.g., "Become a member")
 
-| Layout | Descriç££o | Placements | Uso tí­‚pico |
-|--------|-----------|------------|------------||
-| `single_column` | Uma coluna vertical, scroll | `header`, `main`, `footer` | Home, feed, detail, onboarding |
-| `two_pane` | Duas colunas (esq/dir) | `left`, `right` | Detail + preview, tracking (mapa + chat) |
-| `tabbed` | ConteÚ¢do com tabs | `tabs`, `main` | Perfil, configuraçµ£μes |
-| `scrollable_grid` | Grid rolá¡¢vel (2/3/4 colunas) | `header`, `grid`, `footer` | Menu, categorias, produtos |
+### Crypto / Banking
+- `balance_card` - Balance card (label, amount, currency)
+- `account_list` - Accounts list (checking, savings, credit)
+- `quick_action_grid` - Quick actions grid (Transfer, Pay, Pix, Invest)
+- `quick_action` - Individual action (label, iconUrl)
+- `transaction_list` - Transactions list
+- `transaction_row` - Individual transaction row
+- `insight_card` - Spending insight (spending by category, goal)
+- `withdraw_form` - Withdraw form (amount, address, network)
 
-## Actions
+### Ecommerce Fashion
+- `tag_pill` - Filter pill (category, size, color)
+- `product_list` - Product grid or list
+- `product_card` - Product card (image, name, price, reviews)
+- `hero_banner` - Hero with product images
+- `quick_action_grid` - Sizes, colors, add-ons
+- `cart_summary` - Cart summary
+- `footer_cta` - CTA (Add to cart, Buy now, Checkout)
 
-| Action Type | Uso |
-|-------------|-----||
-| `navigate` | Navegar para outra tela |
-| `openSheet` | Abrir modal/sheet |
-| `callApi` | Chamar API (checkout, enviar mensagem) |
-| `trackEvent` | Analytics |
-| `completeOnboarding` | Finalizar onboarding |
-| `addToCart` | Adicionar ao carrinho |
+### Food Delivery
+- `hero_banner` - Hero with main promotion
+- `category_grid` - Categories grid (Pizzas, Drinks, Sides)
+- `product_list` - Restaurants or menu items list
+- `promo_banner` - Free shipping, coupon banner
+- `cart_summary` - Cart summary
+- `footer_cta` - CTA (Checkout)
 
-## Prí£¢ximos passos
+### Logistics / Tracking
+- `order_status_card` - Order status (statusLabel, estimatedTime)
+- `delivery_timeline` - Timeline of stages (confirmed, in transit, delivered)
+- `timeline_step` - Individual timeline step
+- `driver_card` - Driver card (name, rating, vehicle, photo)
+- `chat_thread` - Chat thread with messages
+- `chat_message` - Individual message (text, timestamp, from)
+- `chat_input` - Message input (placeholder, sendLabel)
 
-1. Implementar catá¡¢logo de Sections em Java 25 (Records, sealed classes).
-2. Implementar Layouts (`single_column`, `two_pane`, `tabbed`, `scrollable_grid`).
-3. Persistir templates em MongoDB (coleç££o `screen_templates`).
-4. Implementar composer (mé©¢todo puro que caminha template, chama repositó³¢¢rios, emite Sections).
-5. Instrumentar observabilidade (logar tipo de Section, schema version, app version).
+### Fintech Onboarding
+- `onboarding_page` - Onboarding page (title, body, imageUrl, ctaLabel)
+- `pagination_indicator` - Page indicator (dots)
+- `footer_cta` - CTA (Skip, Next, Get started)
+- `passcode_input` - Passcode input (4 or 6 digits)
 
-**Referê£ªncias:**
+---
 
-- [Airbnb Ghost Platform](https://medium.com/airbnb-engineering/a-deep-dive-into-airbnbs-server-driven-ui-system-842244c5f5) [web:2]
-- [Server-Driven UI: Ship mobile UI without app-store reviews](https://joudwawad.medium.com/how-airbnb-netflix-and-lyft-ship-ui-without-touching-the-app-store-49c9f64f5e2b) [web:1]
+## Screen Layouts
 
-## Histó³¢¢rico
+| Layout | Description | Placements | Typical Use |
+|--------|-------------|------------|-------------|
+| `single_column` | Single vertical column with scroll | `header`, `main`, `footer` | Home, feed, detail, onboarding |
+| `two_pane` | Two columns (left/right) | `left`, `right` | Detail + preview, tracking (map + chat) |
+| `tabbed` | Content with tabs on top or bottom | `tabs`, `main` | Profile, settings, categories |
+| `scrollable_grid` | Scrollable grid (2/3/4 columns) | `header`, `grid`, `footer` | Menu, categories, products |
 
-| Versã££o | Data | Autor | Mudanç£§as |
-|---------|------|-------|-----------||
-| 1.0 | 2026-09-20 | Wallan Pereira | Criaç££o do documento. |
+**Note:** Backend sends structure (which layout, which sections, in what order); client decides appearance (dark mode, Dynamic Type, platform conventions).
+
+---
+
+## Actions (User Intentions)
+
+Backend defines **when** to trigger actions; client routes actions to native handlers.
+
+| Action Type | Main Fields | Use |
+|-------------|-------------|-----|
+| `navigate` | `route`, `params` (map) | Navigate to another screen |
+| `openSheet` | `sheetId`, `params` | Open modal/sheet |
+| `callApi` | `endpoint`, `method`, `payload` (optional) | Call API (checkout, send message, withdraw) |
+| `trackEvent` | `eventName`, `properties` (map) | Analytics (view_product, add_to_cart, checkout_started) |
+| `completeOnboarding` | - | Complete onboarding |
+| `addToCart` | `productId`, `quantity` | Add to cart |
+
+---
+
+## Next Implementation Steps
+
+1. **Implement Sections catalog in Java 25** - DTOs using Records and sealed classes for each type listed.
+2. **Implement Layouts** - `single_column`, `two_pane`, `tabbed`, `scrollable_grid` with placements support.
+3. **Persist templates in MongoDB** - `screen_templates` collection with JSON documents like examples above.
+4. **Implement composer** - Pure method that walks template, calls domain repositories, emits Sections and Layout.
+5. **Instrument observability** - Log Section type, schema version, app version on each render; metrics for `compose.hit/miss`, `section.*`, `payload.bytes`.
+
+---
+
+## References
+
+- **Airbnb Ghost Platform** - [A Deep Dive into Airbnb's Server-Driven UI System](https://medium.com/airbnb-engineering/a-deep-dive-into-airbnbs-server-driven-ui-system-842244c5f5)
+- **Joud Awad** - [Server-Driven UI: Ship mobile UI without app-store reviews](https://joudwawad.medium.com/how-airbnb-netflix-and-lyft-ship-ui-without-touching-the-app-store-49c9f64f5e2b)
+
+---
+
+## Revision History
+
+| Version | Date | Author | Changes |
+|---------|------|--------|---------|
+| 1.0 | 2026-09-20 | Wallan Pereira | Initial document creation. |
+| 1.1 | 2026-09-20 | Wallan Pereira | Rewritten to improve readability and organization. |
+| 1.2 | 2026-09-20 | Wallan Pereira | Fixed encoding - removed special characters (ASCII only). |
