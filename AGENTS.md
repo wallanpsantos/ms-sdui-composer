@@ -128,14 +128,15 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
   matriz de capabilities e canary Android). Fixture `contrato-sdui-home-android-proposto.json` aguarda definição formal
   da equipe Android — conteúdo não inferido a partir do iOS.
 - **Pós-H18:** Auditoria multidimensional (`code-review-and-quality`) e auditoria de performance
-  (`performance-optimization`) realizadas e consolidadas. 7 correções de qualidade e resiliência aplicadas.
+  (`performance-optimization`) realizadas e consolidadas. 7 correções de qualidade e 11 otimizações de performance,
+  concorrência e resiliência aplicadas (Seção 21).
 
 ## 11. Lacunas Documentais Registradas
 
-- ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/02-pre-arquitetura-ms-sdui-composer.md`. Arquivos
-  individuais
-  `docs/adr/ADR-XXX-*.md` ainda não foram extraídos; o diretório tem só `README.md`.
-- Presente: `docs/README.md` — índice sequencial e catálogo da documentação em 3 arquivos canônicos (`01`, `02`, `03`).
+- ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/02-pre-arquitetura-ms-sdui-composer.md`. O ADR-014
+  (Política de Resiliência) possui arquivo dedicado em `docs/adr/ADR-014-politica-de-resiliencia-de-integracao.md`.
+- Presente: `docs/README.md` — índice sequencial e catálogo da documentação em 4 arquivos canônicos (`01`, `02`, `03`,
+  `04`).
 - Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em
   `sdui-contract/src/test/resources/fixtures/`). Fonte de verdade do contrato Home iOS.
 - Presente: `docs/03-memoria-projeto-ms-sdui-composer.md` — memória operacional e arquitetural consolidada do serviço.
@@ -144,7 +145,7 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 - Ausente: `contrato-sdui-home-android-proposto.json` (H14 pendente de fornecimento pela equipe mobile).
 - Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`. A skill ausente não
   bloqueia o que já está especificado nas histórias, no plano, na pré-arquitetura, nos ADRs e no contrato.
-- Presente: `docs/historias/README.md` — backlog de implementação do MVP (`H01`–`H18`).
+- Presente: `docs/historias/README.md` — catálogo das histórias concluídas do MVP (`H00`–`H18`).
 
 ## 12. Decisões Provisórias
 
@@ -302,3 +303,67 @@ Regras inegociáveis do ciclo de resiliência de integração. O ADR completo es
    Quando Mongo e Redis forem cabeados, o timeout de socket do driver é obrigatório — e não um
    parâmetro `Duration` decorativo na assinatura das portas.
 
+## 21. Diretrizes de Performance, Concorrência e Resiliência (Pós-Auditoria de Performance)
+
+Regras inegociáveis consolidadas no ciclo de auditoria de concorrência e otimização de performance:
+
+1. **Liberação Ativa de Semáforo sob Timeout no Fan-out:** Em `HydrationCoordinator`, tarefas assíncronas
+   despachadas em Virtual Threads devem rastrear a thread em execução (`taskThread`). Quando `orTimeout`
+   expira, `taskThread.interrupt()` deve ser acionado para cancelar bloqueios de I/O e assegurar que o
+   permit do semáforo de fan-out seja liberado no `finally`, impedindo o esgotamento cascateado do bulkhead.
+2. **Isolamento de Observabilidade no Pipeline Assíncrono:** Registros de métricas dentro de handlers
+   assíncronos (como `.handle` em `CompletableFuture`) devem ser protegidos com `runCatching { }`. Falhas do
+   Micrometer ou registradores de métricas nunca podem vazar como `CompletionException` não tratada no `join()`,
+   garantindo que a resposta siga a escada de fallback (ADR-007) sem gerar HTTP 500 indevido.
+3. **Poda e Retenção em Stores em Memória:**
+    - `InMemoryProjectionStore` deve executar rotina periódica de poda (`prune()`) com teto `maxEntries = 10_000`
+      para expurgar projeções expiradas não consultadas.
+    - `InMemoryAuditLogStore` opera como anel FIFO com teto de retenção (`maxEvents = 2_000`), evitando
+      acúmulo indefinido de eventos no heap durante a execução em memória.
+4. **Propriedades Imutáveis Pré-calculadas no Domínio:**
+    - `Section` pré-calcula `val capability: Capability = Capability(type, typeVersion)` no construtor.
+      Proibido instanciar novos objetos `Capability` a cada section no hot path do `Filter.filter`.
+    - `Skeleton` pré-calcula `val slotOrder: Map<String, Int>` e `val requiredSlotIds: Set<String>`, eliminando
+      recriação de mapas e listas intermediárias por requisição.
+5. **Lookups O (1) em Enums de Protocolo:**
+    - `SlotLayout.parse` e `ActorRole.parse` devem utilizar mapas indexados estáticos pré-computados (`BY_WIRE` e
+      `BY_NAME`), eliminando alocações repetidas de strings e varreduras lineares $O (N)$.
+6. **Constantes Estáticas e Limite de Recursão:**
+    - `ScreenResponseMapper` e `JsonMaps` mantêm `BRASIL_OFFSET = ZoneOffset.of("-03:00")` e teto de
+      profundidade `depth > 32` em `toNode()`, blindando a JVM contra `StackOverflowError` sob payloads profundos.
+7. **Limites Rígidos em Entradas:**
+    - Expressões regulares de `BUILD` e `SCHEMA` em `Negotiate.kt` devem delimitar `^\d{1,10}$`.
+    - `Capability.parseList` aplica `.take(MAX_HEADER_CAPABILITIES * 2)` logo na sequência para blindar o
+      processamento contra cabeçalhos com milhares de itens duplicados.
+8. **Interrupção Antecipada em Validações:**
+    - `PropWalk.referencesForeignSection` deve interromper a busca (`found = true`) imediatamente ao detectar
+      a primeira violação, poupando travessias profundas desnecessárias em specs inválidos.
+
+## 22. Diretrizes de Observabilidade e Instrumentação
+
+Regras consolidadas no ciclo de observabilidade e instrumentação:
+
+1. **Correlation ID e MDC no SLF4J:** Requisições capturam `X-Request-Id` (ou geram UUID v4) via `CorrelationIdFilter`,
+   alimentando a chave `requestId` no MDC do SLF4J com limpeza estrita no `finally`.
+2. **Preservação do Contrato de Headers:** O servidor **nunca** emite cabeçalhos customizados com prefixo `X-` na
+   resposta de `GET /v1/surfaces/home` (RFC 6648 e conformidade com `HomeComposeContractWebTest`).
+3. **Sincronização de Contexto de Diagnóstico:** `ComposeTraceContext` sincroniza os campos técnicos (`surface`,
+   `platform`,
+   `schemaVersion`) diretamente no MDC do SLF4J no `open()`, limpando-os no `close()`.
+4. **Telemetria no Plano Administrativo:** Mutações no `/admin/v1/**` (criação de rascunho, abertura de publicação,
+   aprovação,
+   rejeição e rollback) emitem métricas Micrometer (`admin.*`) e logs estruturados contendo ator e motivo, sem PII.
+5. **Structured Logging (ECS JSON):** O console emite logs estruturados no padrão Elastic Common Schema (ECS),
+   garantindo indexação imediata de campos de MDC e rastreamento ponta a ponta em plataformas de telemetria.
+6. **Propagação de MDC no Fan-out (`MdcPropagatingExecutor`):** Virtual threads assíncronas de hidratação recebem o
+   contexto MDC herdado da thread principal através de executor decorador em `adapters`, garantindo continuidade de
+   rastreabilidade sem violar a pureza do `sdui-orchestrator`.
+7. **Ponto de Entrada Carimbado (`entryPoint` no MDC):** Requisições e processos carimbam `entryPoint` (`home`,
+   `admin`, `management`, `seed`) no MDC, eliminando diagnósticos por eliminação em sinks de logs compartilhados.
+8. **Histogram Buckets no Prometheus:** Timers críticos (`compose.duration` e `section.hydrate.ms`) possuem
+   `percentiles-histogram: true` configurado no `application.yaml`, viabilizando alertas e painéis de P95/P99
+   sobre `compose_duration_seconds_bucket`.
+9. **Gauges de Recursos USE:** `rate_limiter.resident_keys` e `compose.bulkhead.available_permits` são expostos
+   como gauges instantâneos no Micrometer via `MeterBinder`, monitorando saturação e utilização de recursos internos.
+10. **Proteção contra Cardinalidade em Métricas:** Nenhuma métrica administrativa ou de hot path interpola parâmetros
+    arbitrários de path em tags (ex: `admin.skeleton.upsert` não tagueia `skeletonId`, confinado ao log estruturado).

@@ -2,8 +2,7 @@
 
 Estas histórias são a especificação do que o código produtivo deve realizar.
 
-- **H00:** concluída (contrato e fixture canônicos).
-- **H01–H18:** implementação direta e completa. São o backlog de código a escrever agora.
+- **H00–H18:** concluídas no servidor com Quality Gate APROVADO (PASS) e suíte de testes íntegra.
 
 As seções *Dependências* e *Ordem sugerida* descrevem ordem de composição do código (Negotiate existe antes de Filter;
 Mongo existe antes do seed). Não são gates de build, de testes executados nem de ciclo de papéis.

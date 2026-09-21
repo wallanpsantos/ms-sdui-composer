@@ -21,4 +21,5 @@ Os documentos raiz estão numerados sequencialmente refletindo o ciclo de vida d
 - [`adr/`](adr/README.md) — Registros de Decisões Arquiteturais formais (ADRs).
 - [`artifacts/`](artifacts/README.md) — Fixtures canônicas de contrato (JSON) para validação de round-trip.
 - [`historias/`](historias/README.md) — Backlog e especificações de histórias de desenvolvimento (`H00` a `H18`).
-- [`runbooks/`](runbooks/) — Procedimentos operacionais para incidentes e rollback (canary iOS e Android).
+- [`runbooks/`](runbooks/README.md) — Procedimentos operacionais para incidentes e rollback (canary iOS e Android) e
+  contrato de retry.

@@ -18,6 +18,15 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        compose.duration: true
+        section.hydrate.ms: true
+
+logging:
+  structured:
+    format:
+      console: ecs
 
 sdui:
   seed-ios: true

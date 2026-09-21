@@ -26,17 +26,26 @@ object Filter {
         effectiveCaps: Set<Capability>,
     ): FilterResult {
         val slotOrder = skeleton.slotOrder
-        val (supported, unsupported) = sections.partition { it.capability in effectiveCaps }
-        val ordered = supported.sortedBy { slotOrder[it.slot] ?: Int.MAX_VALUE }
-        val omitted = unsupported.map { section ->
-            OmittedSection(
-                id = section.id,
-                slot = section.slot,
-                type = section.type,
-                typeVersion = section.typeVersion,
-                reason = OmittedReason.UNSUPPORTED_TYPE,
-            )
+        val supported = ArrayList<Section>(sections.size)
+        var omitted: MutableList<OmittedSection>? = null
+
+        for (section in sections) {
+            if (section.capability in effectiveCaps) {
+                supported.add(section)
+            } else {
+                if (omitted == null) omitted = ArrayList(2)
+                omitted.add(
+                    OmittedSection(
+                        id = section.id,
+                        slot = section.slot,
+                        type = section.type,
+                        typeVersion = section.typeVersion,
+                        reason = OmittedReason.UNSUPPORTED_TYPE,
+                    ),
+                )
+            }
         }
-        return FilterResult(ordered, omitted)
+        supported.sortBy { slotOrder[it.slot] ?: Int.MAX_VALUE }
+        return FilterResult(supported, omitted ?: emptyList())
     }
 }

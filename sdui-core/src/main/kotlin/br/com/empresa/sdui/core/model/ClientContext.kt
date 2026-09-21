@@ -31,6 +31,7 @@ data class ClientContext(
     val apiVersion: String,
     val headerCapabilities: List<Capability>,
     val channelHint: Channel = Channel.STABLE,
+    val parsedSchemaVersion: SemVer = SemVer.parse(schemaVersion) ?: SemVer(3, 0, 0),
 )
 
 /** Um header de negociacao recusado, com o motivo. Vira detail da resposta 400. */
