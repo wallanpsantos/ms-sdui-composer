@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: ms-sdui-composer
+  threads:
+    virtual:
+      enabled: true
+server:
+  port: 8080
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        compose.duration: true
+        section.hydrate.ms: true
+
+logging:
+  structured:
+    format:
+      console: ecs
+
+sdui:
+  seed-ios: true
+  rate-limit-capacity: 10000
+  rate-limit-refill-per-second: 10000
+  rate-limit-max-keys: 100000
+  tree-ttl-seconds: 60
+  tree-cache-max-entries: 10000
+  hydration-timeout-ms: 80
+  hydration-fanout: 8
+  # Orcamento da requisicao e as esperas que precisam caber dentro dele (ADR-014).
+  # O orcamento limita espera, nunca trabalho ja iniciado.
+  request-budget-ms: 1000
+  singleflight-timeout-ms: 150
+  read-bulkhead-permits: 32
+  read-bulkhead-wait-ms: 50
+  max-fallback-age-seconds: 86400
+  idempotency-ttl-seconds: 86400
+  idempotency-max-keys: 10000
+  retry-after-seconds: 5
+  rate-limit-retry-after-seconds: 2
+  canary-ios-builds: [ ]
+  canary-android-builds: [ ]

@@ -1,0 +1,436 @@
+{
+  "envelope": {
+    "surface": "home",
+    "platform": "ios",
+    "schemaVersion": "3",
+    "specRevisionId": "rev_01K8HOMECARDSFIRST",
+    "skeletonId": "home.cards_first",
+    "skeletonHash": "sha256:7c2b0e1a9d4f6a8c3e5b1d0f2a4c6e8b",
+    "etag": "W/\"rev_01K8HOMECARDSFIRST-ios-3-cardsfirst\"",
+    "generatedAt": "2026-09-11T11:25:00-03:00",
+    "locale": "pt-BR",
+    "channel": "stable",
+    "fallback": false,
+    "fallbackReason": "none",
+    "omitted": [],
+    "client": {
+      "platform": "ios",
+      "appVersion": "8.14.2",
+      "build": "81420",
+      "osVersion": "18.1",
+      "schemaVersionRequested": "3"
+    },
+    "targeting": {
+      "platform": "ios",
+      "appVersionMin": "8.10.0",
+      "appVersionMax": "8.19.99",
+      "osVersionMin": "16.0",
+      "schemaVersion": "3",
+      "band": "current"
+    },
+    "analytics": {
+      "event": "sdui_home_composed",
+      "surface": "home",
+      "platform": "ios",
+      "experience": "home_ios_cards_first",
+      "schemaVersion": "3",
+      "specRevisionId": "rev_01K8HOMECARDSFIRST",
+      "sectionCount": 8,
+      "fallback": false
+    }
+  },
+  "skeleton": {
+    "id": "home.cards_first",
+    "layout": "vertical_scroll",
+    "slots": [
+      {
+        "id": "header",
+        "layout": "fixed"
+      },
+      {
+        "id": "accounts",
+        "layout": "list",
+        "title": "Conta"
+      },
+      {
+        "id": "cards",
+        "layout": "list",
+        "title": "Cartão de crédito"
+      },
+      {
+        "id": "shortcuts",
+        "layout": "grid"
+      },
+      {
+        "id": "offers",
+        "layout": "list",
+        "title": "Crédito"
+      },
+      {
+        "id": "coverage",
+        "layout": "list",
+        "title": "Seguros"
+      },
+      {
+        "id": "foryou",
+        "layout": "pager",
+        "title": "Para você"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "sec_header_1",
+      "slot": "header",
+      "type": "top_bar",
+      "typeVersion": 1,
+      "layout": "fixed",
+      "props": {
+        "greetingName": "Mariana Silva",
+        "avatarUrl": "https://cdn.example-allowlist.com/avatars/usr_9f3a.jpg",
+        "loyaltyLabel": "53.500 pontos",
+        "primaryActionLabel": "SOS"
+      },
+      "actions": [
+        {
+          "id": "act_sos",
+          "type": "navigate",
+          "label": "SOS",
+          "payload": {
+            "route": "app://assistance/sos"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "top_bar",
+        "componentVersion": 1,
+        "slot": "header",
+        "sectionId": "sec_header_1",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    },
+    {
+      "id": "sec_account_1",
+      "slot": "accounts",
+      "type": "account_card",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "title": "Conta",
+        "concealable": true,
+        "concealed": true,
+        "rows": [
+          {
+            "id": "row_balance",
+            "label": "Saldo em conta",
+            "valueDisplay": "R$ ••••••",
+            "valueDisplayRevealed": "R$ 5.289,38",
+            "concealable": true
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_acc_details",
+          "type": "navigate",
+          "label": "Ver extrato",
+          "payload": {
+            "route": "app://account/statement"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "account_card",
+        "componentVersion": 1,
+        "slot": "accounts",
+        "sectionId": "sec_account_1",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    },
+    {
+      "id": "sec_card_1",
+      "slot": "cards",
+      "type": "card_product",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "brandLabel": "Mastercard Black",
+        "last4": "8821",
+        "rows": [
+          {
+            "id": "row_invoice",
+            "label": "Fatura atual",
+            "valueDisplay": "R$ 3.412,90",
+            "valueDisplayRevealed": "R$ 3.412,90",
+            "concealable": false
+          },
+          {
+            "id": "row_limit",
+            "label": "Limite disponível",
+            "valueDisplay": "R$ 16.587,10",
+            "valueDisplayRevealed": "R$ 16.587,10",
+            "concealable": true
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_card_invoice",
+          "type": "navigate",
+          "label": "Pagar fatura",
+          "payload": {
+            "route": "app://cards/8821/invoice"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "card_product",
+        "componentVersion": 1,
+        "slot": "cards",
+        "sectionId": "sec_card_1",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    },
+    {
+      "id": "sec_card_2",
+      "slot": "cards",
+      "type": "card_product",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "brandLabel": "Visa Platinum",
+        "last4": "1044",
+        "rows": [
+          {
+            "id": "row_invoice_visa",
+            "label": "Fatura atual",
+            "valueDisplay": "R$ 840,00",
+            "valueDisplayRevealed": "R$ 840,00",
+            "concealable": false
+          },
+          {
+            "id": "row_limit_visa",
+            "label": "Limite disponível",
+            "valueDisplay": "R$ 4.160,00",
+            "valueDisplayRevealed": "R$ 4.160,00",
+            "concealable": true
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_card_visa",
+          "type": "navigate",
+          "label": "Ver cartão",
+          "payload": {
+            "route": "app://cards/1044"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "card_product",
+        "componentVersion": 1,
+        "slot": "cards",
+        "sectionId": "sec_card_2",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    },
+    {
+      "id": "sec_shortcuts_1",
+      "slot": "shortcuts",
+      "type": "shortcut_shelf",
+      "typeVersion": 1,
+      "layout": "grid",
+      "props": {
+        "items": [
+          {
+            "id": "sc_pix",
+            "label": "Pix",
+            "icon": "icon.pix",
+            "selected": false,
+            "actionId": "act_pix"
+          },
+          {
+            "id": "sc_pagar",
+            "label": "Pagar",
+            "icon": "icon.barcode",
+            "selected": false,
+            "actionId": "act_pay"
+          },
+          {
+            "id": "sc_transferir",
+            "label": "Transferir",
+            "icon": "icon.transfer",
+            "selected": false,
+            "actionId": "act_transfer"
+          },
+          {
+            "id": "sc_credito",
+            "label": "Crédito",
+            "icon": "icon.credit",
+            "selected": true,
+            "actionId": "act_sc_credito"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_pix",
+          "type": "navigate",
+          "label": "Pix",
+          "payload": {
+            "route": "app://pix"
+          }
+        },
+        {
+          "id": "act_pay",
+          "type": "navigate",
+          "label": "Pagar",
+          "payload": {
+            "route": "app://payments"
+          }
+        },
+        {
+          "id": "act_transfer",
+          "type": "navigate",
+          "label": "Transferir",
+          "payload": {
+            "route": "app://transfer"
+          }
+        },
+        {
+          "id": "act_sc_credito",
+          "type": "navigate",
+          "label": "Crédito",
+          "payload": {
+            "route": "app://credit"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "shortcut_shelf",
+        "componentVersion": 1,
+        "slot": "shortcuts",
+        "sectionId": "sec_shortcuts_1",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    },
+    {
+      "id": "sec_offer_1",
+      "slot": "offers",
+      "type": "credit_offer",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "headlineDisplay": "Empréstimo pré-aprovado",
+        "subtitle": "Até R$ 25.000 com taxa a partir de 1,89% a.m.",
+        "primaryLabel": "Simular empréstimo",
+        "secondaryLabel": "Ver detalhes"
+      },
+      "actions": [
+        {
+          "id": "act_simular_emprestimo",
+          "type": "navigate",
+          "label": "Simular empréstimo",
+          "payload": {
+            "route": "app://credit/loan/simulate"
+          }
+        },
+        {
+          "id": "act_sheet_offer",
+          "type": "open_bottom_sheet",
+          "label": "Ver detalhes",
+          "payload": {
+            "sheet": "sheet_credit_terms"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "credit_offer",
+        "componentVersion": 1,
+        "slot": "offers",
+        "sectionId": "sec_offer_1",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    },
+    {
+      "id": "sec_coverage_1",
+      "slot": "coverage",
+      "type": "coverage_card",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "title": "Seguro Vida Individual",
+        "assetLabel": "Apólice ativa",
+        "rows": [
+          {
+            "id": "row_coverage_capital",
+            "label": "Capital segurado",
+            "valueDisplay": "R$ 300.000,00",
+            "valueNorm": "BRL 300000.00"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_coverage_view",
+          "type": "navigate",
+          "label": "Acessar apólice",
+          "payload": {
+            "route": "app://insurance/life/current"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "coverage_card",
+        "componentVersion": 1,
+        "slot": "coverage",
+        "sectionId": "sec_coverage_1",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    },
+    {
+      "id": "sec_foryou_1",
+      "slot": "foryou",
+      "type": "decision_card",
+      "typeVersion": 1,
+      "layout": "pager",
+      "props": {
+        "kicker": "Aviso importante",
+        "body": "Seu informe de rendimentos para o IRPF já está disponível para consulta e download.",
+        "rejectLabel": "Lembrar mais tarde",
+        "acceptLabel": "Baixar informe"
+      },
+      "actions": [
+        {
+          "id": "act_foryou_accept",
+          "type": "navigate",
+          "label": "Baixar informe",
+          "payload": {
+            "route": "app://documents/irpf/2026"
+          }
+        },
+        {
+          "id": "act_foryou_reject",
+          "type": "noop",
+          "label": "Lembrar mais tarde"
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "decision_card",
+        "componentVersion": 1,
+        "slot": "foryou",
+        "sectionId": "sec_foryou_1",
+        "specRevisionId": "rev_01K8HOMECARDSFIRST"
+      }
+    }
+  ]
+}

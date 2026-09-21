@@ -1,0 +1,33 @@
+version: 2
+
+updates:
+  # Dependências Gradle: agrupa minor/patch para evitar um PR por biblioteca.
+  # Versões gerenciadas pelo BOM do Spring Boot não aparecem aqui (não são fixadas no catálogo).
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      gradle-minor-patch:
+        update-types: [ minor, patch ]
+
+  # Actions: agrupa tudo num único PR semanal.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns: [ '*' ]
+
+  # Imagens base do Dockerfile (eclipse-temurin).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
