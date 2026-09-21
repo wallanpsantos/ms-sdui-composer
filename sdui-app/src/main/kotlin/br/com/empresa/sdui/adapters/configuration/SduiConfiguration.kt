@@ -14,6 +14,7 @@ import br.com.empresa.sdui.adapters.memory.InMemorySkeletonStore
 import br.com.empresa.sdui.adapters.memory.InMemorySpecCache
 import br.com.empresa.sdui.adapters.memory.InMemorySpecStore
 import br.com.empresa.sdui.adapters.memory.InMemoryTransactionalUnitOfWork
+import br.com.empresa.sdui.adapters.observability.MdcPropagatingExecutor
 import br.com.empresa.sdui.adapters.observability.MicrometerMetricsRecorder
 import br.com.empresa.sdui.adapters.observability.NoOpMetricsRecorder
 import br.com.empresa.sdui.adapters.seed.HomeSeed
@@ -51,7 +52,6 @@ import br.com.empresa.sdui.orchestrator.port.outbound.SkeletonStore
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecCache
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
 import br.com.empresa.sdui.orchestrator.port.outbound.TransactionalUnitOfWork
-import br.com.empresa.sdui.adapters.observability.MdcPropagatingExecutor
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.binder.MeterBinder

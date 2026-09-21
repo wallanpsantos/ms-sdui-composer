@@ -4,13 +4,13 @@ package br.com.empresa.sdui.api
 
 import br.com.empresa.sdui.SduiAppTestConfiguration
 import br.com.empresa.sdui.api.http.CorrelationIdFilter
+import jakarta.servlet.FilterChain
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.slf4j.MDC
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
-import jakarta.servlet.FilterChain
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.test.web.servlet.MockMvc

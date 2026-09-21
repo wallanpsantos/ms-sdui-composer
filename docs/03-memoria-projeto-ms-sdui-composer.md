@@ -136,10 +136,12 @@ Durante a revisão técnica multidimensional do MVP (`H00` a `H18`), foram sanad
 18. **Histogram Buckets no Prometheus (`application.yaml`):** Habilitação de `percentiles-histogram` para timers
     críticos (`compose.duration` e `section.hydrate.ms`), viabilizando o cálculo de percentis P95/P99 no Prometheus.
 19. **Propagação de MDC no Fan-out (`MdcPropagatingExecutor`):** Virtual threads assíncronas de hidratação recebem o
-    contexto MDC herdado da thread principal via executor decorador em `adapters`, garantindo correlação sem quebrar a pureza
+    contexto MDC herdado da thread principal via executor decorador em `adapters`, garantindo correlação sem quebrar a
+    pureza
     do `sdui-orchestrator`.
 20. **Carimbo de Ponto de Entrada (`entryPoint` no MDC):** Requisições e tarefas de background carimbam `entryPoint`
-    (`home`, `admin`, `management`, `seed`) no MDC, eliminando diagnósticos por eliminação em logs estruturados compartilhados.
+    (`home`, `admin`, `management`, `seed`) no MDC, eliminando diagnósticos por eliminação em logs estruturados
+    compartilhados.
 21. **Gauges de Recursos USE (`MeterBinder`):** Exposição contínua da saturação de memória do `TokenBucket`
     (`rate_limiter.resident_keys`) e da ocupação do `Bulkhead` (`compose.bulkhead.available_permits`) via Micrometer.
 
