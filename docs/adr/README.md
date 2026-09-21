@@ -51,7 +51,7 @@ Os ADRs fundamentais da pré-arquitetura (`docs/02-pre-arquitetura-ms-sdui-compo
   Arquivo: [`ADR-014-politica-de-resiliencia-de-integracao.md`](ADR-014-politica-de-resiliencia-de-integracao.md)
 - **ADR-015:** Escopo de uso do SDUI — surfaces elegíveis e surfaces hostis. (`ACEITO`)
   Arquivo: [`ADR-015-escopo-de-uso-do-sdui.md`](ADR-015-escopo-de-uso-do-sdui.md)
-- **ADR-016:** Rejeição da proposta `docs/05-importante-proposta-melhoria.md`. (`REJEITADO`)
+- **ADR-016:** Rejeição da proposta externa de melhoria (legado docs/05). (`REJEITADO`)
   Arquivo: [`ADR-016-rejeicao-da-proposta-docs-05.md`](ADR-016-rejeicao-da-proposta-docs-05.md)
 - **ADR-017:** Experimentação por revisão de spec. (`PROPOSTO — modelo reservado no Pointer`)
   Arquivo: [`ADR-017-experimentacao-por-revisao-de-spec.md`](ADR-017-experimentacao-por-revisao-de-spec.md)

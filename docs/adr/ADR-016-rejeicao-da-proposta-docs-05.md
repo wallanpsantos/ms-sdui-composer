@@ -1,6 +1,6 @@
-# ADR-016: Rejeição da Proposta `docs/05-importante-proposta-melhoria.md`
+# ADR-016: Rejeição da Proposta Externa de Melhoria (Legado docs/05)
 
-**Status:** `REJEITADO`
+**Status:** `REJEITADO (decisão mantida)`
 
 **Data:** 2026-09-21
 
@@ -9,8 +9,9 @@
 
 ## Contexto
 
-O `docs/05` propõe reorganizar o serviço em torno de um **template de screen** no MongoDB e de um **composer** que
-caminha o template, chama repositórios de domínio e emite sections com fallback. O objetivo declarado é provar que o
+A proposta externa (originalmente registrada em `docs/05-importante-proposta-melhoria.md` e aposentada após a extração
+dos ADRs derivados) sugeria reorganizar o serviço em torno de um **template de screen** no MongoDB e de um **composer** que
+caminha o template, chama repositórios de domínio e emite sections com fallback. O objetivo declarado era provar que o
 backend monta "qualquer tela" dos domínios de `docs/images/`.
 
 O serviço está em desenvolvimento, e isso importa para esta avaliação: mudar o desenho agora é barato. Por isso a
@@ -78,13 +79,8 @@ base. Cada item foi avaliado individualmente.
 
 ### Ações decorrentes
 
-1. Inserir no topo do `docs/05`, sem apagá-lo:
-
-   ```markdown
-   > **Status: REJEITADO (ADR-016, 2026-09-21).** Registro histórico, não especificação.
-   > As necessidades aproveitadas estão no ADR-015, no ADR-017 e no ADR-018.
-   ```
-
+1. A proposta original foi formalmente rejeitada, e seus 3 pontos aproveitáveis foram extraídos para os ADRs 015,
+   017 e 018. O arquivo legado foi removido do repositório ativo para despoluição de contexto documental.
 2. Tratar a divergência de `variant` entre o ADR-010 e a fixture: ADR-019.
 3. Atualizar `docs/adr/README.md` com os ADRs 015 a 019.
 

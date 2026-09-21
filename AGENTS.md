@@ -135,9 +135,9 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 - ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/02-pre-arquitetura-ms-sdui-composer.md`. Os ADRs 014 a 019
   possuem arquivos dedicados em `docs/adr/` (ADR-014 Política de Resiliência, ADR-015 Escopo de Uso, ADR-016 Rejeição
-  da Proposta docs/05, ADR-017 Experimentação, ADR-018 Montagem Variável e ADR-019 Remoção de Variant).
-- Presente: `docs/README.md` — índice sequencial e catálogo da documentação em 4 arquivos canônicos (`01`, `02`, `03`,
-  `04`).
+  da Proposta Externa docs/05, ADR-017 Experimentação, ADR-018 Montagem Variável e ADR-019 Remoção de Variant).
+- Presente: `docs/README.md` — catálogo da documentação canônica em 3 arquivos (`02`, `03`, `04`; prompt `01`
+  aposentado pós-MVP).
 - Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em
   `sdui-contract/src/test/resources/fixtures/`). Fonte de verdade do contrato Home iOS.
 - Presente: `docs/03-memoria-projeto-ms-sdui-composer.md` — memória operacional e arquitetural consolidada do serviço.

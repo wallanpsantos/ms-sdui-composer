@@ -600,26 +600,24 @@ Garante conformidade com o Clean Architecture, pureza do `sdui-core` e ausência
 
 ## 📚 Documentação Canônica Sequencial
 
-A documentação detalhada do projeto está versionada na pasta [`docs/`](docs/README.md) em ordem sequencial:
+A documentação técnica detalhada do projeto está versionada na pasta [`docs/`](docs/README.md):
 
-1. [`01-iniciar-prompt.md`](docs/01-iniciar-prompt.md) — Prompt canônico, precedência e regras de desenvolvimento.
-2. [`02-pre-arquitetura-ms-sdui-composer.md`](docs/02-pre-arquitetura-ms-sdui-composer.md) — Clean Architecture e
+1. [`02-pre-arquitetura-ms-sdui-composer.md`](docs/02-pre-arquitetura-ms-sdui-composer.md) — Clean Architecture e
    catálogo formal de ADRs 001 a 013.
-3. [`03-memoria-projeto-ms-sdui-composer.md`](docs/03-memoria-projeto-ms-sdui-composer.md) — Memória operacional viva,
+2. [`03-memoria-projeto-ms-sdui-composer.md`](docs/03-memoria-projeto-ms-sdui-composer.md) — Memória operacional viva,
    regras inegociáveis e metas de SLO.
-4. [`04-guia-depreciacao-e-migracao-sdui.md`](docs/04-guia-depreciacao-e-migracao-sdui.md) — Padrão Strangler para
+3. [`04-guia-depreciacao-e-migracao-sdui.md`](docs/04-guia-depreciacao-e-migracao-sdui.md) — Padrão Strangler para
    componentes, sunset de faixas de app e Expand/Contract no MongoDB.
 
 ### Subdiretórios Estruturados
 
 - [`docs/adr/`](docs/adr/README.md) — Registros de Decisões Arquiteturais (ADRs 001 a 013 na pré-arquitetura e ADRs 014
-  a 019
-  com arquivos dedicados: [`ADR-014`](docs/adr/ADR-014-politica-de-resiliencia-de-integracao.md) a [
-  `ADR-019`](docs/adr/ADR-019-remocao-de-variant-do-shortcut-shelf.md)).
+  a 019 com arquivos dedicados: [`ADR-014`](docs/adr/ADR-014-politica-de-resiliencia-de-integracao.md) a [`ADR-019`](docs/adr/ADR-019-remocao-de-variant-do-shortcut-shelf.md)).
 - [`docs/runbooks/`](docs/runbooks/) — Procedimentos operacionais para rollback de Canary
   ([iOS](docs/runbooks/ios-canary-rollback.md) e [Android](docs/runbooks/android-canary-rollback.md))
   e [Contrato de Retry para Clientes Móveis](docs/runbooks/contrato-de-retry-clientes-moveis.md).
-- [`docs/historias/`](docs/historias/README.md) — Backlog de histórias e critérios de aceite do MVP (`H00` a `H18`,
-  concluídas).
+- [`docs/historias/`](docs/historias/README.md) — Registro consolidado e critérios de aceite do MVP (`H00` a `H18`,
+  100% entregues e validadas).
+- [`docs/images/`](docs/images/README.md) — Catálogo de compatibilidade visual de telas móveis reais.
 - [`docs/artifacts/`](docs/artifacts/README.md) — Fixtures canônicas e contratos oficiais
-  (`contrato-sdui-home-definitivo.json`).
+  (`contrato-sdui-home-definitivo.json` e `contrato-sdui-home-cards-first.json`).
