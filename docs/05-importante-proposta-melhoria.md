@@ -1,8 +1,8 @@
 ## Visão geral
 
 Os dois artigos descrevem o mesmo padrão arquitetural — Server-Driven UI (SDUI) — com focos complementares: o texto de
-Joud Awad é um guia prático de implementação (NestJS + React Native), enquanto o post do Airbnb detalha a plataforma
-Ghost Platform em produção para web, iOS e Android.[^1_1][^1_2]
+Joud Awad é um guia prático de implementação, enquanto o post do Airbnb detalha a plataforma Ghost Platform em produção
+para iOS e Android.[^1_1][^1_2]
 
 ## Os três conceitos fundamentais (comuns aos dois)
 
@@ -103,7 +103,7 @@ pragmática é:
 - **Adote Protobuf/gRPC** quando erros humanos de schema causarem incidentes — o compilador passa a impedir breaking
   changes.[^1_1]
 
-O Airbnb, por sua vez, padronizou em **GraphQL único** para web, iOS e Android, gerando modelos fortemente tipados em
+O Airbnb, por sua vez, padronizou em **GraphQL único** para iOS e Android, gerando modelos fortemente tipados em
 todas as plataformas e permitindo reuso massivo de sections e layouts.[^1_2]
 
 ## Níveis de adoção e onde **não** usar SDUI
@@ -182,7 +182,7 @@ derivada é: **comece semântico**, extraia genéricos só após o mesmo shape a
 
 O post do Airbnb detalha:
 
-- **Schema GraphQL unificado** para web, iOS e Android, com union de sections e metadados de placement.[^1_2]
+- **Schema GraphQL unificado** para iOS e Android, com union de sections e metadados de placement.[^1_2]
 - **SectionComponentType** controla **como** um modelo de section é renderizado (ex.: `TITLE` vs `PLUS_TITLE` usam o
   mesmo modelo com estilos diferentes).[^1_2]
 - **Screens** definem layouts por form factor (`compact`/`wide`) e placements que apontam para `sectionId`, reusando
@@ -219,7 +219,7 @@ passar batido na primeira leitura. Mantive a linguagem próxima do texto origina
 
 ## 1) O problema que SDUI resolve (motivação)
 
-- Em UI client-driven, a lógica de “o que mostrar, quando e para quem” é duplicada em iOS, Android e web. Isso gera:
+- Em UI client-driven, a lógica de “o que mostrar, quando e para quem” é duplicada em iOS, Android. Isso gera:
     - Paridade difícil de manter entre plataformas.
     - Lentidão para lançar experimentos e mudanças de layout (app-store review, beta, rollout).
     - Complexidade crescente de lógica de UI em cada cliente.[^2_1][^2_2]
@@ -596,7 +596,7 @@ No projeto, isso aparece como “envelope fechado” com headers próprios (sem 
 
 ### Schema GraphQL unificado
 
-- Mesmo schema para web, iOS e Android.
+- Mesmo schema para iOS e Android.
 - Gera modelos fortemente tipados em todas as plataformas.
 - Permite reuso massivo de sections e layouts.[^2_2]
 
@@ -1124,7 +1124,7 @@ Baseado nos artigos, o payload de resposta do composer pode seguir esta estrutur
 No request, o cliente envia:
 
 - `UI-Schema-Version`
-- `Client-Platform` (iOS, Android, Web)
+- `Client-Platform` (iOS, Android)
 - `Client-Version`
 - `Client-Build`
 - `OS-Version`
@@ -1721,6 +1721,7 @@ de sections e layouts proposto. A ideia é mostrar que **o mesmo mecanismo** cob
 delivery, feed, onboarding).[^5_4][^5_5][^5_3][^5_2][^5_1]
 
 ### 3.1) Coffee Ordering Mobile App (imagens: `coffee-app-wireframe-to-design-home.jpg`,
+
 `coffee-app-all-screens-flow.jpg`)
 
 **Telas típicas:**
@@ -1754,6 +1755,7 @@ delivery, feed, onboarding).[^5_4][^5_5][^5_3][^5_2][^5_1]
     - Layout: `single_column`.[^5_1][^5_2]
 
 ### 3.2) Fintech / Banking App (imagens: `banking-app-home-cards-transactions.jpg`,
+
 `fintech-onboarding-passcode-phone.jpg`)
 
 **Telas típicas:**
@@ -1839,6 +1841,7 @@ delivery, feed, onboarding).[^5_4][^5_5][^5_3][^5_2][^5_1]
     - Layout: `single_column`.[^5_1][^5_2]
 
 ### 3.5) Creative \& Modern UI (imagens: `ecommerce-fashion-catalog-detail-cart.jpg`,
+
 `logistics-shipment-tracking-map.jpg`)
 
 Essas imagens mostram variações visuais (cores, tipografia, espaçamento), mas estruturalmente se enquadram nos mesmos
