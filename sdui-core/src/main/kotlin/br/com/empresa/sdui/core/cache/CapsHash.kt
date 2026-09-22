@@ -2,7 +2,7 @@ package br.com.empresa.sdui.core.cache
 
 import br.com.empresa.sdui.core.model.Capability
 import java.security.MessageDigest
-import java.util.*
+import java.util.HexFormat
 
 /**
  * Formatador hex compartilhado: imutavel e seguro para uso concorrente. Evita uma chamada de

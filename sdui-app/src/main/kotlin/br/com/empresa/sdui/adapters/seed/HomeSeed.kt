@@ -170,13 +170,16 @@ class HomeSeed(
             targeting = Targeting(
                 platform = ClientPlatform.IOS,
                 appVersion = VersionRange(
-                    SemVer.parse(targeting.get("appVersionMin").asText())!!,
+                    requireNotNull(SemVer.parse(targeting.get("appVersionMin").asText())) { "appVersionMin inválido na fixture seed" },
                     SemVer.parse(targeting.get("appVersionMax").asText()),
                 ),
-                osVersion = VersionRange(SemVer.parse(targeting.get("osVersionMin").asText())!!, null),
+                osVersion = VersionRange(
+                    requireNotNull(SemVer.parse(targeting.get("osVersionMin").asText())) { "osVersionMin inválido na fixture seed" },
+                    null,
+                ),
                 schemaVersion = VersionRange(
-                    SemVer.parse(MvpCatalog.SCHEMA_VERSION)!!,
-                    SemVer.parse(MvpCatalog.SCHEMA_VERSION)
+                    requireNotNull(SemVer.parse(MvpCatalog.SCHEMA_VERSION)) { "SCHEMA_VERSION inválido no catálogo" },
+                    SemVer.parse(MvpCatalog.SCHEMA_VERSION),
                 ),
                 requiredCapabilities = MvpCatalog.TYPES,
                 priority = 100,

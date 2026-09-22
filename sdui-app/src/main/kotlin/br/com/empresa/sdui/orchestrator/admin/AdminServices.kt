@@ -41,7 +41,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.SpecCache
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
 import br.com.empresa.sdui.orchestrator.port.outbound.TransactionalUnitOfWork
 import java.time.Clock
-import java.util.*
+import java.util.UUID
 
 /** Papel insuficiente ou regra de segregacao violada. Vira 403. */
 class AdminDenied(message: String) : RuntimeException(message)
