@@ -6,7 +6,6 @@ import br.com.empresa.sdui.core.filter.Filter
 import br.com.empresa.sdui.core.limit.Bulkhead
 import br.com.empresa.sdui.core.limit.BulkheadOutcome
 import br.com.empresa.sdui.core.limit.RateLimitKey
-import br.com.empresa.sdui.core.limit.RetryAfter
 import br.com.empresa.sdui.core.limit.TimeBudget
 import br.com.empresa.sdui.core.limit.TokenBucketRateLimiter
 import br.com.empresa.sdui.core.model.Capability
@@ -35,7 +34,6 @@ import br.com.empresa.sdui.orchestrator.port.outbound.SkeletonStore
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecCache
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
 import java.time.Clock
-import java.time.Duration
 import java.util.concurrent.ThreadLocalRandom
 
 /**
@@ -84,6 +82,14 @@ class ComposeScreenService(
     private val budgets: ComposeBudgets = ComposeBudgets(),
     private val randomFraction: () -> Double = { ThreadLocalRandom.current().nextDouble() },
     private val nanoTime: () -> Long = System::nanoTime,
+    private val fallbackCoordinator: FallbackCoordinator = DefaultFallbackCoordinator(
+        lastGood = lastGood,
+        matrix = matrix,
+        metrics = metrics,
+        clock = clock,
+        budgets = budgets,
+        randomFraction = randomFraction,
+    ),
 ) : ComposeScreenUseCase {
 
     override fun compose(request: ComposeRequest): ComposeResult {
@@ -100,7 +106,7 @@ class ComposeScreenService(
         )
         if (!rateLimiter.tryConsume(RateLimitKey(request.identity, context.platform))) {
             metrics.increment("compose.rate_limited", tags)
-            return ComposeResult.RateLimited(retryAfter(budgets.rateLimitRetryAfterSeconds))
+            return ComposeResult.RateLimited(fallbackCoordinator.retryAfter(budgets.rateLimitRetryAfterSeconds))
         }
         val channel = canaryPolicy.channelFor(context.platform, context.build, context.channelHint)
         val caps = matrix.effective(context)
@@ -119,14 +125,19 @@ class ComposeScreenService(
             ) {
                 is BulkheadOutcome.Rejected -> {
                     metrics.increment(BULKHEAD_REJECTED, tags + mapOf("stage" to STAGE_SELECT))
-                    return fallbackOrUnavailable(context, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
+                    return fallbackCoordinator.fallbackOrUnavailable(
+                        context,
+                        channel,
+                        FallbackReason.REDIS_UNAVAILABLE,
+                        tags
+                    )
                 }
 
                 is BulkheadOutcome.Executed -> outcome.value
             }
         } catch (error: Exception) {
-            reportStoreFailure(STAGE_SELECT, error)
-            return fallbackOrUnavailable(context, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
+            fallbackCoordinator.reportStoreFailure(STAGE_SELECT, error)
+            return fallbackCoordinator.fallbackOrUnavailable(context, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
         }
         if (selected == null) {
             metrics.increment(
@@ -137,7 +148,7 @@ class ComposeScreenService(
                     "schemaVersion" to context.schemaVersion,
                 ),
             )
-            return fallbackOrUnavailable(context, channel, FallbackReason.NO_COMPATIBLE_SPEC, tags)
+            return fallbackCoordinator.fallbackOrUnavailable(context, channel, FallbackReason.NO_COMPATIBLE_SPEC, tags)
         }
 
         // Com a revisao em maos o ETag ja e conhecido: uma revalidacao termina aqui, sem tocar no
@@ -167,12 +178,12 @@ class ComposeScreenService(
         val cached = try {
             treeCache.get(treeKey)
         } catch (error: Exception) {
-            reportStoreFailure(STAGE_TREE_CACHE, error)
+            fallbackCoordinator.reportStoreFailure(STAGE_TREE_CACHE, error)
             null
         }
         if (cached != null) {
             metrics.increment("compose.hit", tags + mapOf("channel" to channel.wire()))
-            return ComposeResult.Success(cached.withRequester(context), fromCache = true)
+            return ComposeResult.Success(cached.withRequester(clock, context), fromCache = true)
         }
 
         metrics.increment("compose.miss", tags + mapOf("channel" to channel.wire()))
@@ -184,8 +195,8 @@ class ComposeScreenService(
                 composeFresh(context, channel, caps, selected, etag, treeKey, tags, budget)
             }
         } catch (error: Exception) {
-            reportStoreFailure(STAGE_SINGLEFLIGHT, error)
-            return fallbackOrUnavailable(context, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
+            fallbackCoordinator.reportStoreFailure(STAGE_SINGLEFLIGHT, error)
+            return fallbackCoordinator.fallbackOrUnavailable(context, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
         }
         return when (outcome) {
             is SingleflightOutcome.Leader -> outcome.value
@@ -197,7 +208,7 @@ class ComposeScreenService(
             is SingleflightOutcome.WaitTimeout -> {
                 metrics.increment("compose.singleflight.wait", tags)
                 metrics.increment(DEADLINE_EXCEEDED, tags + mapOf("stage" to STAGE_SINGLEFLIGHT))
-                fallbackOrUnavailable(context, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
+                fallbackCoordinator.fallbackOrUnavailable(context, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
             }
         }
     }
@@ -231,8 +242,8 @@ class ComposeScreenService(
         // um deles e indisponibilidade de dependencia. Tratar em um ponto so evita que parte das
         // leituras caia aqui e o restante suba ate o catch do singleflight, onde seria reportada
         // como DEPENDENCY_TIMEOUT.
-        reportStoreFailure(STAGE_COMPOSE, error)
-        fallbackOrUnavailable(context, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
+        fallbackCoordinator.reportStoreFailure(STAGE_COMPOSE, error)
+        fallbackCoordinator.fallbackOrUnavailable(context, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
     }
 
     private fun composeFromStores(
@@ -259,14 +270,24 @@ class ComposeScreenService(
         ) {
             is BulkheadOutcome.Rejected -> {
                 metrics.increment(BULKHEAD_REJECTED, tags + mapOf("stage" to STAGE_COMPOSE))
-                return fallbackOrUnavailable(context, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
+                return fallbackCoordinator.fallbackOrUnavailable(
+                    context,
+                    channel,
+                    FallbackReason.REDIS_UNAVAILABLE,
+                    tags
+                )
             }
 
             is BulkheadOutcome.Executed -> outcome.value
         }
         val spec = loaded.first
         val skeleton = loaded.second
-            ?: return fallbackOrUnavailable(context, channel, FallbackReason.NO_COMPATIBLE_SPEC, tags)
+            ?: return fallbackCoordinator.fallbackOrUnavailable(
+                context,
+                channel,
+                FallbackReason.NO_COMPATIBLE_SPEC,
+                tags
+            )
 
         val filtered = Filter.filter(spec.sections, skeleton, caps)
         for (omitted in filtered.omitted) {
@@ -295,7 +316,7 @@ class ComposeScreenService(
             alreadyOmitted = filtered.omitted,
         )
         if (hydrated.requiredSlotFailed) {
-            return fallbackOrUnavailable(context, channel, FallbackReason.REQUIRED_SLOT_EMPTY, tags)
+            return fallbackCoordinator.fallbackOrUnavailable(context, channel, FallbackReason.REQUIRED_SLOT_EMPTY, tags)
         }
         val screen = ComposedScreen(
             surface = MvpCatalog.SURFACE_HOME,
@@ -325,126 +346,27 @@ class ComposeScreenService(
         try {
             treeCache.put(treeKey, screen, budgets.treeTtl)
         } catch (error: Exception) {
-            reportCacheWriteFailure(CACHE_TREE, error)
+            fallbackCoordinator.reportCacheWriteFailure(CACHE_TREE, error)
         }
         try {
             lastGood.put(screen)
         } catch (error: Exception) {
-            reportCacheWriteFailure(CACHE_LAST_GOOD, error)
+            fallbackCoordinator.reportCacheWriteFailure(CACHE_LAST_GOOD, error)
         }
         return ComposeResult.Success(screen, fromCache = false)
     }
 
-    /**
-     * O ultimo degrau antes do 503: tenta o last good e so desiste quando nao ha um utilizavel.
-     *
-     * Um last good velho demais e recusado de proposito. Arvore defasada e melhor que 503 durante
-     * um incidente de minutos; depois de um dia ela ja nao descreve o produto, e entrega-la seria
-     * trocar indisponibilidade visivel por incorrecao silenciosa.
-     */
-    private fun fallbackOrUnavailable(
-        context: ClientContext,
-        channel: Channel,
-        reason: FallbackReason,
-        tags: Map<String, String>,
-    ): ComposeResult {
-        val channelTags = tags + mapOf("channel" to channel.wire())
-        val stored = try {
-            lastGood.get(MvpCatalog.SURFACE_HOME, context.platform, channel)
-        } catch (error: Exception) {
-            reportStoreFailure(STAGE_LAST_GOOD, error)
-            null
-        }
-        if (stored != null) {
-            val age = Duration.between(stored.storedAt, clock.instant())
-            if (age > budgets.maxFallbackAge) {
-                metrics.increment(FALLBACK_EXPIRED, channelTags)
-            } else {
-                val screen = stored.screen
-                val effectiveCaps = matrix.effective(context)
-                val filtered = Filter.filter(screen.sections, screen.skeleton, effectiveCaps)
-                val requiredSlots = screen.skeleton.requiredSlotIds
-                val requiredPresent = filtered.sections.map { it.slot }.toSet()
-                if (requiredSlots.all { it in requiredPresent }) {
-                    metrics.recordTime(FALLBACK_AGE, age.toMillis().coerceAtLeast(0L), channelTags)
-                    metrics.increment("compose.fallback", channelTags + mapOf("fallbackReason" to reason.wire))
-                    return ComposeResult.Success(
-                        screen.withRequester(context).copy(
-                            sections = filtered.sections,
-                            omitted = screen.omitted + filtered.omitted,
-                            fallback = true,
-                            fallbackReason = reason,
-                        ),
-                        fromCache = true,
-                    )
-                }
-            }
-        }
-        // O pior desfecho do servico precisa ter contador proprio. Sem ele a taxa de 503 so existe
-        // no contador HTTP generico, sem o motivo — que e a unica informacao que diz ao operador
-        // onde olhar.
-        metrics.increment(COMPOSE_UNAVAILABLE, channelTags + mapOf("fallbackReason" to reason.wire))
-        return ComposeResult.Unavailable(retryAfter(budgets.retryAfterSeconds), reason)
-    }
-
-    /** `Retry-After` com jitter, para a coorte recusada nao voltar toda no mesmo segundo. */
-    private fun retryAfter(baseSeconds: Long): Long = RetryAfter.jittered(baseSeconds, randomFraction())
-
-    private fun reportStoreFailure(stage: String, error: Throwable) {
-        metrics.increment(STORE_FAILURE, mapOf("stage" to stage))
-        LOG.log(System.Logger.Level.WARNING, "falha de dependencia de dados na etapa $stage", error)
-    }
-
-    private fun reportCacheWriteFailure(cache: String, error: Throwable) {
-        metrics.increment(CACHE_WRITE_FAILURE, mapOf("cache" to cache))
-        LOG.log(System.Logger.Level.WARNING, "escrita de cache perdida em $cache", error)
-    }
-
-    /**
-     * Reidrata os campos que descrevem quem pediu, ao servir uma arvore que outro cliente compos.
-     *
-     * A chave de cache cobre plataforma, schema, faixa major.minor do app, capabilities e canal —
-     * nao cobre build, patch da versao, versao de SO nem locale. Sem isso o envelope devolveria os
-     * dados do dispositivo que compos primeiro, justamente nos campos que existem para tornar a
-     * composicao auditavel. As sections nao dependem desses campos, e por isso compartilhar a
-     * entrada continua correto; se o conteudo passar a ser localizado, o locale tera de entrar na
-     * chave em vez de ser sobrescrito aqui.
-     */
-    private fun ComposedScreen.withRequester(context: ClientContext): ComposedScreen = copy(
-        generatedAt = clock.instant(),
-        client = context,
-        locale = context.locale,
-    )
-
     private companion object {
-        /**
-         * Nomes fixos: a dimensao vai em tag. Um nome interpolado criaria uma serie por valor e
-         * multiplicaria a cardinalidade do registry.
-         */
-        const val COMPOSE_UNAVAILABLE: String = "compose.unavailable"
-        const val STORE_FAILURE: String = "store.failure"
-        const val CACHE_WRITE_FAILURE: String = "cache.write.failure"
         const val DEADLINE_EXCEEDED: String = "compose.deadline.exceeded"
         const val BULKHEAD_REJECTED: String = "compose.bulkhead.rejected"
-        const val FALLBACK_AGE: String = "compose.fallback.age.ms"
-        const val FALLBACK_EXPIRED: String = "compose.fallback.expired"
 
         const val STAGE_SELECT: String = "select"
         const val STAGE_TREE_CACHE: String = "tree_cache"
         const val STAGE_SINGLEFLIGHT: String = "singleflight"
         const val STAGE_COMPOSE: String = "compose"
-        const val STAGE_LAST_GOOD: String = "last_good"
 
         const val CACHE_TREE: String = "tree"
         const val CACHE_LAST_GOOD: String = "last_good"
-
-        /**
-         * `System.Logger` e nao SLF4J: o orchestrator nao depende de framework e o JDK basta. O
-         * Spring Boot instala a ponte de JUL para o backend de log, entao estas linhas chegam ao
-         * mesmo destino que as do resto do servico.
-         */
-        val LOG: System.Logger =
-            System.getLogger("br.com.empresa.sdui.orchestrator.compose.ComposeScreenService")
     }
 }
 

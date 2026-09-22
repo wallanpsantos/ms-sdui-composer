@@ -29,6 +29,8 @@ import br.com.empresa.sdui.orchestrator.admin.RollbackService
 import br.com.empresa.sdui.orchestrator.compose.AllowlistCanaryPolicy
 import br.com.empresa.sdui.orchestrator.compose.ComposeBudgets
 import br.com.empresa.sdui.orchestrator.compose.ComposeScreenService
+import br.com.empresa.sdui.orchestrator.compose.DefaultFallbackCoordinator
+import br.com.empresa.sdui.orchestrator.compose.FallbackCoordinator
 import br.com.empresa.sdui.orchestrator.hydration.HydrationCoordinator
 import br.com.empresa.sdui.orchestrator.hydration.PassThroughHydrator
 import br.com.empresa.sdui.orchestrator.port.inbound.CatalogQueryUseCase
@@ -257,6 +259,32 @@ class SduiConfiguration {
     }
 
     @Bean
+    fun composeBudgets(properties: SduiProperties): ComposeBudgets = ComposeBudgets(
+        treeTtl = Duration.ofSeconds(properties.treeTtlSeconds),
+        request = Duration.ofMillis(properties.requestBudgetMs),
+        singleflightWait = Duration.ofMillis(properties.singleflightTimeoutMs),
+        bulkheadWait = Duration.ofMillis(properties.readBulkheadWaitMs),
+        maxFallbackAge = Duration.ofSeconds(properties.maxFallbackAgeSeconds),
+        retryAfterSeconds = properties.retryAfterSeconds,
+        rateLimitRetryAfterSeconds = properties.rateLimitRetryAfterSeconds,
+    )
+
+    @Bean
+    fun fallbackCoordinator(
+        lastGood: LastGoodScreenStore,
+        matrix: CapabilityMatrix,
+        metrics: MetricsRecorder,
+        clock: Clock,
+        budgets: ComposeBudgets,
+    ): FallbackCoordinator = DefaultFallbackCoordinator(
+        lastGood = lastGood,
+        matrix = matrix,
+        metrics = metrics,
+        clock = clock,
+        budgets = budgets,
+    )
+
+    @Bean
     fun composeScreenUseCase(
         specStore: SpecStore,
         skeletonStore: SkeletonStore,
@@ -272,7 +300,8 @@ class SduiConfiguration {
         readBulkhead: Bulkhead,
         metrics: MetricsRecorder,
         clock: Clock,
-        properties: SduiProperties,
+        budgets: ComposeBudgets,
+        fallbackCoordinator: FallbackCoordinator,
     ): ComposeScreenUseCase = ComposeScreenService(
         specStore = specStore,
         skeletonStore = skeletonStore,
@@ -288,15 +317,8 @@ class SduiConfiguration {
         readBulkhead = readBulkhead,
         metrics = metrics,
         clock = clock,
-        budgets = ComposeBudgets(
-            treeTtl = Duration.ofSeconds(properties.treeTtlSeconds),
-            request = Duration.ofMillis(properties.requestBudgetMs),
-            singleflightWait = Duration.ofMillis(properties.singleflightTimeoutMs),
-            bulkheadWait = Duration.ofMillis(properties.readBulkheadWaitMs),
-            maxFallbackAge = Duration.ofSeconds(properties.maxFallbackAgeSeconds),
-            retryAfterSeconds = properties.retryAfterSeconds,
-            rateLimitRetryAfterSeconds = properties.rateLimitRetryAfterSeconds,
-        ),
+        budgets = budgets,
+        fallbackCoordinator = fallbackCoordinator,
     )
 
     @Bean
