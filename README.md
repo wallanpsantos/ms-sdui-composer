@@ -686,9 +686,13 @@ Garante conformidade com o Clean Architecture, pureza do `sdui-core` e ausência
 
 ### Build Completo e Otimizado (Equivalência Maven vs Gradle)
 
-O `ms-sdui-composer` é um **serviço backend executável (BFF)** empacotado como jar executável do Spring Boot (`sdui-bootstrap.jar`) para Docker, e **não** uma biblioteca distribuída para outros projetos locais via `~/.m2/repository`. Por essa razão, **não** utilizamos `publishToMavenLocal`.
+O `ms-sdui-composer` é um **serviço backend executável (BFF)** empacotado como jar executável do Spring Boot
+(`sdui-bootstrap.jar`) para Docker, e **não** uma biblioteca distribuída para outros projetos locais via
+`~/.m2/repository`. Por essa razão, **não** utilizamos `publishToMavenLocal`.
 
-Para desenvolvedores habituados ao Maven (ex.: `mvn clean install -T 14 -U`), o comando de compilação, validação integral de testes e empacotamento com máxima performance (aproveitando paralelismo multi-módulo entre `sdui-core`, `sdui-contract`, etc. e checagem de dependências) é:
+Para desenvolvedores habituados ao Maven (ex.: `mvn clean install -T 14 -U`), o comando de compilação, validação
+integral de testes e empacotamento com máxima performance (aproveitando paralelismo multi-módulo entre `sdui-core`,
+`sdui-contract`, etc. e checagem de dependências) é:
 
 **PowerShell (Windows):**
 
@@ -710,12 +714,12 @@ Para desenvolvedores habituados ao Maven (ex.: `mvn clean install -T 14 -U`), o 
 
 #### Tabela de Correspondência Prática
 
-| Conceito / Flag Maven | Equivalente no Gradle | Comportamento no ms-sdui-composer |
-|---|---|---|
-| `clean` | `clean` | Limpa os diretórios de saída `build/`. |
-| `-T 14` | `--parallel --max-workers=14` | Paraleliza tarefas entre subprojetos desacoplados com limite de 14 workers simultâneos (ideal para CPUs de 16 threads lógicas, reservando folga para o SO). |
-| `-U` | `--refresh-dependencies` | Ignora o TTL de cache local e força checagem de metadados e atualizações nos repositórios remotos. |
-| `install` | `build` | Compila, testa e gera o JAR executável em `sdui-bootstrap/build/libs/`. A publicação local (`publishToMavenLocal`) não é necessária para este serviço. |
+| Conceito / Flag Maven | Equivalente no Gradle         | Comportamento no ms-sdui-composer                                                                                                                           |
+|-----------------------|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `clean`               | `clean`                       | Limpa os diretórios de saída `build/`.                                                                                                                      |
+| `-T 14`               | `--parallel --max-workers=14` | Paraleliza tarefas entre subprojetos desacoplados com limite de 14 workers simultâneos (ideal para CPUs de 16 threads lógicas, reservando folga para o SO). |
+| `-U`                  | `--refresh-dependencies`      | Ignora o TTL de cache local e força checagem de metadados e atualizações nos repositórios remotos.                                                          |
+| `install`             | `build`                       | Compila, testa e gera o JAR executável em `sdui-bootstrap/build/libs/`. A publicação local (`publishToMavenLocal`) não é necessária para este serviço.      |
 
 ---
 

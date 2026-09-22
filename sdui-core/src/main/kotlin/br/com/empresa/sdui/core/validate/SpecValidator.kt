@@ -99,7 +99,7 @@ object SpecValidator {
         for (combo in combos) {
             for (slot in skeleton.slots.filter { it.required }) {
                 val occupying = spec.sections.filter { section ->
-                    section.slot == slot.id && Capability(section.type, section.typeVersion) in combo.caps
+                    section.slot == slot.id && section.capability in combo.caps
                 }
                 if (occupying.isEmpty()) {
                     errors += "slot required '${slot.id}' pode ficar vazio para ${combo.label}"

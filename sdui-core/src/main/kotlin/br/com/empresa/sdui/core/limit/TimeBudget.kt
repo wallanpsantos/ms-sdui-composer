@@ -35,7 +35,7 @@ class TimeBudget(
     }
 
     /** true quando nao ha mais prazo: iniciar outra etapa so adiaria a mesma falha. */
-    fun isExhausted(): Boolean = remaining() == Duration.ZERO
+    fun isExhausted(): Boolean = (nanoTime() - startNanos) >= total.toNanos()
 
     /** O prazo desta etapa: o menor entre o teto dela e o que resta do orcamento. */
     fun stage(cap: Duration): Duration {

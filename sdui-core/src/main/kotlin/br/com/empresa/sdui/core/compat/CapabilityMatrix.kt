@@ -16,6 +16,16 @@ import br.com.empresa.sdui.core.model.SemVer
 class CapabilityMatrix(
     private val byPlatformVersion: Map<Pair<ClientPlatform, String>, Set<Capability>> = defaultMatrix(),
 ) {
+    private val fallbackAll: Set<Capability> = MvpCatalog.TYPES.toSet()
+
+    private val indexed: Map<ClientPlatform, Map<String, Set<Capability>>> = buildMap {
+        for ((key, value) in byPlatformVersion) {
+            val (platform, version) = key
+            val platformMap = getOrPut(platform) { mutableMapOf() } as MutableMap<String, Set<Capability>>
+            platformMap[version] = value
+        }
+    }
+
     /**
      * Universo finito de capabilities que o servidor reconhece. O delta declarado pelo cliente e
      * filtrado por este conjunto: uma capability arbitraria nunca casaria com uma section de spec,
@@ -29,10 +39,12 @@ class CapabilityMatrix(
         return server + declared
     }
 
-    fun serverCaps(platform: ClientPlatform, appVersion: SemVer): Set<Capability> =
-        byPlatformVersion[platform to appVersion.majorMinor]
-            ?: byPlatformVersion[platform to "*"]
-            ?: MvpCatalog.TYPES.toSet()
+    fun serverCaps(platform: ClientPlatform, appVersion: SemVer): Set<Capability> {
+        val platformMap = indexed[platform] ?: return fallbackAll
+        return platformMap[appVersion.majorMinor]
+            ?: platformMap["*"]
+            ?: fallbackAll
+    }
 
     companion object {
         fun defaultMatrix(): Map<Pair<ClientPlatform, String>, Set<Capability>> {

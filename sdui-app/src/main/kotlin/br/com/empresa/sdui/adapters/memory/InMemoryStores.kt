@@ -462,7 +462,7 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
             val value = existing.get(timeout.toMillis(), TimeUnit.MILLISECONDS) as T
             SingleflightOutcome.Waiter(value)
         } catch (_: TimeoutException) {
-            SingleflightOutcome.WaitTimeout()
+            SingleflightOutcome.WaitTimeout
         } catch (ex: java.util.concurrent.ExecutionException) {
             val cause = ex.cause ?: ex
             if (cause is Exception) throw cause else throw RuntimeException(cause)

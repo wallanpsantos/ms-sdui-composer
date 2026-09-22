@@ -36,7 +36,7 @@ class SingleflightAndCanaryTest {
             when (outcome) {
                 is SingleflightOutcome.Leader -> leaders.incrementAndGet()
                 is SingleflightOutcome.Waiter -> waiters.incrementAndGet()
-                is SingleflightOutcome.WaitTimeout<*> -> error("timeout inesperado")
+                is SingleflightOutcome.WaitTimeout -> error("timeout inesperado")
             }
         }
         assertThat(leaders.get()).isEqualTo(1)
@@ -79,7 +79,7 @@ class SingleflightAndCanaryTest {
             }
         }
         val waiterResult = waiter.get()
-        assertThat(waiterResult).isInstanceOf(SingleflightOutcome.WaitTimeout::class.java)
+        assertThat(waiterResult).isEqualTo(SingleflightOutcome.WaitTimeout)
 
         val leaderResult = leader.get()
         assertThat(leaderResult).isInstanceOf(SingleflightOutcome.Leader::class.java)

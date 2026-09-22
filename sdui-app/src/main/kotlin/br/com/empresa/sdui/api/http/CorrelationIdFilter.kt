@@ -8,7 +8,7 @@ import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
-import java.util.UUID
+import java.util.*
 
 /**
  * Filtro HTTP que estabelece o identificador de correlacao para cada requisicao.

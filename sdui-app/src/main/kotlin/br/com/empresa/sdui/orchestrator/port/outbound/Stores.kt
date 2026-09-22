@@ -176,7 +176,7 @@ interface TransactionalUnitOfWork {
 sealed interface SingleflightOutcome<out T> {
     data class Leader<T>(val value: T) : SingleflightOutcome<T>
     data class Waiter<T>(val value: T) : SingleflightOutcome<T>
-    class WaitTimeout<T> : SingleflightOutcome<T>
+    data object WaitTimeout : SingleflightOutcome<Nothing>
 }
 
 /**
