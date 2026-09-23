@@ -15,7 +15,7 @@
 Em caso de conflito sobre o **estado atual**, vence o item mais alto:
 
 1. Código de validação em `sdui-core`: `MvpCatalog.kt`, `Guards.kt`, `SkeletonValidator.kt`, `SpecValidator.kt`.
-2. Fixture canônica `docs/artifacts/contrato-sdui-home-definitivo.json` e os testes de `sdui-contract`.
+2. Fixture canônica `sdui-contract/src/test/resources/fixtures/contrato-sdui-home-definitivo.json` e os testes de `sdui-contract`.
 3. ADRs `ACEITO` (`docs/arquitetura-de-referencia.md` §16 e `docs/adr/README.md`).
 4. Este documento.
 

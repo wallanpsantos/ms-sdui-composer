@@ -770,5 +770,6 @@ A documentação técnica detalhada do projeto está versionada na pasta [`docs/
   e [Contrato de Retry para Clientes Móveis](docs/runbooks/contrato-de-retry-clientes-moveis.md).
 - [Histórico do MVP (`H00`–`H18`)](docs/memoria-operacional-e-arquitetural.md#10-registro-consolidado-de-histórias-do-mvp-h00h18) — Matriz consolidada de entrega das histórias do MVP (100% entregues e validadas).
 - [`docs/images/`](docs/images/README.md) — Catálogo de compatibilidade visual de telas móveis reais.
-- [`docs/artifacts/`](docs/artifacts/README.md) — Fixtures canônicas e contratos oficiais
+- [`docs/examples/screens/`](docs/examples/screens/README.md) — Composições de exemplo executáveis (skeleton, spec e resposta).
+- Fixtures canônicas e contratos oficiais versionados em [`sdui-contract/src/test/resources/fixtures/`](sdui-contract/src/test/resources/fixtures/)
   (`contrato-sdui-home-definitivo.json` e `contrato-sdui-home-cards-first.json`).

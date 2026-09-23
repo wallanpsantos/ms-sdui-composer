@@ -142,8 +142,7 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
   estão consolidados em `docs/memoria-operacional-e-arquitetural.md` (matriz unificada em `docs/adr/README.md`).
 - Presente: `docs/README.md` — catálogo da documentação canônica em 3 arquivos (`arquitetura-de-referencia.md`,
   `memoria-operacional-e-arquitetural.md`, `guia-depreciacao-e-migracao.md`).
-- Presente: `docs/artifacts/contrato-sdui-home-definitivo.json` (e a cópia de teste em
-  `sdui-contract/src/test/resources/fixtures/`). Fonte de verdade do contrato Home iOS.
+- Presente: `sdui-contract/src/test/resources/fixtures/contrato-sdui-home-definitivo.json`. Fonte de verdade do contrato Home iOS (exemplos em `docs/examples/screens/`).
 - Presente: `docs/memoria-operacional-e-arquitetural.md` — memória operacional e arquitetural consolidada do serviço.
 - `documentacao-contrato-sdui-home-v3.docx`: removido de propósito. Não recriar. Semântica de campo vive no JSON
   canônico e nos testes de `sdui-contract`.

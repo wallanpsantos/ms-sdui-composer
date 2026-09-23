@@ -8,20 +8,6 @@ import org.junit.jupiter.api.Test
 class CanonicalFixtureIdentityTest {
 
     @Test
-    fun `fixture de teste e artefato docs sao o mesmo documento JSON`() {
-        val classpathTree = CanonicalHomeFixture.loadClasspathTree()
-        val artifactTree = CanonicalHomeFixture.loadArtifactTree()
-
-        assertThat(classpathTree)
-            .`as`(
-                "A fixture versionada em %s deve ser semanticamente idêntica a %s",
-                CanonicalHomeFixture.CLASSPATH_RESOURCE,
-                CanonicalHomeFixture.locateArtifact(),
-            )
-            .isEqualTo(artifactTree)
-    }
-
-    @Test
     fun `raiz do contrato tem exatamente envelope skeleton e oito sections`() {
         val root = CanonicalHomeFixture.loadClasspathTree()
         assertThat(root.propertyNames().toList()).containsExactly("envelope", "skeleton", "sections")

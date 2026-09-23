@@ -22,7 +22,6 @@ Os documentos canônicos refletem o design do sistema, sua operação em produç
 
 - [`adr/`](adr/README.md) — Matriz consolidada de decisões arquiteturais (ADR-001 a ADR-022), unificando as decisões
   em `docs/arquitetura-de-referencia.md` (ADR-001 a 013) e `docs/memoria-operacional-e-arquitetural.md` (ADR-014 a 022).
-- [`artifacts/`](artifacts/README.md) — Fixtures canônicas de contrato (JSON) para validação de round-trip.
 - [`contratos/`](contratos/transaction-summary-v1.md) — Contratos **propostos** de componentes novos
   (`transaction_summary@1`, `catalog_navigation@1`, `product_collection@1`), não homologados pelos apps.
 - [`examples/screens/`](examples/screens/README.md) — Quatro composições de exemplo (skeleton, spec e resposta),

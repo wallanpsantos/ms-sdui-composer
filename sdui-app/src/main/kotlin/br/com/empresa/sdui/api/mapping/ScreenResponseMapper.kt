@@ -33,7 +33,7 @@ class ScreenResponseMapper(
 ) {
     fun toResponse(screen: ComposedScreen): ScreenResponse {
         // Offset fixo por exigencia do contrato: a fixture canonica publica generatedAt em
-        // -03:00 (ver docs/artifacts/contrato-sdui-home-definitivo.json). O Brasil nao observa
+        // -03:00 (ver fixture contrato-sdui-home-definitivo.json). O Brasil nao observa
         // horario de verao desde 2019, entao o valor e constante; mudar para UTC seria quebra de
         // contrato com os clientes moveis.
         val generatedAt = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
