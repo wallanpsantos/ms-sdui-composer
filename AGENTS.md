@@ -13,8 +13,9 @@ serialização no hot path, ordenação estável em Filter, pré-cálculo de gua
 homologação com clientes móveis.
 
 **Ciclo de 2026-09-23 (Seção 23):** surface `catalog` e contratos novos (ADR-020), adapters MongoDB/Redis opt-in
-(ADR-021) e achados de performance tratados com medição. ADR-020 e ADR-021 estão `PROPOSTO`: implementados, não
-homologados. O PASS histórico acima não cobre este ciclo; a evidência dele está em `tasks/todo.md`.
+(ADR-021) e integridade da governança com limites de entrada (ADR-022) implementados no código e fontes de teste.
+ADR-020, ADR-021 e ADR-022 estão `PROPOSTO` (aguardando homologação móvel para 020, ensaio operacional de persistência
+para 021 e validação em build para 022). O PASS histórico acima não cobre este ciclo; a evidência dele está em `tasks/todo.md`.
 
 Regras deste modo:
 
@@ -138,24 +139,21 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 ## 11. Lacunas Documentais Registradas
 
-- ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/arquitetura-de-referencia.md` e os ADRs 014 a 022
-  estão consolidados em `docs/memoria-operacional-e-arquitetural.md` (matriz unificada em `docs/adr/README.md`).
+- ADRs canônicos (ADR-001 a ADR-022) estão unificados e narrados em `docs/arquitetura-de-referencia.md` (matriz consolidada em `docs/adr/README.md`).
 - Presente: `docs/README.md` — catálogo da documentação canônica em 3 arquivos (`arquitetura-de-referencia.md`,
-  `memoria-operacional-e-arquitetural.md`, `guia-depreciacao-e-migracao.md`).
+  `guia-depreciacao-e-migracao.md`, `guia-criacao-telas-componentes.md`).
 - Presente: `sdui-contract/src/test/resources/fixtures/contrato-sdui-home-definitivo.json`. Fonte de verdade do contrato
   Home iOS (exemplos em `docs/examples/screens/`).
-- Presente: `docs/memoria-operacional-e-arquitetural.md` — memória operacional e arquitetural consolidada do serviço.
 - `documentacao-contrato-sdui-home-v3.docx`: removido de propósito. Não recriar. Semântica de campo vive no JSON
   canônico e nos testes de `sdui-contract`.
 - Ausente: `contrato-sdui-home-android-proposto.json` (H14 pendente de fornecimento pela equipe mobile).
 - Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`. A skill ausente não
   bloqueia o que já está especificado nas histórias, no plano, na pré-arquitetura, nos ADRs e no contrato.
-- Presente: catálogo das histórias concluídas do MVP (`H00`–`H18`) consolidado na Seção 10 de
-  `docs/memoria-operacional-e-arquitetural.md`.
-- Presente: ADRs 020 a 022 consolidados na Seção 9 de `docs/memoria-operacional-e-arquitetural.md` (matriz unificada
+- Presente: catálogo das histórias concluídas do MVP (`H00`–`H18`) consolidado na Seção 12 de
+  `docs/arquitetura-de-referencia.md`.
+- Presente: ADRs 020 a 022 consolidados na Seção 11 de `docs/arquitetura-de-referencia.md` (matriz unificada
   em `docs/adr/README.md`); `docs/contratos/` com os contratos propostos; `docs/examples/screens/` com os quatro
-  exemplos (skeleton, spec, resposta, matriz de rastreabilidade); `docs/guia-criacao-telas-componentes.md`;
-  `docs/performance/medicoes-2026-09-23.md`; `docs/runbooks/persistencia-mongodb-redis.md`.
+  exemplos (skeleton, spec, resposta, matriz de rastreabilidade); `docs/guia-criacao-telas-componentes.md`.
 - Pendente de terceiros: homologação móvel dos contratos novos e ensaio operacional da persistência.
 
 ## 12. Decisões Provisórias
@@ -207,9 +205,9 @@ java -version
 O modo padrão é em memória (`sdui.persistence.store=memory`, `sdui.persistence.cache=memory`): todos os stores e
 caches vivem no heap, e as autoconfigurações de Mongo e Redis continuam excluídas em `SduiApplication`. Existem
 adapters MongoDB e Redis **opt-in** (ADR-021), com clientes montados pelo próprio serviço, mas eles **não foram
-homologados**: o roteiro de `docs/runbooks/persistencia-mongodb-redis.md` (restart, perda de Redis, indisponibilidade
-do Mongo, publicação concorrente, duas instâncias, `explain` em base representativa) ainda não foi executado.
-Enquanto não for, as consequências abaixo valem para qualquer decisão de deploy:
+homologados operacionalmente** (ensaio de restart, perda de Redis, indisponibilidade do Mongo, publicação concorrente
+e duas instâncias em base representativa pendente de execução). Detalhes na Seção 8 de `docs/arquitetura-de-referencia.md`.
+Enquanto não forem homologados, as consequências abaixo valem para qualquer decisão de deploy:
 
 - O estado não sobrevive a restart. O que existe após subir é o que o seed reconstrói.
 - O estado não é compartilhado entre instâncias: publicar, aprovar ou fazer rollback em um pod não
@@ -287,8 +285,8 @@ Regras inegociáveis resultantes da revisão multidimensional de 2026-09-20 (`co
 
 ## 20. Política de Resiliência de Integração (ADR-014)
 
-Regras inegociáveis do ciclo de resiliência de integração, consolidadas na Seção 8 de
-`docs/memoria-operacional-e-arquitetural.md` e em `docs/adr/README.md`; o contrato para os apps está em
+Regras inegociáveis do ciclo de resiliência de integração, consolidadas na Seção 6 de
+`docs/arquitetura-de-referencia.md` e em `docs/adr/README.md`; o contrato para os apps está em
 `docs/runbooks/contrato-de-retry-clientes-moveis.md`.
 
 1. **Sem Retry de Dependência no Servidor:** a escada de fallback (ADR-007) é a política de degradação.
@@ -384,10 +382,10 @@ Regras consolidadas no ciclo de observabilidade e instrumentação:
 10. **Proteção contra Cardinalidade em Métricas:** Nenhuma métrica administrativa ou de hot path interpola parâmetros
     arbitrários de path em tags (ex: `admin.skeleton.upsert` não tagueia `skeletonId`, confinado ao log estruturado).
 
-## 23. Diretrizes do Ciclo de 2026-09-23 (Surfaces, Contratos, Persistência e Medição)
+## 23. Diretrizes do Ciclo de 2026-09-23 (Surfaces, Contratos, Persistência e Integridade de Governança)
 
-Regras resultantes da entrega de `tasks/plan.md`, `tasks/plano-persistencia-mongo-redis.md` e dos achados de
-`docs/analise-performance-2026-09-23.md`:
+Regras resultantes da entrega de surfaces adicionais (`catalog`, ADR-020), persistência durável opt-in (ADR-021) e
+integridade de governança com limites de entrada (ADR-022):
 
 1. **Surface é Allowlist:** toda surface vem de `Surfaces` (core) e tem mapeamento HTTP literal em
    `SurfaceController`. Proibido `/v1/surfaces/{surface}` genérico, surface como texto livre em chave, tag ou
@@ -422,5 +420,4 @@ Regras resultantes da entrega de `tasks/plan.md`, `tasks/plano-persistencia-mong
     `REJECT_COMMANDS` e prazo curto. Formato de documento e de cache versionado (`_v`, `v`).
 13. **Listagens Administrativas Paginadas:** `offset`/`limit` (padrão 100, teto 500); valor fora da faixa é 400.
 14. **Medir Antes de Otimizar:** mudança de performance entra com medição antes/depois no mesmo ambiente
-    (`gradlew :sdui-app:perfHarness`, `:sdui-app:loadTest`) registrada em `docs/performance/`; ganho dentro do ruído é
-    rejeitado e registrado como tal.
+    (`gradlew :sdui-app:perfHarness`, `:sdui-app:loadTest`); ganho dentro do ruído é rejeitado e registrado como tal.

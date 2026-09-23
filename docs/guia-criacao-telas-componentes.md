@@ -2,8 +2,8 @@
 
 Do contrato à publicação, ao rollback e à depreciação. Usa os exemplos de
 [`docs/examples/screens`](examples/screens/README.md) como referência executável. Decisões em
-[ADR-020](memoria-operacional-e-arquitetural.md#adr-020--múltiplas-surfaces-e-contratos-de-componente); persistência em
-[ADR-021](memoria-operacional-e-arquitetural.md#adr-021--persistência-mongodb-83-e-cache-redis).
+[ADR-020](arquitetura-de-referencia.md#adr-020--múltiplas-surfaces-e-contratos-de-componente); persistência em
+[ADR-021](arquitetura-de-referencia.md#adr-021--persistência-mongodb-83-e-cache-redis).
 
 > **O que é proposto, implementado e homologado.** Surfaces `home` e `catalog`, contratos novos e
 > modo demo estão **implementados no servidor** e cobertos por testes. Os contratos novos e os
