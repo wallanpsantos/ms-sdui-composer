@@ -1,0 +1,163 @@
+{
+  "specId": "spec_home_android_shortcuts_first",
+  "revision": 1,
+  "specRevisionId": "rev_demo_android_shortcuts_first",
+  "parentRevision": null,
+  "status": "DRAFT",
+  "surface": "home",
+  "platform": "ANDROID",
+  "channel": "STABLE",
+  "skeletonId": "home.shortcuts_first",
+  "skeletonRevision": 1,
+  "targeting": {
+    "platform": "ANDROID",
+    "appVersion": {
+      "min": {"major": 8, "minor": 10, "patch": 0},
+      "max": null
+    },
+    "osVersion": null,
+    "schemaVersion": {
+      "min": {"major": 3, "minor": 0, "patch": 0},
+      "max": {"major": 3, "minor": 0, "patch": 0}
+    },
+    "requiredCapabilities": [
+      {"type": "top_bar", "typeVersion": 1},
+      {"type": "account_card", "typeVersion": 1}
+    ],
+    "priority": 100,
+    "band": "demo"
+  },
+  "sections": [
+    {
+      "id": "sec_header",
+      "slot": "header",
+      "type": "top_bar",
+      "typeVersion": 1,
+      "layout": "fixed",
+      "props": {
+        "greetingPrefix": "Olá",
+        "greetingName": "Cliente",
+        "primaryActionLabel": "Ajuda"
+      },
+      "actions": [
+        {"id": "act_help", "type": "navigate", "label": "Ajuda", "payload": {"route": "app://help"}}
+      ]
+    },
+    {
+      "id": "sec_account",
+      "slot": "accounts",
+      "type": "account_card",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "title": "Conta",
+        "concealable": true,
+        "concealed": true,
+        "rows": [
+          {
+            "id": "row_balance",
+            "label": "Saldo em conta",
+            "valueDisplay": "R$ ••••••",
+            "valueDisplayRevealed": "R$ 1.000,00",
+            "concealable": true
+          }
+        ]
+      },
+      "actions": [
+        {"id": "act_account", "type": "navigate", "label": "Ver conta", "payload": {"route": "app://account"}}
+      ]
+    },
+    {
+      "id": "sec_shortcuts",
+      "slot": "shortcuts",
+      "type": "shortcut_shelf",
+      "typeVersion": 1,
+      "layout": "shelf",
+      "props": {
+        "items": [
+          {"id": "sc_pix", "label": "Área Pix", "icon": "icon.pix", "selected": false, "actionId": "act_pix"},
+          {"id": "sc_pay", "label": "Pagar", "icon": "icon.barcode", "selected": false, "actionId": "act_pay"},
+          {"id": "sc_loan", "label": "Pegar emprestado", "icon": "icon.loan", "badge": "R$ 5.000", "selected": false, "actionId": "act_loan"},
+          {"id": "sc_transfer", "label": "Transferir", "icon": "icon.transfer", "selected": false, "actionId": "act_transfer"}
+        ]
+      },
+      "actions": [
+        {"id": "act_pix", "type": "navigate", "label": "Área Pix", "payload": {"route": "app://pix"}},
+        {"id": "act_pay", "type": "navigate", "label": "Pagar", "payload": {"route": "app://payments"}},
+        {"id": "act_loan", "type": "navigate", "label": "Pegar emprestado", "payload": {"route": "app://credit/loan"}},
+        {"id": "act_transfer", "type": "navigate", "label": "Transferir", "payload": {"route": "app://transfer"}}
+      ]
+    },
+    {
+      "id": "sec_card",
+      "slot": "cards",
+      "type": "card_product",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "brandLabel": "Cartão de crédito",
+        "last4": "1234",
+        "rows": [
+          {"id": "row_invoice", "label": "Fatura atual", "valueDisplay": "R$ 0,00", "valueDisplayRevealed": "R$ 0,00", "concealable": false},
+          {"id": "row_limit", "label": "Limite disponível", "valueDisplay": "R$ 1.000,00", "valueDisplayRevealed": "R$ 1.000,00", "concealable": true},
+          {"id": "row_autodebit", "label": "Débito automático", "valueDisplay": "ativado", "valueDisplayRevealed": "ativado", "concealable": false}
+        ]
+      },
+      "actions": [
+        {"id": "act_invoice", "type": "navigate", "label": "Ver fatura", "payload": {"route": "app://cards/invoice"}},
+        {"id": "act_installments", "type": "navigate", "label": "Parcelar compras", "payload": {"route": "app://cards/installments"}},
+        {"id": "act_my_cards", "type": "navigate", "label": "Meus cartões", "payload": {"route": "app://cards"}}
+      ]
+    },
+    {
+      "id": "sec_offer",
+      "slot": "offers",
+      "type": "credit_offer",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "headlineDisplay": "Empréstimo",
+        "subtitle": "Valor disponível de até R$ 5.000,00",
+        "primaryLabel": "Simular"
+      },
+      "actions": [
+        {"id": "act_loan_simulate", "type": "navigate", "label": "Simular", "payload": {"route": "app://credit/loan/simulate"}}
+      ]
+    },
+    {
+      "id": "sec_coverage_phone",
+      "slot": "coverage",
+      "type": "coverage_card",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "title": "Seguro Celular",
+        "subtitle": "Cobertura para o seu celular. Simule agora mesmo.",
+        "primaryLabel": "Conhecer"
+      },
+      "actions": [
+        {"id": "act_coverage_phone", "type": "navigate", "label": "Conhecer", "payload": {"route": "app://insurance/phone"}}
+      ]
+    },
+    {
+      "id": "sec_coverage_life",
+      "slot": "coverage",
+      "type": "coverage_card",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "title": "Seguro de Vida",
+        "subtitle": "Proteção que cabe no seu bolso.",
+        "primaryLabel": "Conhecer"
+      },
+      "actions": [
+        {"id": "act_coverage_life", "type": "navigate", "label": "Conhecer", "payload": {"route": "app://insurance/life"}}
+      ]
+    }
+  ],
+  "checksum": "sha256:80b79fc2ec33a4ec5c01354bf4e285f3650c8f222466bb0948570ccdaeac2fa2",
+  "publishedAt": null,
+  "publishedBy": null,
+  "madeBy": "demo.maker",
+  "experience": "demo_banking_shortcuts_first"
+}

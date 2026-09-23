@@ -5,6 +5,7 @@ package br.com.empresa.sdui.api
 import br.com.empresa.sdui.SduiAppTestConfiguration
 import br.com.empresa.sdui.adapters.memory.InMemoryHydratedScreenCache
 import br.com.empresa.sdui.adapters.memory.InMemoryLastGoodScreenStore
+import br.com.empresa.sdui.adapters.memory.InMemorySpecCache
 import br.com.empresa.sdui.adapters.memory.InMemorySpecStore
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
@@ -14,6 +15,7 @@ import br.com.empresa.sdui.core.model.Section
 import br.com.empresa.sdui.orchestrator.port.outbound.HydratedScreenCache
 import br.com.empresa.sdui.orchestrator.port.outbound.LastGoodScreenStore
 import br.com.empresa.sdui.orchestrator.port.outbound.PointerStore
+import br.com.empresa.sdui.orchestrator.port.outbound.SpecCache
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -35,6 +37,7 @@ class HomeRuntimeProtectionWebTest(
     @Autowired private val specStore: SpecStore,
     @Autowired private val treeCache: HydratedScreenCache,
     @Autowired private val lastGood: LastGoodScreenStore,
+    @Autowired private val specCache: SpecCache,
 ) {
     @Test
     fun `200 emite ETag, If-None-Match devolve 304 e troca de revisao devolve 200`() {
@@ -146,7 +149,10 @@ class HomeRuntimeProtectionWebTest(
     fun `lastgood devolve 200 com fallback e sem lastgood 503`() {
         val first = getHome(CanonicalHeaders.ios())
         assertThat(first.status).isEqualTo(200)
+        // A selecao resolve a revisao apontada pelo cache de spec antes do store: para a composicao
+        // falhar de verdade, os dois precisam ficar sem a revisao.
         (specStore as InMemorySpecStore).clear()
+        (specCache as InMemorySpecCache).clear()
         (treeCache as InMemoryHydratedScreenCache).clear()
         val fallback = getHome(CanonicalHeaders.ios())
         assertThat(fallback.status).isEqualTo(200)

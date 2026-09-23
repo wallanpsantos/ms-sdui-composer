@@ -49,9 +49,12 @@ data class Capability(
  * Vocabulario fechado do MVP: o que existe, o que e proibido e como a home se organiza.
  *
  * Centraliza as constantes que varias camadas precisam concordar — os sete tipos do catalogo, a
- * ordem dos slots, os slots portantes, as actions permitidas — e as duas listas de recusa que os
- * guards aplicam: [VISUAL_KEYS], porque aparencia e decisao do cliente, e [PII_KEYS], porque dado
- * regulado nao trafega em payload, cache, log ou metrica.
+ * ordem dos slots do skeleton `home.default`, os slots portantes, as actions permitidas — e as
+ * duas listas de recusa que os guards aplicam: [VISUAL_KEYS], porque aparencia e decisao do
+ * cliente, e [PII_KEYS], porque dado regulado nao trafega em payload, cache, log ou metrica.
+ *
+ * As regras por surface (vocabulario de slots, layouts permitidos, types aceitos) vivem em
+ * [Surfaces]; os contratos novos de componente, em [ComponentContracts].
  */
 object MvpCatalog {
     const val SCHEMA_VERSION: String = "3"
@@ -59,6 +62,9 @@ object MvpCatalog {
     const val SKELETON_HOME_DEFAULT: String = "home.default"
     const val SKELETON_HOME_CARDS_FIRST: String = "home.cards_first"
     const val SKELETON_LAYOUT: String = "vertical_scroll"
+
+    /** Schemas de envelope que o servidor sabe compor. Fora daqui o valor vira `other` nas tags. */
+    val SUPPORTED_SCHEMA_VERSIONS: Set<String> = setOf(SCHEMA_VERSION)
 
     val TYPES: List<Capability> = listOf(
         Capability("top_bar", 1),
@@ -76,22 +82,12 @@ object MvpCatalog {
         "row", "column", "container", "stack", "card", "generic_card", "list_item",
     )
 
+    /** Ordem dos slots do skeleton canonico `home.default`. */
     val SLOT_ORDER: List<String> = listOf(
         "header", "shortcuts", "accounts", "cards", "offers", "coverage", "foryou",
     )
 
-    val SLOT_VOCABULARY: Set<String> = SLOT_ORDER.toSet()
-
-    val DEFAULT_ALLOWED_LAYOUTS: Map<String, List<SlotLayout>> = mapOf(
-        "header" to listOf(SlotLayout.FIXED),
-        "shortcuts" to listOf(SlotLayout.SHELF, SlotLayout.GRID),
-        "accounts" to listOf(SlotLayout.LIST, SlotLayout.FIXED),
-        "cards" to listOf(SlotLayout.LIST, SlotLayout.PAGER),
-        "offers" to listOf(SlotLayout.LIST, SlotLayout.PAGER),
-        "coverage" to listOf(SlotLayout.LIST, SlotLayout.SHELF),
-        "foryou" to listOf(SlotLayout.PAGER, SlotLayout.LIST),
-    )
-
+    /** Slots portantes da Home (ADR-009). A regra por surface esta em [SurfaceDefinition.requiredSlots]. */
     val REQUIRED_SLOTS: Set<String> = setOf("header", "accounts")
 
     val ALLOWED_ACTIONS: Set<String> = setOf("navigate", "open_bottom_sheet", "track", "noop")

@@ -10,16 +10,17 @@ import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.SlotDefinition
 import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.SpecStatus
-import br.com.empresa.sdui.orchestrator.compose.HydrationContext
-import br.com.empresa.sdui.orchestrator.compose.HydrationResult
-import br.com.empresa.sdui.orchestrator.compose.SectionHydrator
+import br.com.empresa.sdui.orchestrator.hydration.HydrationContext
 import br.com.empresa.sdui.orchestrator.hydration.HydrationCoordinator
+import br.com.empresa.sdui.orchestrator.hydration.HydrationResult
+import br.com.empresa.sdui.orchestrator.hydration.SectionHydrator
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class HydrationCoordinatorTest {
     @Test
@@ -69,6 +70,38 @@ class HydrationCoordinatorTest {
         assertThat(result.omitted.single().id).isEqualTo("sec_foryou_1")
         assertThat(result.omitted.single().reason).isEqualTo(OmittedReason.HYDRATION_TIMEOUT)
         assertThat(result.requiredSlotFailed).isFalse()
+    }
+
+    @Test
+    fun `hidratador sem IO roda na thread da requisicao, com a mesma telemetria e omissao`() {
+        val metrics = RecordingMetrics()
+        val tasks = AtomicInteger()
+        val failing = object : SectionHydrator {
+            override fun supports(type: String, typeVersion: Int): Boolean = type == "decision_card"
+            override fun hydrate(context: HydrationContext, section: Section): HydrationResult = error("falha local")
+            override val performsIo: Boolean = false
+        }
+        val coordinator = HydrationCoordinator(
+            hydrators = listOf(failing),
+            fanOut = Semaphore(8),
+            timeout = Duration.ofMillis(80),
+            metrics = metrics,
+            executor = { runnable -> tasks.incrementAndGet(); Thread.ofVirtual().start(runnable) },
+        )
+        val result = coordinator.hydrate(
+            context = HydrationContext("home", ClientPlatform.IOS, "rev_x", "pt-BR", Channel.STABLE),
+            skeleton = skeleton(),
+            sections = listOf(
+                section("sec_header_1", "header", "top_bar"),
+                section("sec_foryou_1", "foryou", "decision_card"),
+            ),
+            alreadyOmitted = emptyList(),
+        )
+
+        assertThat(tasks.get()).`as`("pass-through e hidratador local nao abrem tarefa").isZero()
+        assertThat(result.sections.map { it.id }).containsExactly("sec_header_1")
+        assertThat(result.omitted.single().reason).isEqualTo(OmittedReason.HYDRATION_FAILED)
+        assertThat(metrics.names().count { it == "section.hydrate.ms" }).isEqualTo(2)
     }
 
     private fun skeleton() = Skeleton(

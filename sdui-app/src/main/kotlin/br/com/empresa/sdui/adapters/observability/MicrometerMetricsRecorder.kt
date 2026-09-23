@@ -22,6 +22,11 @@ class MicrometerMetricsRecorder(
         registry.timer(name, tagList(tags)).record(durationMs, TimeUnit.MILLISECONDS)
     }
 
+    /** Sem truncar para milissegundos: o histograma do Prometheus recebe a duracao real. */
+    override fun recordNanos(name: String, durationNanos: Long, tags: Map<String, String>) {
+        registry.timer(name, tagList(tags)).record(durationNanos, TimeUnit.NANOSECONDS)
+    }
+
     override fun recordBytes(name: String, bytes: Long, tags: Map<String, String>) {
         registry.summary(name, tagList(tags)).record(bytes.toDouble())
     }

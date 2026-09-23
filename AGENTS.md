@@ -12,6 +12,10 @@ serialização no hot path, ordenação estável em Filter, pré-cálculo de gua
 **Foco a partir de agora:** Manutenção, evolução de features pós-MVP, observabilidade operacional e suporte à
 homologação com clientes móveis.
 
+**Ciclo de 2026-09-23 (Seção 23):** surface `catalog` e contratos novos (ADR-020), adapters MongoDB/Redis opt-in
+(ADR-021) e achados de performance tratados com medição. ADR-020 e ADR-021 estão `PROPOSTO`: implementados, não
+homologados. O PASS histórico acima não cobre este ciclo; a evidência dele está em `tasks/todo.md`.
+
 Regras deste modo:
 
 - Qualquer alteração pontual deve manter estritamente a conformidade com as regras de pureza do `sdui-core`, o
@@ -35,7 +39,8 @@ para clientes iOS e Android.
 - **Papel Arquitetural:** Presentation + Application Controller + BFF de UI (Fowler).
 - **Runtime:** Estritamente stateless no hot path. Não consulta domínios de negócio regulados diretamente e não persiste
   árvores hidratadas de usuário no banco.
-- **Endpoint MVP:** `GET /v1/surfaces/home`.
+- **Endpoints:** `GET /v1/surfaces/home` (MVP) e `GET /v1/surfaces/catalog` (ADR-020), um mapeamento literal por
+  surface da allowlist `Surfaces`.
 
 ## 2. Stack Tecnológica e Baseline
 
@@ -47,8 +52,8 @@ para clientes iOS e Android.
 - **JSON:** Jackson 3 (`tools.jackson.core:jackson-databind` 3.1.5, `tools.jackson.module:jackson-module-kotlin` 3.1.5,
   `com.fasterxml.jackson.core:jackson-annotations` 2.21).
 - **Testes e Arquitetura:** JUnit Jupiter e AssertJ na versão do BOM; ArchUnit 1.5.0 (`com.tngtech.archunit:archunit`).
-- **Persistência e Cache:** MongoDB 8.3+ (fonte da verdade de specs) e Redis (cache). Starters ainda não entram no
-  bootstrap.
+- **Persistência e Cache:** padrão em memória. Opt-in (ADR-021, não homologado): MongoDB 8.3+ em replica set como
+  autoridade da governança e Redis como cache; clientes montados pelo próprio serviço, autoconfigurações excluídas.
 - **Concorrência:** Spring MVC + Virtual Threads (`spring.threads.virtual.enabled: true`).
 - **REGRA INEGOCIÁVEL DE DEPENDÊNCIAS:** Versões gerenciadas pelo Spring Boot NUNCA são fixadas no catálogo ou nos
   arquivos de build. Apenas bibliotecas fora do BOM (ArchUnit, Foojay, plugins Kotlin/Boot) possuem versões explícitas.
@@ -146,6 +151,11 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 - Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`. A skill ausente não
   bloqueia o que já está especificado nas histórias, no plano, na pré-arquitetura, nos ADRs e no contrato.
 - Presente: `docs/historias/README.md` — catálogo das histórias concluídas do MVP (`H00`–`H18`).
+- Presente: `docs/adr/ADR-020-*.md` e `docs/adr/ADR-021-*.md` (`PROPOSTO`); `docs/contratos/` com os contratos
+  propostos; `docs/examples/screens/` com os quatro exemplos (skeleton, spec, resposta, matriz de rastreabilidade);
+  `docs/guia-criacao-telas-componentes.md`; `docs/performance/medicoes-2026-09-23.md`;
+  `docs/runbooks/persistencia-mongodb-redis.md`.
+- Pendente de terceiros: homologação móvel dos contratos novos e ensaio operacional da persistência.
 
 ## 12. Decisões Provisórias
 
@@ -193,9 +203,12 @@ java -version
 
 ## 17. Estado de Persistência (limitação operacional vigente)
 
-Nenhum adapter de MongoDB ou Redis está cabeado. Todos os stores registrados em `SduiConfiguration`
-são in-memory, e as autoconfigurações de Mongo e Redis estão excluídas em `SduiApplication`.
-Consequências que valem para qualquer decisão de deploy ou de evolução:
+O modo padrão é em memória (`sdui.persistence.store=memory`, `sdui.persistence.cache=memory`): todos os stores e
+caches vivem no heap, e as autoconfigurações de Mongo e Redis continuam excluídas em `SduiApplication`. Existem
+adapters MongoDB e Redis **opt-in** (ADR-021), com clientes montados pelo próprio serviço, mas eles **não foram
+homologados**: o roteiro de `docs/runbooks/persistencia-mongodb-redis.md` (restart, perda de Redis, indisponibilidade
+do Mongo, publicação concorrente, duas instâncias, `explain` em base representativa) ainda não foi executado.
+Enquanto não for, as consequências abaixo valem para qualquer decisão de deploy:
 
 - O estado não sobrevive a restart. O que existe após subir é o que o seed reconstrói.
 - O estado não é compartilhado entre instâncias: publicar, aprovar ou fazer rollback em um pod não
@@ -203,10 +216,9 @@ Consequências que valem para qualquer decisão de deploy ou de evolução:
 - Enquanto isso valer, o serviço só opera corretamente como instância única, ou com o plano de
   administração (`/admin/v1/**`) dirigido a uma instância designada.
 
-O pacote `adapters/mongo` e o `RedisKeyspace` foram removidos: eram preparação sem nenhum consumidor,
-e código morto confunde quem chega depois. Cabear os adapters persistentes é trabalho de feature, com
-ADR próprio, e o desenho dos documentos e índices será decidido nesse momento — não sobrevive como
-esqueleto no repositório.
+Os adapters persistentes vieram com ADR próprio (ADR-021), documentos e índices definidos e testes que só rodam
+com infraestrutura real (`SDUI_IT_MONGO_URI`, `SDUI_IT_REDIS_URL`). Esta seção só muda para "persistência
+operacional" depois do ensaio registrado; build verde, mocks ou containers saudáveis não bastam.
 
 ## 18. Diretrizes de Qualidade e Concorrência Consolidadas (Pós-Review)
 
@@ -217,7 +229,7 @@ Regras inegociáveis resultantes do ciclo de auditoria técnica (`code-review-an
 2. **Parsing SemVer Seguro:** Todo parsing de números em SemVer (`SemVer.kt`) deve utilizar
    `.toIntOrNull() ?: return null`.
    Proibido lançar `NumberFormatException` que possa vazar como HTTP 500 no `Negotiate`.
-3. **Serialização de Passo Único no Hot Path:** O `HomeController` deve retornar o `byte[]` pré-serializado diretamente
+3. **Serialização de Passo Único no Hot Path:** O `SurfaceController` deve retornar o `byte[]` pré-serializado diretamente
    com `MediaType.APPLICATION_JSON`. Nunca repassar instâncias de objeto de resposta para o Spring re-serializar.
 4. **Constantes Pré-calculadas em Validações:** Em classes de guardas (`Guards.kt`), sets de chaves restritas
    (`LOWER_VISUAL_KEYS`, `LOWER_PII_KEYS`) devem ser `private val` pré-calculados, evitando alocações no loop recursivo.
@@ -237,7 +249,7 @@ Regras inegociáveis resultantes do ciclo de auditoria técnica (`code-review-an
 Regras inegociáveis resultantes da revisão multidimensional de 2026-09-20 (`code-review-and-quality`):
 
 1. **Capabilities do Header São Filtradas:** `CapabilityMatrix.effective` só soma ao conjunto do servidor
-   as capabilities que pertencem ao universo conhecido (`byPlatformVersion` + `MvpCatalog.TYPES`). Uma
+   as capabilities que pertencem ao universo conhecido (`byPlatformVersion` + `ComponentContracts.APPROVED`). Uma
    capability arbitrária nunca casaria com uma section, mas entraria no `capsHash` e criaria uma chave de
    cache nova por requisição. `Capability.parseList` deduplica e aplica `MAX_HEADER_CAPABILITIES`.
 2. **Todo Cache e Mapa Alimentado por Entrada do Cliente Tem Teto:** `InMemoryHydratedScreenCache`
@@ -316,10 +328,10 @@ Regras inegociáveis consolidadas no ciclo de auditoria de concorrência e otimi
    Micrometer ou registradores de métricas nunca podem vazar como `CompletionException` não tratada no `join()`,
    garantindo que a resposta siga a escada de fallback (ADR-007) sem gerar HTTP 500 indevido.
 3. **Poda e Retenção em Stores em Memória:**
-    - `InMemoryProjectionStore` deve executar rotina periódica de poda (`prune()`) com teto `maxEntries = 10_000`
-      para expurgar projeções expiradas não consultadas.
-    - `InMemoryAuditLogStore` opera como anel FIFO com teto de retenção (`maxEvents = 2_000`), evitando
-      acúmulo indefinido de eventos no heap durante a execução em memória.
+    - `InMemoryProjectionStore` varre projeções vencidas no máximo uma vez por `sweepIntervalMs` (padrão 60 s),
+      disparado por leitura ou escrita, e poda para metade no teto `maxEntries = 10_000`.
+    - `InMemoryAuditLogStore` é uma lista FIFO com teto de retenção (`maxEvents = 2_000`); o deslocamento no teto
+      custa ~250 ns por append (medido em 2026-09-23) e não justifica anel.
 4. **Propriedades Imutáveis Pré-calculadas no Domínio:**
     - `Section` pré-calcula `val capability: Capability = Capability(type, typeVersion)` no construtor.
       Proibido instanciar novos objetos `Capability` a cada section no hot path do `Filter.filter`.
@@ -359,11 +371,53 @@ Regras consolidadas no ciclo de observabilidade e instrumentação:
    contexto MDC herdado da thread principal através de executor decorador em `adapters`, garantindo continuidade de
    rastreabilidade sem violar a pureza do `sdui-orchestrator`.
 7. **Ponto de Entrada Carimbado (`entryPoint` no MDC):** Requisições e processos carimbam `entryPoint` (`home`,
-   `admin`, `management`, `seed`) no MDC, eliminando diagnósticos por eliminação em sinks de logs compartilhados.
-8. **Histogram Buckets no Prometheus:** Timers críticos (`compose.duration` e `section.hydrate.ms`) possuem
+   `catalog`, `surface`, `admin`, `actuator`, `http`, `seed`, `demo`, `invalidation_relay`) no MDC, eliminando
+   diagnósticos por eliminação em sinks de logs compartilhados.
+8. **Histogram Buckets no Prometheus:** Timers críticos (`compose.duration`, `section.hydrate.ms`, `mapping.ms` e `serialize.ms`) possuem
    `percentiles-histogram: true` configurado no `application.yaml`, viabilizando alertas e painéis de P95/P99
    sobre `compose_duration_seconds_bucket`.
 9. **Gauges de Recursos USE:** `rate_limiter.resident_keys` e `compose.bulkhead.available_permits` são expostos
    como gauges instantâneos no Micrometer via `MeterBinder`, monitorando saturação e utilização de recursos internos.
 10. **Proteção contra Cardinalidade em Métricas:** Nenhuma métrica administrativa ou de hot path interpola parâmetros
     arbitrários de path em tags (ex: `admin.skeleton.upsert` não tagueia `skeletonId`, confinado ao log estruturado).
+
+## 23. Diretrizes do Ciclo de 2026-09-23 (Surfaces, Contratos, Persistência e Medição)
+
+Regras resultantes da entrega de `tasks/plan.md`, `tasks/plano-persistencia-mongo-redis.md` e dos achados de
+`docs/analise-performance-2026-09-23.md`:
+
+1. **Surface é Allowlist:** toda surface vem de `Surfaces` (core) e tem mapeamento HTTP literal em
+   `SurfaceController`. Proibido `/v1/surfaces/{surface}` genérico, surface como texto livre em chave, tag ou
+   documento, e fallback/árvore de uma surface servidos a outra.
+2. **Catálogo Fechado em Contratos Aprovados:** `CatalogValidator` só aceita `ComponentContracts.APPROVED` (qualquer
+   status) e exige os sete types da Home ativos. Componente novo exige contrato em `docs/contratos`, ADR e regras em
+   `ComponentPropsValidator` antes de entrar no catálogo.
+3. **Type Novo Só por Capability Declarada:** a matriz do servidor não concede contrato novo a nenhuma faixa de app.
+   Slot portante que dependa de type novo declara a capability em `targeting.requiredCapabilities`.
+4. **Seleção Pelo Pointer Primeiro:** a revisão apontada é resolvida pelo cache de spec/`findByRevisionId` antes de
+   listar publicadas; o resultado tem de ser idêntico ao de `Select.select` sobre a lista inteira. A seleção continua
+   antes do cache (§19.10).
+5. **Singleflight Relê o Cache e Reidrata o Waiter:** o líder consulta o cache de novo ao assumir; o waiter recebe
+   `withRequester` com o próprio contexto.
+6. **Hidratador Declara I/O:** `SectionHydrator.performsIo = false` roda na thread da requisição; só hidratador com
+   I/O vai para o fan-out em virtual threads. Telemetria e omissão iguais nos dois caminhos.
+7. **Tags Sem Versão de App:** versão exata do app vai para o MDC (`appVersion`), nunca para tag; `schemaVersion`
+   só como valor suportado ou `other`. Nomes em `MetricNames`; o `CardinalityGuardMeterFilter` nega meter novo acima
+   de `sdui.metrics-max-tag-values` por tag. Todo nome de métrica mantém o mesmo conjunto de chaves de tag.
+8. **Idempotência Sem Expulsão e Com Fingerprint:** registro vivo nunca sai por pressão; no teto em memória a
+   admissão é recusada (503). Reuso da chave com outra operação ou outros parâmetros é 422. Reserva em voo vence em
+   `idempotency-reservation-timeout-seconds`.
+9. **Pointer por Compare-and-Set:** publicação e rollback movem o pointer com `compareAndSet(versaoLida, novo)`;
+   conflito é 409 e nunca é repetido pelo servidor. `save` sem versão é só para seed e preparação de teste.
+10. **Invalidação por Outbox e Lápide:** a invalidação é registrada no outbox dentro da transação e aplicada depois
+    do commit; o last good só aceita árvore de versão de pointer ≥ à lápide. Relay reaplica pendências.
+11. **Cache com Teto Estrito:** a vaga é reservada por compare-and-set num contador antes da inserção e devolvida
+    depois da remoção; no teto, uma thread poda e as demais descartam a escrita. Proibido decidir o teto por
+    `ConcurrentHashMap.size()` (estimativa sob escrita concorrente) e proibido inserir por cima de uma poda.
+12. **Persistência Explícita:** `sdui.persistence.store`/`cache` inválido ou URI ausente falha a subida; modo
+    persistente nunca cai para memória. Mongo sem `withTransaction` e com `retryWrites/retryReads=false`; Redis com
+    `REJECT_COMMANDS` e prazo curto. Formato de documento e de cache versionado (`_v`, `v`).
+13. **Listagens Administrativas Paginadas:** `offset`/`limit` (padrão 100, teto 500); valor fora da faixa é 400.
+14. **Medir Antes de Otimizar:** mudança de performance entra com medição antes/depois no mesmo ambiente
+    (`gradlew :sdui-app:perfHarness`, `:sdui-app:loadTest`) registrada em `docs/performance/`; ganho dentro do ruído é
+    rejeitado e registrado como tal.

@@ -25,7 +25,7 @@ data class Targeting(
         val os = osVersion
         val clientOs = context.osVersion
         if (os != null && clientOs != null && !os.contains(clientOs)) return false
-        return requiredCapabilities.isEmpty() || requiredCapabilities.all { it in effectiveCaps }
+        return requiredCapabilities.all { it in effectiveCaps }
     }
 
     fun wireMin(): String = appVersion.min.toString()
@@ -150,7 +150,7 @@ data class SpecDiff(
  */
 data class AuditEvent(
     val id: String,
-    val ts: java.time.Instant,
+    val ts: Instant,
     val actorId: String,
     val role: ActorRole,
     val action: String,
@@ -172,9 +172,13 @@ data class AuditEvent(
  * [resultRef] nulo significa reserva em voo: a chave foi tomada e a operacao ainda nao commitou.
  * A distincao importa porque so ela separa "ja fizemos, aqui esta o resultado" de "alguem esta
  * fazendo agora" — sem ela, um retry concorrente executaria a operacao uma segunda vez.
+ *
+ * [fingerprint] resume os parametros da operacao. A chave vale para uma operacao com aqueles
+ * parametros: reusa-la com outro alvo e erro do chamador, nao replay.
  */
 data class IdempotencyRecord(
     val key: String,
     val operation: String,
     val resultRef: String?,
+    val fingerprint: String = "",
 )

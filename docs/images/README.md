@@ -6,8 +6,9 @@
 >
 > **Fase do serviço:** em desenvolvimento. O `ms-sdui-composer` compõe a árvore de UI de uma surface a partir de spec
 > versionada, contexto do cliente e capabilities declaradas, e entrega um envelope REST/JSON para iOS e Android. A
-> primeira surface é `home`; o objetivo é atender montagens diferentes de tela. Este documento descreve o estado atual
-> **e** o rumo proposto nos ADRs em aberto, sempre marcando qual é qual.
+> primeira surface é `home`; a segunda, `catalog` (ADR-020). Este documento descreve o estado atual **e** o que ainda
+> é proposta, sempre marcando qual é qual. Exemplos executáveis das composições em
+> [`docs/examples/screens`](../examples/screens/README.md).
 
 ## 0. Precedência
 
@@ -20,20 +21,24 @@ Em caso de conflito sobre o **estado atual**, vence o item mais alto:
 
 ADRs `PROPOSTO` indicam o **rumo**, não o estado. Neste documento eles aparecem marcados com **[proposto]**:
 
-| ADR     | Tema                                       | Efeito neste documento                                                      |
-|---------|--------------------------------------------|-----------------------------------------------------------------------------|
-| ADR-015 | Escopo de uso do SDUI                      | Quais imagens retratam fluxos que ficam fora                                |
-| ADR-017 | Experimentação por revisão de spec         | Braços de experimento podem diferir em conteúdo e montagem                  |
-| ADR-018 | Montagem variável da surface               | Ordem dos slots vira dado do skeleton; cada slot declara layouts permitidos |
-| ADR-019 | Remoção de `variant` do `shortcut_shelf@1` | `variant` sai da fixture antes da primeira release                          |
+| ADR     | Tema                                       | Status      | Efeito neste documento                                                      |
+|---------|--------------------------------------------|-------------|-----------------------------------------------------------------------------|
+| ADR-015 | Escopo de uso do SDUI                      | `ACEITO`    | Quais imagens retratam fluxos que ficam fora                                |
+| ADR-017 | Experimentação por revisão de spec         | `PROPOSTO`  | Braços de experimento podem diferir em conteúdo e montagem                  |
+| ADR-018 | Montagem variável da surface               | `ACEITO`    | Ordem dos slots é dado do skeleton; cada slot declara layouts permitidos    |
+| ADR-019 | Remoção de `variant` do `shortcut_shelf@1` | `ACEITO`    | `variant` saiu da fixture e está no `VisualGuard`                           |
+| ADR-020 | Múltiplas surfaces e contratos novos       | `PROPOSTO`  | Surface `catalog` e três contratos implementados no servidor, não homologados |
 
 Três regras de leitura que atravessam o documento:
 
-- **O mecanismo é agnóstico de domínio; o catálogo atual, não.** Os 7 types da fixture são de produto financeiro. As
-  imagens de café, pizza, moda e logística servem como referência de **padrão** (montagem, omissão, layout token, porta
-  de entrada para fluxo nativo). Um catálogo de outro domínio entraria por ADR, com surface própria.
-- **Só existem 7 types e 7 slots na Home hoje.** Qualquer outro nome é "candidato observado" (seção 5).
-- **Fluxos hostis ficam fora** (ADR-015 **[proposto]**): autenticação, onboarding, transação, mapa e formulários.
+- **O mecanismo é agnóstico de domínio; o catálogo, não.** Os 7 types da fixture são de produto financeiro. Comércio
+  entrou por ADR (ADR-020), com surface própria (`catalog`) e contratos próprios. As imagens de café, pizza e logística
+  continuam como referência de **padrão** (montagem, omissão, layout token, porta de entrada para fluxo nativo).
+- **Types aprovados hoje:** os 7 da Home mais `transaction_summary@1`, `catalog_navigation@1` e `product_collection@1`
+  **[proposto]** — aceitos pelo servidor, entregues só a quem declara a capability, não homologados pelos apps. Slots:
+  os 7 da Home mais `transactions`; na surface `catalog`, `header`, `navigation`, `featured` e `products`. Qualquer outro
+  nome é "candidato observado" (seção 5).
+- **Fluxos hostis ficam fora** (ADR-015): autenticação, onboarding, checkout, mapa e formulários.
 
 ---
 
@@ -82,19 +87,23 @@ os itens se organizam**, não quanto medem.
 | `list`  | Empilhamento vertical             | Divisores, highlight, altura das linhas                               |
 | `pager` | Carrossel paginado                | Snap, transição, dots                                                 |
 
-**Hoje:** qualquer token do enum é aceito em qualquer slot.
+**Hoje (ADR-018, ADR-020):** cada slot declara `allowedLayouts`, e o `SkeletonValidator` recusa layout fora da regra
+do slot na surface (`Surfaces`):
 
-**[proposto] ADR-018:** cada slot declara `allowedLayouts`. Ponto de partida em revisão:
-
-| Slot        | `allowedLayouts` |
-|-------------|------------------|
-| `header`    | `fixed`          |
-| `shortcuts` | `shelf`, `grid`  |
-| `accounts`  | `list`, `fixed`  |
-| `cards`     | `list`, `pager`  |
-| `offers`    | `list`, `pager`  |
-| `coverage`  | `list`, `shelf`  |
-| `foryou`    | `pager`, `list`  |
+| Surface   | Slot           | `allowedLayouts` |
+|-----------|----------------|------------------|
+| `home`    | `header`       | `fixed`          |
+| `home`    | `shortcuts`    | `shelf`, `grid`  |
+| `home`    | `accounts`     | `list`, `fixed`  |
+| `home`    | `cards`        | `list`, `pager`  |
+| `home`    | `offers`       | `list`, `pager`  |
+| `home`    | `coverage`     | `list`, `shelf`  |
+| `home`    | `foryou`       | `pager`, `list`  |
+| `home`    | `transactions` | `list`           |
+| `catalog` | `header`       | `fixed`          |
+| `catalog` | `navigation`   | `shelf`, `fixed` |
+| `catalog` | `featured`     | `pager`, `list`  |
+| `catalog` | `products`     | `grid`, `list`   |
 
 ---
 
@@ -116,10 +125,13 @@ Cada type representa um **conceito de produto**, não uma forma (regra do Lyft, 
 crédito, `credit_offer` é oferta de crédito, `coverage_card` é seguro, `decision_card` é uma decisão aceitar/recusar.
 Usar `credit_offer` para cupom de café ou `card_product` para um moletom é erro semântico, mesmo que os campos caibam.
 
-**`variant`.** A fixture atual tem `variant: "compact"` no `shortcut_shelf`, e o `NoVisualAttributesTest` autoriza
-esse campo só nesse type. Isso contraria o ADR-010. **[proposto] ADR-019:** remover `variant` antes da primeira
-release; densidade passa a ser decisão do app. Por isso a tabela acima já não lista `variant`. Specs novas não devem
-usá-lo.
+**`variant`.** Removido da fixture e do seed (ADR-019, aceito) e bloqueado pelo `VisualGuard`: densidade é decisão
+do app.
+
+**Contratos novos [proposto].** `transaction_summary@1` (slot `transactions` da Home) e, na surface `catalog`,
+`catalog_navigation@1` e `product_collection@1`. Props, limites e actions em
+[`docs/contratos`](../contratos/transaction-summary-v1.md) e
+[`componentes-comercio-v1.md`](../contratos/componentes-comercio-v1.md).
 
 **Dados de cartão.** `holderName` e `expirationDate` não estão na fixture e são dado pessoal de cartão. Não adicionar:
 `brandLabel` e `last4` bastam na Home.
@@ -132,12 +144,12 @@ Nomes que surgem ao analisar as imagens, mas que não existem no catálogo. O `S
 
 | Nome                                                 | Onde               | Diagnóstico                                                                                                   | Destino                                                                                        |
 |------------------------------------------------------|--------------------|---------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|
-| `transaction_list`                                   | Imagens 1 e 6      | Conceito bancário legítimo. O sufixo `_list` nomeia forma; por conceito, algo como `recent_transactions`.     | Candidato real: ADR, slot novo no vocabulário da Home, hydrator de extrato, `required: false`. |
+| `transaction_list`                                   | Imagens 1 e 6      | Conceito bancário legítimo; o sufixo `_list` nomeia forma.                                                    | **Proposto como `transaction_summary@1`** (ADR-020), slot `transactions`, `required: false`, conteúdo sintético; extrato real depende de projeção segura. |
 | `asset_list`                                         | Imagem 4           | Ativos cripto fora do produto atual.                                                                          | Referência de padrão.                                                                          |
 | `hero_banner`                                        | Imagens 3 e 8      | Nome por forma. Em banco, o equivalente é `credit_offer` ou `decision_card`.                                  | Não adotar.                                                                                    |
-| `product_card`, `product_shelf`, `product_list`      | Imagens 2, 3, 8, 9 | Varejo; `_shelf`/`_list` repetem o layout token.                                                              | Só com catálogo de outro domínio, por ADR.                                                     |
+| `product_card`, `product_shelf`, `product_list`      | Imagens 2, 3, 8, 9 | Varejo; `_shelf`/`_list` repetem o layout token.                                                              | Resolvido pelo conceito `product_collection@1` na surface `catalog` (ADR-020), não por esses nomes. |
 | `service_grid`                                       | Imagem 9           | Serviços são atalhos: `shortcut_shelf` em `grid`.                                                             | Não adotar.                                                                                    |
-| `search_bar`                                         | Imagens 2, 5, 8, 9 | Busca é chrome do app.                                                                                        | Não adotar.                                                                                    |
+| `search_bar`                                         | Imagens 2, 5, 8, 9 | Busca é chrome do app.                                                                                        | Não adotar como componente. No catálogo, só a **entrada** para a busca nativa, em `catalog_navigation@1`. |
 | `order_status_card`                                  | Imagem 9           | Card de entrada para fluxo nativo; nenhum type atual representa esse conceito (`decision_card` não é status). | Só com equivalente de produto, por ADR.                                                        |
 | `onboarding_header`, `passcode_input`, `phone_input` | Imagem 7           | Autenticação e cadastro.                                                                                      | Hostil (ADR-015).                                                                              |
 
@@ -161,10 +173,11 @@ Todo `actionId` em `props` precisa apontar para uma action da mesma section. `tr
 
 ## 7. Skeleton e montagem da Home
 
-### 7.1 Hoje
+### 7.1 Skeleton canônico
 
-Um único skeleton, `home.default`. A ordem é fixa (`MvpCatalog.SLOT_ORDER`), validada pelo `SkeletonValidator`. O que
-varia por spec é quais sections ocupam cada slot e o conteúdo delas.
+`home.default` é o skeleton da fixture canônica. A ordem é dado do skeleton (ADR-018): o seed também publica
+`home.cards_first`, e os exemplos acrescentam `home.shortcuts_first`, `home.transactions` e `catalog.default`. O que
+varia por spec é qual skeleton ela usa, quais sections ocupam cada slot e o conteúdo delas.
 
 ```json
 {
@@ -243,11 +256,11 @@ varia por spec é quais sections ocupam cada slot e o conteúdo delas.
 - **Slots portantes:** `header` e `accounts` (ADR-009). Vazios, disparam a escada de fallback (ADR-007).
 - **Omitíveis:** os demais. Falha ou falta de capability gera `envelope.omitted`, com `200`.
 
-### 7.2 [proposto] ADR-018: montagem variável
+### 7.2 Montagem variável (ADR-018, implementado)
 
-A ordem passa a ser dado do skeleton versionado. Uma surface pode ter vários skeletons, e cada spec escolhe o seu.
-O `SkeletonValidator` troca a ordem fixa por invariantes: slots do vocabulário da surface, ids únicos, portantes
-presentes, `header` sempre primeiro e layout dentro de `allowedLayouts`.
+A ordem é dado do skeleton versionado. Uma surface pode ter vários skeletons, e cada spec escolhe o seu. O
+`SkeletonValidator` aplica invariantes por surface: slots do vocabulário, ids únicos, portantes presentes e marcados,
+`header` sempre primeiro e layout dentro de `allowedLayouts` e da regra do slot.
 
 Exemplo: a montagem da direita da imagem 10.
 
@@ -296,7 +309,7 @@ produto, nunca por tamanho de tela.
 ### 7.3 Regiões visuais não são slots
 
 Ao descrever uma imagem, é natural nomear regiões ("Popular Picks", "Recent shipments"). Esses nomes descrevem a
-imagem. Na seção 8 eles aparecem como **regiões**; slots são só os 7 do vocabulário da Home.
+imagem. Na seção 8 eles aparecem como **regiões**; slots são só os do vocabulário de cada surface (seção 3).
 
 ---
 
@@ -314,7 +327,7 @@ renderer e o que foi corrigido em relação à versão 2.0.
 - **Na Home:** `top_bar@1` (`header`), `account_card@1` (`accounts`), `card_product@1` (`cards`, com `pager` sob o
   ADR-018), `shortcut_shelf@1` (`shortcuts`). Filtro de transações é `open_bottom_sheet`. Nada de type híbrido como
   `card_and_account`.
-- **Fora do catálogo:** a lista de transações (seção 5).
+- **Transações:** proposta `transaction_summary@1` — exemplo [`banking.transactions`](../examples/screens/banking.transactions/README.md).
 - **Renderer:** gradiente laranja, chip desenhado, peek de 24dp, raio de 20dp, verde/vermelho dos valores.
 - **Produto:** o saldo não mostra controle de ocultação; na Home, `concealable`/`concealed` cobrem isso.
 
@@ -358,8 +371,9 @@ renderer e o que foi corrigido em relação à versão 2.0.
   bottom sheet.
 - **Ensina:** bottom sheet é `open_bottom_sheet` com `sheet` nomeado; altura e raio são do renderer. Estado de seleção
   (`selected`) é conteúdo semântico, como já existe em `shortcut_shelf`.
-- **Na Home:** sem mapeamento direto.
-- **Fora:** detalhe e carrinho.
+- **Na surface `catalog`:** exemplo [`fashion.catalog`](../examples/screens/fashion.catalog/README.md) com
+  `top_bar@1`, `catalog_navigation@1` e `product_collection@1` **[proposto]**.
+- **Fora:** detalhe, carrinho e checkout (nativos).
 - **Renderer:** barra inferior com blur, grade de 2 colunas, dourado `#F4B255`, sheet com raio de 28dp.
 - **Correção:** a 2.0 mapeava o moletom como `card_product@1` e o filtro por tag como `track` com rota.
 
@@ -415,9 +429,9 @@ renderer e o que foi corrigido em relação à versão 2.0.
   configuração, sem release; o Design System resolve o resto.
 - **Na Home:** mapeia quase 1:1: `top_bar@1`, `account_card@1`, `shortcut_shelf@1`, `card_product@1`,
   `credit_offer@1`, `coverage_card@1`.
-- **O que o serviço faz hoje:** a troca de `shortcuts` de `shelf` para `grid` já é possível, via skeleton. Subir
-  `cards` acima de `shortcuts` **não** é: o `SkeletonValidator` exige a ordem fixa. **[proposto] ADR-018** resolve
-  isso com um segundo skeleton (exemplo na seção 7.2).
+- **O que o serviço faz hoje:** as duas montagens, por skeleton (ADR-018): `shelf`/`grid` em `shortcuts` e `cards`
+  acima de `shortcuts`. Exemplos [`banking.shortcuts_first`](../examples/screens/banking.shortcuts_first/README.md) e
+  [`banking.cards_first`](../examples/screens/banking.cards_first/README.md); a troca é de revisão pelo pointer.
 - **Renderer:** roxo `#820AD1`, botões `#8A05BE`, badge lilás `#E8D5F5`, círculos de 56dp, divisores de 1dp.
 - **Produto:** ocultar saldo deveria ocultar também o limite do cartão. É regra a combinar com os apps, não campo novo.
 - **Acessibilidade:** o controle de visibilidade anuncia "Saldos ocultos" / "Saldos exibidos".
@@ -428,16 +442,16 @@ renderer e o que foi corrigido em relação à versão 2.0.
 
 | Imagem              | Slots da Home                                                    | Types do catálogo                                                                            | Fora de escopo ou do catálogo          |
 |---------------------|------------------------------------------------------------------|----------------------------------------------------------------------------------------------|----------------------------------------|
-| 1. banking          | `header`, `accounts`, `cards`, `shortcuts`                       | `top_bar`, `account_card`, `card_product`, `shortcut_shelf`                                  | Lista de transações                    |
+| 1. banking          | `header`, `accounts`, `cards`, `shortcuts`, `transactions`       | `top_bar`, `account_card`, `card_product`, `shortcut_shelf`, `transaction_summary` [proposto] | —                                      |
 | 2. coffee flow      | —                                                                | —                                                                                            | Fluxo completo (padrão)                |
 | 3. coffee wireframe | —                                                                | —                                                                                            | Varejo (padrão)                        |
 | 4. crypto           | `header`, `accounts`, `shortcuts`                                | `top_bar`, `account_card`, `shortcut_shelf`                                                  | Saque; lista de ativos                 |
-| 5. ecommerce        | —                                                                | —                                                                                            | Varejo; detalhe e carrinho             |
+| 5. ecommerce        | `catalog`: `header`, `navigation`, `featured`, `products`        | `top_bar`, `catalog_navigation`, `product_collection` [proposto]                             | Detalhe, carrinho e checkout (nativos) |
 | 6. finance          | `header`, `cards`, `shortcuts`                                   | `top_bar`, `card_product`, `shortcut_shelf`                                                  | Lista de despesas                      |
 | 7. onboarding       | —                                                                | —                                                                                            | Fluxo inteiro (hostil)                 |
 | 8. food delivery    | —                                                                | —                                                                                            | Varejo (padrão)                        |
 | 9. logistics        | `shortcuts`                                                      | `shortcut_shelf`                                                                             | Card de remessa; mapa                  |
-| 10. nubank          | `header`, `accounts`, `shortcuts`, `cards`, `offers`, `coverage` | `top_bar`, `account_card`, `shortcut_shelf`, `card_product`, `credit_offer`, `coverage_card` | Montagem da direita depende do ADR-018 |
+| 10. nubank          | `header`, `accounts`, `shortcuts`, `cards`, `offers`, `coverage` | `top_bar`, `account_card`, `shortcut_shelf`, `card_product`, `credit_offer`, `coverage_card` | NuEnsina e "Acompanhe também" sem contrato |
 
 `decision_card` (`foryou`) não tem correspondente visual; sua referência é a fixture.
 
@@ -455,29 +469,30 @@ margin, padding, gap,
 width, height, radius, rounded, cornerRadius, shadow,
 orientation, circle, rectangle, shimmer, ripple, haptic,
 dp, pt, itemWidth, itemHeight, breakpoint, formFactor,
-columns
+columns, componentType, appearance, presentation, style, size, variant
 ```
 
-A cópia dessa lista no `NoVisualAttributesTest` não inclui `columns`. As duas devem ser uma só.
+A cópia dessa lista no `NoVisualAttributesTest` é conferida contra `MvpCatalog.VISUAL_KEYS` pelo
+`VisualKeysAlignmentTest`.
 
 ### 10.2 Proibidas por regra, ainda sem guard
 
-A regra existe (ADR-010, §2 da pré-arquitetura), a verificação ainda não:
+A regra existe (ADR-010), a verificação ainda não:
 
 ```text
-variant, componentType, style, appearance, presentation,
-isDarkMode, theme, prominent, size
+isDarkMode, theme, prominent
 ```
-
-`variant` depende do ADR-019. Antes de levar `style` e `size` ao guard, conferir colisão com chaves de conteúdo.
 
 ### 10.3 Dado regulado
 
 Bloqueado pelo `PiiGuard`, por chave (`MvpCatalog.PII_KEYS`) e por formato (CPF e PAN):
 
 ```text
-cpf, pan, cvv, password, senha, token, jwt, secret, accountNumber, agencia, conta
+cpf, pan, cvv, password, senha, token, jwt, secret, accountNumber, agencia, conta, pin, otp, passcode
 ```
+
+No catálogo de comércio, o `ComponentPropsValidator` recusa ainda chaves de operação comercial (`quantity`, `favorite`,
+`addToCart`, `cart`, `checkout`, `stock`, `sku`).
 
 ---
 
@@ -492,9 +507,9 @@ Priorizado pelo custo de adiar: numa fase de desenvolvimento, o que mexe no mode
 | **P0**     | Fixture com segunda montagem da Home, para testes de renderer iOS e Android                                  | **CONCLUÍDO** | `contrato-sdui-home-cards-first.json` criada e testada em `CardsFirstHomeContractTest`.                   |
 | **P1**     | Unificar `VISUAL_KEYS` e a lista do `NoVisualAttributesTest`; levar a seção 10.2 ao guard                    | **CONCLUÍDO** | `VisualKeysAlignmentTest` garante integridade estrita entre os módulos.                                   |
 | **P1**     | Fixture de regressão com spec no formato do `docs/05`                                                        | **CONCLUÍDO** | `proposta-docs-05-hostil.json` criada e validada em `RejectedProposalContractTest` e `SpecValidatorTest`. |
-| **P1**     | Revisar o ADR-015 com o time e aplicá-lo à próxima surface                                                   | Em aberto     | Critérios formalizados no ADR-015 (`ACEITO`); aplicação no desenho da próxima surface.                    |
+| **P1**     | Revisar o ADR-015 com o time e aplicá-lo à próxima surface                                                   | **APLICADO**  | Surface `catalog` (ADR-020): detalhe, carrinho e checkout ficaram nativos; revisão com o time pendente.    |
 | **P2**     | Avaliar `pin`, `otp`, `passcode` em `PII_KEYS`                                                               | **CONCLUÍDO** | `pin`, `otp`, `passcode` adicionados a `MvpCatalog.PII_KEYS` e validados pelo `PiiGuard`.                 |
-| **P2**     | Decidir transações recentes na Home                                                                          | Em aberto     | Único candidato da seção 5 com lastro de produto; aguarda backlog de produto.                             |
+| **P2**     | Decidir transações recentes na Home                                                                          | **PROPOSTO**  | `transaction_summary@1` implementado no servidor com conteúdo sintético; aguarda homologação dos apps.    |
 | **P2**     | Reservar o campo `experiment` no pointer (ADR-017)                                                           | **CONCLUÍDO** | `ExperimentArm`, `ExperimentConfig` e campo `experiment` adicionados ao `Pointer`.                        |
 | **P3**     | Guia de renderer para iOS e Android (registry por `type@typeVersion`, dispatcher de actions, ordem recebida) | Em aberto     | Item aproveitado do `docs/05` para documentação dos apps clientes.                                        |
 
@@ -538,3 +553,4 @@ Priorizado pelo custo de adiar: numa fase de desenvolvimento, o que mexe no mode
 | `1.2`  | 2026-09-20 | Wallan Pereira               | Correção de encoding.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `2.0`  | 2026-09-20 | Antigravity + Wallan Pereira | Análise das 10 imagens, dicionários de tokens, catálogos, skeleton, rastreabilidade e backlog.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `3.0`  | 2026-09-21 | Wallan Pereira               | **Alinhamento ao código, aos ADRs e à fase de desenvolvimento.** Precedência explícita e separação entre estado atual e rumo proposto. Catálogo reduzido aos 7 types reais; types inventados viram candidatos observados. Regiões visuais separadas de slots. Montagem variável documentada como proposta (ADR-018), com exemplo da segunda montagem da imagem 10. `variant` retirado do catálogo documentado (ADR-019). Removidos `holderName` e `expirationDate`. Corrigidos usos errados de `credit_offer`, `card_product`, `decision_card` e `track`. Onboarding retirado inteiro (ADR-015). Chaves proibidas separadas entre bloqueio real e regra sem guard. Backlog repriorizado pelo custo de adiar. |
+| `3.1`  | 2026-09-23 | Wallan Pereira               | **Sincronização com ADR-018/019 aceitos e ADR-020 proposto.** Ordem de slots e `allowedLayouts` como estado atual; surface `catalog`; contratos `transaction_summary@1`, `catalog_navigation@1` e `product_collection@1` como propostas; lista de `VISUAL_KEYS` e `PII_KEYS` alinhada ao código; rastreabilidade das imagens 1, 5 e 10 apontando para `docs/examples/screens`. |

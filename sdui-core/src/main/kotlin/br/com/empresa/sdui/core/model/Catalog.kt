@@ -29,6 +29,4 @@ data class Catalog(
 ) {
     fun find(type: String, typeVersion: Int): ComponentType? =
         components.firstOrNull { it.type == type && it.typeVersion == typeVersion }
-
-    fun capabilities(): Set<Capability> = components.map { it.capability() }.toSet()
 }

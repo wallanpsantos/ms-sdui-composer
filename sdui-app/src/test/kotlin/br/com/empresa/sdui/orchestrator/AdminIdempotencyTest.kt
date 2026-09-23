@@ -1,6 +1,7 @@
 package br.com.empresa.sdui.orchestrator
 
 import br.com.empresa.sdui.adapters.memory.InMemoryAuditLogStore
+import br.com.empresa.sdui.adapters.memory.InMemoryCacheInvalidationOutbox
 import br.com.empresa.sdui.adapters.memory.InMemoryCatalogStore
 import br.com.empresa.sdui.adapters.memory.InMemoryDiffStore
 import br.com.empresa.sdui.adapters.memory.InMemoryHydratedScreenCache
@@ -12,6 +13,7 @@ import br.com.empresa.sdui.adapters.memory.InMemorySkeletonStore
 import br.com.empresa.sdui.adapters.memory.InMemorySpecCache
 import br.com.empresa.sdui.adapters.memory.InMemorySpecStore
 import br.com.empresa.sdui.adapters.memory.InMemoryTransactionalUnitOfWork
+import br.com.empresa.sdui.adapters.memory.RecordingMetrics
 import br.com.empresa.sdui.adapters.seed.HomeSeed
 import br.com.empresa.sdui.core.compat.CapabilityMatrix
 import br.com.empresa.sdui.core.model.Actor
@@ -24,16 +26,21 @@ import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.PublishRequest
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecStatus
+import br.com.empresa.sdui.orchestrator.admin.CacheInvalidator
 import br.com.empresa.sdui.orchestrator.admin.DraftService
 import br.com.empresa.sdui.orchestrator.admin.PublishService
 import br.com.empresa.sdui.orchestrator.admin.RollbackService
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminIdempotencyMismatch
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminUnavailable
 import br.com.empresa.sdui.orchestrator.port.inbound.DecidePublishCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftSpecCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.OpenPublishCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.RollbackCommand
+import br.com.empresa.sdui.orchestrator.port.outbound.IdempotencyReservation
 import br.com.empresa.sdui.orchestrator.port.outbound.LastGoodScreenStore
 import br.com.empresa.sdui.orchestrator.port.outbound.StoredScreen
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.KotlinModule
@@ -71,13 +78,13 @@ class AdminIdempotencyTest {
 
         override fun put(screen: ComposedScreen) = delegate.put(screen)
 
-        override fun invalidate(surface: String, platform: ClientPlatform, channel: Channel) {
+        override fun invalidate(surface: String, platform: ClientPlatform, channel: Channel, pointerVersion: Long) {
             invalidated += "$surface:${platform.wire()}:${channel.wire()}"
-            delegate.invalidate(surface, platform, channel)
+            delegate.invalidate(surface, platform, channel, pointerVersion)
         }
     }
 
-    private class Governance {
+    private class Governance(idempotencyMaxKeys: Int = 10_000) {
         val clock = MutableClock(Instant.parse("2026-09-20T12:00:00Z"))
         val specStore = InMemorySpecStore()
         val skeletonStore = InMemorySkeletonStore()
@@ -86,22 +93,24 @@ class AdminIdempotencyTest {
         val publishStore = InMemoryPublishRequestStore()
         val diffStore = InMemoryDiffStore()
         val auditLog = InMemoryAuditLogStore()
-        val idempotency = InMemoryIdempotencyStore(clock)
+        val idempotency = InMemoryIdempotencyStore(clock, maxEntries = idempotencyMaxKeys)
         val specCache = InMemorySpecCache()
         val treeCache = InMemoryHydratedScreenCache()
         val lastGood = RecordingLastGood(InMemoryLastGoodScreenStore(clock))
         val matrix = CapabilityMatrix()
+        val outbox = InMemoryCacheInvalidationOutbox()
         private val tx = InMemoryTransactionalUnitOfWork()
+        private val invalidator = CacheInvalidator(specCache, treeCache, lastGood, outbox, RecordingMetrics())
 
         val drafts = DraftService(specStore, skeletonStore, catalogStore, matrix)
 
         val publish = PublishService(
             specStore, skeletonStore, catalogStore, pointerStore, publishStore, diffStore,
-            auditLog, idempotency, specCache, treeCache, lastGood, tx, matrix, clock,
+            auditLog, idempotency, specCache, outbox, invalidator, tx, matrix, clock,
         )
 
         val rollback = RollbackService(
-            pointerStore, specStore, auditLog, idempotency, specCache, treeCache, lastGood, tx, clock,
+            pointerStore, specStore, auditLog, idempotency, specCache, outbox, invalidator, tx, clock,
         )
 
         init {
@@ -241,15 +250,20 @@ class AdminIdempotencyTest {
     }
 
     @Test
-    fun `reserva de chave e exclusiva, expira e respeita o teto`() {
+    fun `reserva de chave e exclusiva, expira e respeita o teto sem expulsar registro vivo`() {
         val clock = MutableClock(Instant.parse("2026-09-20T12:00:00Z"))
-        val store = InMemoryIdempotencyStore(clock, ttl = Duration.ofHours(1), maxEntries = 4)
+        val store = InMemoryIdempotencyStore(
+            clock,
+            ttl = Duration.ofHours(1),
+            maxEntries = 4,
+            reservationTimeout = Duration.ofMinutes(5),
+        )
 
-        assertThat(store.reserve("k1", "publish.open")).isTrue()
-        assertThat(store.reserve("k1", "publish.open")).isFalse()
+        assertThat(store.reserve("k1", "publish.open", "fp")).isEqualTo(IdempotencyReservation.Reserved)
+        assertThat(store.reserve("k1", "publish.open", "fp")).isInstanceOf(IdempotencyReservation.Existing::class.java)
         assertThat(store.find("k1")?.resultRef).isNull()
 
-        store.complete(IdempotencyRecord("k1", "publish.open", "pr_1"))
+        store.complete(IdempotencyRecord("k1", "publish.open", "pr_1", "fp"))
         assertThat(store.find("k1")?.resultRef).isEqualTo("pr_1")
         // release nunca desfaz resultado ja fechado: e ele que torna o retry idempotente.
         store.release("k1")
@@ -257,11 +271,88 @@ class AdminIdempotencyTest {
 
         clock.now = clock.now.plus(Duration.ofHours(2))
         assertThat(store.find("k1")).isNull()
-        assertThat(store.reserve("k1", "publish.open")).isTrue()
+        assertThat(store.reserve("k1", "publish.open", "fp")).isEqualTo(IdempotencyReservation.Reserved)
 
-        // O mapa e alimentado por header: precisa de teto, como o cache de arvore e o limitador.
-        repeat(40) { store.complete(IdempotencyRecord("bulk-$it", "publish.open", "pr_$it")) }
-        assertThat(store.reserve("gatilho-da-poda", "publish.open")).isTrue()
-        assertThat(store.residentEntries()).isLessThanOrEqualTo(4)
+        // No teto so com registros vivos, a admissao nova e recusada — a reserva em voo e os
+        // resultados dentro da janela continuam la (achado P1 de 2026-09-23).
+        repeat(3) { store.complete(IdempotencyRecord("bulk-$it", "publish.open", "pr_$it", "fp")) }
+        assertThat(store.reserve("gatilho", "publish.open", "fp")).isEqualTo(IdempotencyReservation.CapacityExhausted)
+        assertThat(store.find("k1")).isNotNull()
+        assertThat((0 until 3).map { store.find("bulk-$it")?.resultRef }).containsExactly("pr_0", "pr_1", "pr_2")
+        assertThat(store.residentEntries()).isEqualTo(4)
+    }
+
+    @Test
+    fun `reserva em voo abandonada vence no prazo de reserva e pode ser retomada`() {
+        val clock = MutableClock(Instant.parse("2026-09-20T12:00:00Z"))
+        val store = InMemoryIdempotencyStore(clock, reservationTimeout = Duration.ofMinutes(5))
+
+        assertThat(store.reserve("k", "pointer.rollback", "fp")).isEqualTo(IdempotencyReservation.Reserved)
+        clock.now = clock.now.plus(Duration.ofMinutes(4))
+        assertThat(store.reserve("k", "pointer.rollback", "fp")).isInstanceOf(IdempotencyReservation.Existing::class.java)
+        clock.now = clock.now.plus(Duration.ofMinutes(2))
+        assertThat(store.reserve("k", "pointer.rollback", "fp")).isEqualTo(IdempotencyReservation.Reserved)
+    }
+
+    @Test
+    fun `chave reusada com outros parametros e recusada em vez de devolver replay`() {
+        val gov = Governance()
+        val primeiro = gov.draft("spec_home_ios_fp_a")
+        val segundo = gov.draft("spec_home_ios_fp_b")
+        val maker = Actor("maker-1", ActorRole.MAKER)
+        gov.publish.open(OpenPublishCommand(maker, primeiro.specId, primeiro.revision, Channel.STABLE, "open-fp"))
+
+        assertThatThrownBy {
+            gov.publish.open(OpenPublishCommand(maker, segundo.specId, segundo.revision, Channel.STABLE, "open-fp"))
+        }.isInstanceOf(AdminIdempotencyMismatch::class.java)
+        // A mesma operacao com os mesmos parametros continua sendo replay.
+        val replay = gov.publish.open(OpenPublishCommand(maker, primeiro.specId, primeiro.revision, Channel.STABLE, "open-fp"))
+        assertThat(replay.specId).isEqualTo(primeiro.specId)
+    }
+
+    @Test
+    fun `registro de idempotencia no teto recusa a operacao sem executar o efeito`() {
+        val gov = Governance(idempotencyMaxKeys = 1)
+        val maker = Actor("maker-1", ActorRole.MAKER)
+        val primeiro = gov.draft("spec_home_ios_cap_a")
+        val segundo = gov.draft("spec_home_ios_cap_b")
+        gov.publish.open(OpenPublishCommand(maker, primeiro.specId, primeiro.revision, Channel.STABLE, "open-cap-1"))
+
+        assertThatThrownBy {
+            gov.publish.open(OpenPublishCommand(maker, segundo.specId, segundo.revision, Channel.STABLE, "open-cap-2"))
+        }.isInstanceOf(AdminUnavailable::class.java)
+        assertThat(gov.idempotency.find("open-cap-1")?.resultRef).isNotNull()
+    }
+
+    @Test
+    fun `publicacao registra a invalidacao no outbox e a marca como aplicada depois do commit`() {
+        val gov = Governance()
+        val draft = gov.draft("spec_home_ios_outbox")
+        val aberto = gov.publish.open(
+            OpenPublishCommand(Actor("maker-1", ActorRole.MAKER), draft.specId, draft.revision, Channel.STABLE, "open-outbox"),
+        )
+        gov.publish.approve(DecidePublishCommand(Actor("checker-1", ActorRole.CHECKER), aberto.requestId, "approve-outbox"))
+
+        assertThat(gov.outbox.pending(10)).isEmpty()
+        assertThat(gov.pointerStore.find(MvpCatalog.SURFACE_HOME, ClientPlatform.IOS, Channel.STABLE)?.version).isEqualTo(2)
+    }
+
+    @Test
+    fun `rollback recusa surface fora da allowlist sem tomar a chave`() {
+        val gov = Governance()
+        assertThatThrownBy {
+            gov.rollback.rollback(
+                RollbackCommand(
+                    actor = Actor("checker-1", ActorRole.CHECKER),
+                    surface = "surface_inventada",
+                    platform = ClientPlatform.IOS,
+                    channel = Channel.STABLE,
+                    targetSpecRevisionId = "rev_01K8HOMELEGACY",
+                    idempotencyKey = "rb-surface",
+                    reason = "teste",
+                ),
+            )
+        }.hasMessageContaining("surface")
+        assertThat(gov.idempotency.find("rb-surface")).isNull()
     }
 }

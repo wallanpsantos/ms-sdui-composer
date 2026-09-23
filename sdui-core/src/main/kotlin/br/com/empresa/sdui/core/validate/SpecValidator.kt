@@ -9,15 +9,17 @@ import br.com.empresa.sdui.core.model.SemVer
 import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.Spec
+import br.com.empresa.sdui.core.model.Surfaces
 
 /**
  * Valida um spec antes de ele poder ser publicado.
  *
- * Reune as regras que nao devem chegar a producao: placement coerente com o skeleton, tipo dentro
- * do catalogo e nao generico, ausencia de aparencia e de PII nas props, actions integras e section
- * autocontida. Alem disso simula as pontas da faixa de targeting e recusa o spec se algum slot
- * portante puder ficar vazio para uma delas — e mais barato falhar aqui do que servir uma home sem
- * header ou sem contas.
+ * Reune as regras que nao devem chegar a producao: surface conhecida e coerente com o skeleton,
+ * placement coerente com o skeleton, tipo dentro do catalogo, da surface e nao generico, props
+ * dos contratos novos conforme [ComponentPropsValidator], ausencia de aparencia e de PII nas
+ * props, profundidade limitada, actions integras e section autocontida. Alem disso simula as
+ * pontas da faixa de targeting e recusa o spec se algum slot portante puder ficar vazio para uma
+ * delas — e mais barato falhar aqui do que servir uma tela sem o bloco que a sustenta.
  *
  * Devolve a lista de erros em vez de lancar, para o chamador reportar tudo de uma vez.
  */
@@ -35,10 +37,17 @@ object SpecValidator {
         matrix: CapabilityMatrix,
     ): List<String> {
         val errors = mutableListOf<String>()
+        val surface = Surfaces.find(spec.surface)
+        if (surface == null) {
+            errors += "surface desconhecida: '${spec.surface}' (permitidas: ${Surfaces.IDS})"
+        }
         if (skeleton.skeletonId != spec.skeletonId) {
             errors += "skeletonId divergente"
         }
-        if (skeleton.layout != MvpCatalog.SKELETON_LAYOUT) {
+        if (skeleton.surface != spec.surface) {
+            errors += "skeleton '${skeleton.skeletonId}' pertence a surface '${skeleton.surface}', spec a '${spec.surface}'"
+        }
+        if (skeleton.layout != (surface?.skeletonLayout ?: MvpCatalog.SKELETON_LAYOUT)) {
             errors += "layout de skeleton invalido: ${skeleton.layout}"
         }
         if (!CHECKSUM.matches(spec.checksum)) {
@@ -59,6 +68,9 @@ object SpecValidator {
             if (section.type !in slot.allowedTypes) {
                 errors += "type ${section.type} nao permitido no slot ${section.slot}"
             }
+            if (surface != null && section.type !in surface.types) {
+                errors += "type ${section.type} nao pertence a surface '${surface.id}'"
+            }
             val currentCount = (counts[section.slot] ?: 0) + 1
             counts[section.slot] = currentCount
             if (currentCount > slot.maxInstances) {
@@ -70,9 +82,13 @@ object SpecValidator {
             if (section.type.lowercase() in MvpCatalog.GENERIC_TYPE_NAMES) {
                 errors += "type generico recusado: ${section.type}"
             }
+            if (PropWalk.exceedsDepth(section.props)) {
+                errors += "section ${section.id} excede ${PropWalk.MAX_PROPS_DEPTH} niveis de props"
+            }
             errors += VisualGuard.violations(section.props)
             errors += PiiGuard.violations(section.props)
             errors += ActionGuard.validate(section.id, section.actions, section.props)
+            errors += ComponentPropsValidator.validate(section)
             if (section.layout != null && SlotLayout.parse(section.layout) == null) {
                 errors += "layout invalido na section ${section.id}: ${section.layout}"
             }
@@ -95,13 +111,13 @@ object SpecValidator {
         matrix: CapabilityMatrix,
     ): List<String> {
         val errors = mutableListOf<String>()
-        val combos = targetingCombos(spec, matrix)
-        for (combo in combos) {
-            for (slot in skeleton.slots.filter { it.required }) {
-                val occupying = spec.sections.filter { section ->
+        val requiredSlots = skeleton.slots.filter { it.required }
+        for (combo in targetingCombos(spec, matrix)) {
+            for (slot in requiredSlots) {
+                val empty = spec.sections.none { section ->
                     section.slot == slot.id && section.capability in combo.caps
                 }
-                if (occupying.isEmpty()) {
+                if (empty) {
                     errors += "slot required '${slot.id}' pode ficar vazio para ${combo.label}"
                 }
             }
@@ -111,11 +127,20 @@ object SpecValidator {
 
     private data class Combo(val label: String, val caps: Set<Capability>)
 
+    /**
+     * As pontas da faixa de app que o spec atende, com as capabilities que um cliente ali tem.
+     *
+     * Um cliente so recebe este spec se tiver todas as `requiredCapabilities` do targeting — Select
+     * descarta o spec para quem nao as tem. Por isso elas somam ao conjunto do servidor na
+     * simulacao: e o que permite a uma surface nova exigir um componente que a matriz nao concede
+     * a nenhuma faixa de app, sem que a validacao aponte um vazio que nunca vai acontecer.
+     */
     private fun targetingCombos(spec: Spec, matrix: CapabilityMatrix): List<Combo> {
         val min = spec.targeting.appVersion.min
         val max = spec.targeting.appVersion.max ?: SemVer(min.major, min.minor + 50, 0)
         val samples = linkedSetOf(min, max)
         val schemaVersion = spec.targeting.schemaVersion.min.major.toString()
+        val required = spec.targeting.requiredCapabilities.toSet()
         return samples.map { version ->
             val context = ClientContext(
                 platform = spec.platform,
@@ -127,7 +152,7 @@ object SpecValidator {
                 apiVersion = "1",
                 headerCapabilities = emptyList(),
             )
-            val effective = matrix.effective(context)
+            val effective = matrix.effective(context) + required
             Combo(
                 label = "${spec.platform.wire()} $version caps=${effective.joinToString { it.wire() }}",
                 caps = effective,

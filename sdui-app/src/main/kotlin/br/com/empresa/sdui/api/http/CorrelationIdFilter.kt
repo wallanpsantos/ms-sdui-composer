@@ -3,6 +3,7 @@ package br.com.empresa.sdui.api.http
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import br.com.empresa.sdui.core.model.Surfaces
 import org.slf4j.MDC
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
@@ -38,7 +39,7 @@ class CorrelationIdFilter : OncePerRequestFilter() {
 
         val uri = request.requestURI.orEmpty()
         val entryPoint = when {
-            uri.startsWith("/v1/surfaces") -> ENTRY_POINT_HOME
+            uri.startsWith(SURFACES_PREFIX) -> surfaceEntryPoint(uri)
             uri.startsWith("/admin") -> ENTRY_POINT_ADMIN
             uri.startsWith("/actuator") -> ENTRY_POINT_ACTUATOR
             else -> ENTRY_POINT_HTTP
@@ -54,6 +55,15 @@ class CorrelationIdFilter : OncePerRequestFilter() {
         }
     }
 
+    /**
+     * Cada surface da allowlist e um ponto de entrada proprio (`home`, `catalog`); qualquer outro
+     * caminho sob /v1/surfaces vira `surface`, sem copiar texto do path para o log.
+     */
+    private fun surfaceEntryPoint(uri: String): String {
+        val segment = uri.removePrefix(SURFACES_PREFIX).substringBefore('/')
+        return Surfaces.find(segment)?.id ?: ENTRY_POINT_SURFACE
+    }
+
     companion object {
         const val HEADER_X_REQUEST_ID: String = "X-Request-Id"
         const val HEADER_REQUEST_ID: String = "Request-Id"
@@ -61,6 +71,8 @@ class CorrelationIdFilter : OncePerRequestFilter() {
         const val MDC_KEY_ENTRY_POINT: String = "entryPoint"
 
         const val ENTRY_POINT_HOME: String = "home"
+        const val ENTRY_POINT_SURFACE: String = "surface"
+        private const val SURFACES_PREFIX: String = "/v1/surfaces/"
         const val ENTRY_POINT_ADMIN: String = "admin"
         const val ENTRY_POINT_ACTUATOR: String = "actuator"
         const val ENTRY_POINT_HTTP: String = "http"

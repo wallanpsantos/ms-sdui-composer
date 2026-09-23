@@ -268,7 +268,7 @@ As propriedades podem ser customizadas via `application.yml` ou variáveis de am
 | `server.port`                         |  `8080`  | Porta HTTP da aplicação                                                 |
 | `spring.threads.virtual.enabled`      |  `true`  | Habilita concorrência com Virtual Threads                               |
 | `sdui.seed-ios`                       |  `true`  | Carrega o catálogo MVP e a fixture canônica da Home iOS no startup      |
-| `sdui.tree-ttl-seconds`               |   `60`   | TTL do cache de tela pré-composta no Redis                              |
+| `sdui.tree-ttl-seconds`               |   `60`   | TTL do cache de tela pré-composta (memória ou Redis)                    |
 | `sdui.tree-cache-max-entries`         | `10000`  | Teto de árvores no cache de composição em memória                       |
 | `sdui.hydration-timeout-ms`           |   `80`   | Timeout individual de hidratação remota de section                      |
 | `sdui.hydration-fanout`               |   `8`    | Limite de seções hidratadas concorrentemente por requisição             |
@@ -283,9 +283,34 @@ As propriedades podem ser customizadas via `application.yml` ou variáveis de am
 | `sdui.rate-limit-refill-per-second`   | `10000`  | Taxa de reabastecimento de tokens por segundo do rate limiter           |
 | `sdui.rate-limit-max-keys`            | `100000` | Teto de buckets residentes; descarta os ociosos e os cheios sob pressão |
 | `sdui.idempotency-ttl-seconds`        | `86400`  | Validade de uma chave de idempotência administrativa (24h)              |
-| `sdui.idempotency-max-keys`           | `10000`  | Teto de chaves de idempotência residentes em memória                    |
+| `sdui.idempotency-max-keys`           | `10000`  | Teto de chaves em memória; no teto só com chaves vivas, recusa com 503  |
+| `sdui.idempotency-reservation-timeout-seconds` | `300` | Reserva em voo mais velha que isto é tratada como abandonada   |
+| `sdui.metrics-max-tag-values`         |   `64`   | Teto de valores distintos por tag nas métricas próprias                 |
+| `sdui.demo-enabled`                   | `false`  | Publica os quatro exemplos de `docs/examples/screens` (nunca em produção) |
+| `sdui.persistence.store`              | `memory` | `memory` ou `mongo` (ADR-021); `mongo` exige `SDUI_PERSISTENCE_MONGO_URI` |
+| `sdui.persistence.cache`              | `memory` | `memory` ou `redis` (ADR-021); `redis` exige `SDUI_PERSISTENCE_REDIS_URL` |
 | `sdui.canary-ios-builds`              |   `[]`   | Lista de builds de iOS autorizadas para canal Canary                    |
 | `sdui.canary-android-builds`          |   `[]`   | Lista de builds de Android autorizadas para canal Canary                |
+
+O modo persistente está implementado e **não homologado**: até o roteiro de
+[`persistencia-mongodb-redis.md`](docs/runbooks/persistencia-mongodb-redis.md) ser executado, rode em memória e em
+instância única. Prazos, pool e tetos em `sdui.persistence.mongo.*` e `sdui.persistence.redis.*`.
+
+### Surfaces e exemplos
+
+Além de `GET /v1/surfaces/home`, o serviço serve `GET /v1/surfaces/catalog` (ADR-020), com os mesmos headers.
+Quatro composições de exemplo — duas montagens da Home bancária, Home com resumo de transações e catálogo de
+moda — estão em [`docs/examples/screens`](docs/examples/screens/README.md), com skeleton, spec, resposta esperada e
+roteiro de publicação. O passo a passo para criar telas e componentes está em
+[`docs/guia-criacao-telas-componentes.md`](docs/guia-criacao-telas-componentes.md).
+
+### Medição de performance
+
+`./gradlew :sdui-app:perfHarness` roda o harness in-process dos achados de
+[`docs/analise-performance-2026-09-23.md`](docs/analise-performance-2026-09-23.md) e
+`./gradlew :sdui-app:loadTest -PbaseUrl=http://localhost:8080` executa o cenário HTTP
+`load/compose-hit-p99.yaml` contra uma instância no ar. Resultados em
+[`docs/performance/medicoes-2026-09-23.md`](docs/performance/medicoes-2026-09-23.md).
 
 ---
 

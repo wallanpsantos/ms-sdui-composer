@@ -29,12 +29,17 @@ import java.time.Instant
 /**
  * Carrega o catalogo, o skeleton e os specs da home a partir da fixture canonica do contrato.
  *
- * Como nao ha persistencia, e o seed que deixa o servico utilizavel ao subir. Partir da mesma
- * fixture que os testes de contrato usam garante que o que sobe e o que foi acordado com as
- * equipes moveis, em vez de uma copia que envelhece em paralelo.
+ * Em memoria, e o seed que deixa o servico utilizavel ao subir. Partir da mesma fixture que os
+ * testes de contrato usam garante que o que sobe e o que foi acordado com as equipes moveis, em
+ * vez de uma copia que envelhece em paralelo.
  *
  * Alem da revisao corrente, semeia uma legacy e uma seguinte, para exercitar a selecao por faixa
  * de versao e o canary sem depender de dado montado a mao.
+ *
+ * **Idempotente (ADR-021).** Cada item so e gravado se ainda nao existir: com persistencia real, o
+ * segundo boot — ou um segundo pod subindo junto — encontra catalogo, skeletons, specs e pointers
+ * no banco e nao sobrescreve nada que a governanca publicou ou moveu depois. Uma gravacao que
+ * perde a corrida para outro pod e aceita se o item passou a existir.
  */
 class HomeSeed(
     private val catalogStore: CatalogStore,
@@ -55,6 +60,7 @@ class HomeSeed(
     }
 
     fun seedCatalog() {
+        if (catalogStore.current().components.isNotEmpty()) return
         catalogStore.save(
             Catalog(
                 MvpCatalog.TYPES.map { cap ->
@@ -70,94 +76,68 @@ class HomeSeed(
         )
     }
 
-    fun seedSkeleton(): Skeleton {
+    fun seedSkeleton(): Skeleton = savePublishedSkeleton(
+        MvpCatalog.SKELETON_HOME_DEFAULT,
+        listOf(
+            HEADER_SLOT,
+            shortcutsSlot(SlotLayout.SHELF),
+            ACCOUNTS_SLOT,
+            CARDS_SLOT,
+            OFFERS_SLOT,
+            COVERAGE_SLOT,
+            FORYOU_SLOT,
+        ),
+    )
+
+    fun seedCardsFirstSkeleton(): Skeleton = savePublishedSkeleton(
+        MvpCatalog.SKELETON_HOME_CARDS_FIRST,
+        listOf(
+            HEADER_SLOT,
+            ACCOUNTS_SLOT,
+            CARDS_SLOT,
+            shortcutsSlot(SlotLayout.GRID),
+            OFFERS_SLOT,
+            COVERAGE_SLOT,
+            FORYOU_SLOT,
+        ),
+    )
+
+    private fun savePublishedSkeleton(skeletonId: String, slots: List<SlotDefinition>): Skeleton {
+        skeletonStore.find(skeletonId, 1)?.let { return it }
         val skeleton = Skeleton(
-            skeletonId = MvpCatalog.SKELETON_HOME_DEFAULT,
+            skeletonId = skeletonId,
             revision = 1,
             surface = MvpCatalog.SURFACE_HOME,
             layout = MvpCatalog.SKELETON_LAYOUT,
-            slots = listOf(
-                SlotDefinition("header", SlotLayout.FIXED, null, 1, listOf("top_bar"), required = true),
-                SlotDefinition("shortcuts", SlotLayout.SHELF, null, 1, listOf("shortcut_shelf"), required = false),
-                SlotDefinition("accounts", SlotLayout.LIST, "Conta", 1, listOf("account_card"), required = true),
-                SlotDefinition(
-                    "cards",
-                    SlotLayout.LIST,
-                    "Cartão de crédito",
-                    3,
-                    listOf("card_product"),
-                    required = false
-                ),
-                SlotDefinition("offers", SlotLayout.LIST, "Crédito", 4, listOf("credit_offer"), required = false),
-                SlotDefinition("coverage", SlotLayout.LIST, "Seguros", 3, listOf("coverage_card"), required = false),
-                SlotDefinition("foryou", SlotLayout.PAGER, "Para você", 2, listOf("decision_card"), required = false),
-            ),
+            slots = slots,
             status = SpecStatus.PUBLISHED,
         )
-        return skeletonStore.save(skeleton)
+        return ifAbsent({ skeletonStore.find(skeletonId, 1) }) { skeletonStore.save(skeleton) }
     }
 
-    fun seedCardsFirstSkeleton(): Skeleton {
-        val skeleton = Skeleton(
-            skeletonId = MvpCatalog.SKELETON_HOME_CARDS_FIRST,
-            revision = 1,
-            surface = MvpCatalog.SURFACE_HOME,
-            layout = MvpCatalog.SKELETON_LAYOUT,
-            slots = listOf(
-                SlotDefinition("header", SlotLayout.FIXED, null, 1, listOf("top_bar"), required = true),
-                SlotDefinition("accounts", SlotLayout.LIST, "Conta", 1, listOf("account_card"), required = true),
-                SlotDefinition(
-                    "cards",
-                    SlotLayout.LIST,
-                    "Cartão de crédito",
-                    3,
-                    listOf("card_product"),
-                    required = false
-                ),
-                SlotDefinition("shortcuts", SlotLayout.GRID, null, 1, listOf("shortcut_shelf"), required = false),
-                SlotDefinition("offers", SlotLayout.LIST, "Crédito", 4, listOf("credit_offer"), required = false),
-                SlotDefinition("coverage", SlotLayout.LIST, "Seguros", 3, listOf("coverage_card"), required = false),
-                SlotDefinition("foryou", SlotLayout.PAGER, "Para você", 2, listOf("decision_card"), required = false),
-            ),
-            status = SpecStatus.PUBLISHED,
-        )
-        return skeletonStore.save(skeleton)
+    /**
+     * Grava com [save] e, se a gravacao falhar porque outro processo gravou primeiro, devolve o
+     * que ele gravou. Qualquer outra falha sobe.
+     */
+    private fun <T : Any> ifAbsent(existing: () -> T?, save: () -> T): T = try {
+        save()
+    } catch (error: RuntimeException) {
+        existing() ?: throw error
+    }
+
+    private fun saveSpecIfAbsent(spec: Spec) {
+        if (specStore.findBySpecIdAndRevision(spec.specId, spec.revision) != null) return
+        ifAbsent({ specStore.findBySpecIdAndRevision(spec.specId, spec.revision) }) { specStore.save(spec) }
     }
 
     @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     private fun seedIosCurrent(root: JsonNode, skeleton: Skeleton) {
         val envelope = root.get("envelope")
         val sectionsNode = root.get("sections")
-        val sections = (0 until sectionsNode.size()).map { index ->
-            val node = sectionsNode.get(index)
-            val actions = node.get("actions")
-            Section(
-                id = node.get("id").asText(),
-                slot = node.get("slot").asText(),
-                type = node.get("type").asText(),
-                typeVersion = node.get("typeVersion").asInt(),
-                layout = node.get("layout")?.takeIf { it.isTextual }?.asText(),
-                props = JsonMaps.toMap(node.get("props")),
-                actions = (0 until actions.size()).map { actionIndex ->
-                    val action = actions.get(actionIndex)
-                    val payloadNode = action.get("payload")
-                    Action(
-                        id = action.get("id").asText(),
-                        type = action.get("type").asText(),
-                        label = action.get("label")?.takeIf { it.isTextual }?.asText(),
-                        payload = payloadNode?.takeIf { it.isObject }?.let {
-                            ActionPayload(
-                                route = it.get("route")?.takeIf { node -> node.isTextual }?.asText(),
-                                sheet = it.get("sheet")?.takeIf { node -> node.isTextual }?.asText(),
-                            )
-                        },
-                    )
-                },
-            )
-        }
+        val sections = (0 until sectionsNode.size()).map { index -> toSection(sectionsNode.get(index)) }
         val targeting = envelope.get("targeting")
         val spec = Spec(
-            specId = "spec_home_ios_current",
+            specId = IOS_CURRENT_SPEC_ID,
             revision = 1,
             specRevisionId = envelope.get("specRevisionId").asText(),
             parentRevision = null,
@@ -170,21 +150,10 @@ class HomeSeed(
             targeting = Targeting(
                 platform = ClientPlatform.IOS,
                 appVersion = VersionRange(
-                    requireNotNull(
-                        SemVer.parse(
-                            targeting.get("appVersionMin").asText()
-                        )
-                    ) { "appVersionMin inválido na fixture seed" },
+                    requiredVersion(targeting, "appVersionMin"),
                     SemVer.parse(targeting.get("appVersionMax").asText()),
                 ),
-                osVersion = VersionRange(
-                    requireNotNull(
-                        SemVer.parse(
-                            targeting.get("osVersionMin").asText()
-                        )
-                    ) { "osVersionMin inválido na fixture seed" },
-                    null,
-                ),
+                osVersion = VersionRange(requiredVersion(targeting, "osVersionMin"), null),
                 schemaVersion = VersionRange(
                     requireNotNull(SemVer.parse(MvpCatalog.SCHEMA_VERSION)) { "SCHEMA_VERSION inválido no catálogo" },
                     SemVer.parse(MvpCatalog.SCHEMA_VERSION),
@@ -200,13 +169,43 @@ class HomeSeed(
             madeBy = "seed.maker",
             experience = envelope.get("analytics").get("experience").asText(),
         )
-        specStore.save(spec)
+        saveSpecIfAbsent(spec)
     }
 
+    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
+    private fun toSection(node: JsonNode): Section {
+        val actions = node.get("actions")
+        return Section(
+            id = node.get("id").asText(),
+            slot = node.get("slot").asText(),
+            type = node.get("type").asText(),
+            typeVersion = node.get("typeVersion").asInt(),
+            layout = node.get("layout").textOrNull(),
+            props = JsonMaps.toMap(node.get("props")),
+            actions = (0 until actions.size()).map { index -> toAction(actions.get(index)) },
+        )
+    }
+
+    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
+    private fun toAction(node: JsonNode): Action = Action(
+        id = node.get("id").asText(),
+        type = node.get("type").asText(),
+        label = node.get("label").textOrNull(),
+        payload = node.get("payload")?.takeIf { it.isObject }?.let { payload ->
+            ActionPayload(
+                route = payload.get("route").textOrNull(),
+                sheet = payload.get("sheet").textOrNull(),
+            )
+        },
+    )
+
+    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
+    private fun requiredVersion(targeting: JsonNode, field: String): SemVer =
+        requireNotNull(SemVer.parse(targeting.get(field).asText())) { "$field inválido na fixture seed" }
+
     private fun seedIosLegacy() {
-        val current = specStore.listPublished(MvpCatalog.SURFACE_HOME, ClientPlatform.IOS)
-            .first { it.specId == "spec_home_ios_current" }
-        specStore.save(
+        val current = iosCurrent()
+        saveSpecIfAbsent(
             current.copy(
                 specId = "spec_home_ios_legacy",
                 revision = 1,
@@ -227,9 +226,8 @@ class HomeSeed(
     }
 
     private fun seedIosNext() {
-        val current = specStore.listPublished(MvpCatalog.SURFACE_HOME, ClientPlatform.IOS)
-            .first { it.specId == "spec_home_ios_current" }
-        specStore.save(
+        val current = iosCurrent()
+        saveSpecIfAbsent(
             current.copy(
                 specId = "spec_home_ios_next",
                 revision = 1,
@@ -244,31 +242,56 @@ class HomeSeed(
         )
     }
 
+    private fun iosCurrent(): Spec =
+        checkNotNull(specStore.findBySpecIdAndRevision(IOS_CURRENT_SPEC_ID, 1)) { "spec corrente do seed ausente" }
+
+    /** Pointers iniciais, so onde ainda nao ha pointer: nunca desfaz uma publicacao ou rollback. */
     fun seedPointers() {
         val iosCurrent = specStore.findByRevisionId("rev_01K8HOMEMAIN")
         for (channel in Channel.entries) {
-            pointerStore.save(
-                Pointer(
-                    surface = MvpCatalog.SURFACE_HOME,
-                    platform = ClientPlatform.IOS,
-                    channel = channel,
-                    specId = iosCurrent?.specId,
-                    specRevisionId = iosCurrent?.specRevisionId,
-                    previousSpecRevisionId = null,
-                    version = 1,
-                ),
-            )
-            pointerStore.save(
-                Pointer(
-                    surface = MvpCatalog.SURFACE_HOME,
-                    platform = ClientPlatform.ANDROID,
-                    channel = channel,
-                    specId = null,
-                    specRevisionId = null,
-                    previousSpecRevisionId = null,
-                    version = 1,
-                ),
-            )
+            savePointerIfAbsent(initialPointer(ClientPlatform.IOS, channel, iosCurrent))
+            savePointerIfAbsent(initialPointer(ClientPlatform.ANDROID, channel, null))
         }
+    }
+
+    private fun savePointerIfAbsent(pointer: Pointer) {
+        if (pointerStore.find(pointer.surface, pointer.platform, pointer.channel) != null) return
+        ifAbsent({ pointerStore.find(pointer.surface, pointer.platform, pointer.channel) }) {
+            pointerStore.compareAndSet(null, pointer)
+        }
+    }
+
+    private fun initialPointer(platform: ClientPlatform, channel: Channel, spec: Spec?): Pointer = Pointer(
+        surface = MvpCatalog.SURFACE_HOME,
+        platform = platform,
+        channel = channel,
+        specId = spec?.specId,
+        specRevisionId = spec?.specRevisionId,
+        previousSpecRevisionId = null,
+        version = 1,
+    )
+
+    private companion object {
+        const val IOS_CURRENT_SPEC_ID: String = "spec_home_ios_current"
+
+        val HEADER_SLOT = SlotDefinition("header", SlotLayout.FIXED, null, 1, listOf("top_bar"), required = true)
+        val ACCOUNTS_SLOT =
+            SlotDefinition("accounts", SlotLayout.LIST, "Conta", 1, listOf("account_card"), required = true)
+        val CARDS_SLOT =
+            SlotDefinition("cards", SlotLayout.LIST, "Cartão de crédito", 3, listOf("card_product"), required = false)
+        val OFFERS_SLOT =
+            SlotDefinition("offers", SlotLayout.LIST, "Crédito", 4, listOf("credit_offer"), required = false)
+        val COVERAGE_SLOT =
+            SlotDefinition("coverage", SlotLayout.LIST, "Seguros", 3, listOf("coverage_card"), required = false)
+        val FORYOU_SLOT =
+            SlotDefinition("foryou", SlotLayout.PAGER, "Para você", 2, listOf("decision_card"), required = false)
+
+        /** O unico slot que muda entre os dois skeletons, alem da ordem: prateleira ou grade. */
+        fun shortcutsSlot(layout: SlotLayout) =
+            SlotDefinition("shortcuts", layout, null, 1, listOf("shortcut_shelf"), required = false)
+
+        /** Texto de um campo opcional da fixture; ausente ou de outro tipo vira null. */
+        @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
+        fun JsonNode?.textOrNull(): String? = this?.takeIf { it.isTextual }?.asText()
     }
 }

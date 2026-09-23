@@ -1,22 +1,24 @@
 # MEMÓRIA OPERACIONAL E ARQUITETURAL — MS-SDUI-COMPOSER
 
-**Última Atualização:** 2026-09-21  
-**Status do Projeto:** MVP H00–H18 concluído, 7 correções de qualidade e 11 otimizações aplicadas, decisões
-arquiteturais (ADR-014 a ADR-019) integralmente consolidadas na Seção 8. Quality Gate: **APROVADO (PASS)**.
+**Última Atualização:** 2026-09-23  
+**Status do Projeto:** MVP H00–H18 concluído; ADR-014 a ADR-019 consolidados na Seção 8. Em 2026-09-23: achados de
+performance tratados com medição, surface `catalog` e contratos novos (ADR-020, `PROPOSTO`) e adapters MongoDB/Redis
+(ADR-021, `PROPOSTO`, não homologados) — Seção 9. O PASS histórico não cobre esta entrega; a evidência dela está em
+`tasks/todo.md`.
 
 ---
 
 ## 1. Identidade e Papel Arquitetural
 
-O `ms-sdui-composer` é o Backend-For-Frontend (BFF) Server-Driven UI responsável por compor a árvore de componentes da
-surface `home` para clientes iOS e Android a partir de especificações versionadas, capabilities declaradas e contexto de
-cliente.
+O `ms-sdui-composer` é o Backend-For-Frontend (BFF) Server-Driven UI responsável por compor a árvore de componentes das
+surfaces da allowlist (`home` e `catalog`) para clientes iOS e Android a partir de especificações versionadas,
+capabilities declaradas e contexto de cliente.
 
 - **Padrão:** Presentation + Application Controller + BFF de UI (Martin Fowler).
 - **Princípio:** Estritamente **stateless** no hot path. Não consulta domínios de negócio regulados diretamente e não
   persiste árvores hidratadas de usuário no MongoDB.
-- **Endpoint Principal:** `GET /v1/surfaces/home` com versionamento HTTP via cabeçalho `API-Version: 1`
-  (`UI-Schema-Version` é versão de envelope de UI, não de API HTTP).
+- **Endpoints:** `GET /v1/surfaces/home` e `GET /v1/surfaces/catalog`, um mapeamento literal por surface, com
+  versionamento HTTP via cabeçalho `API-Version: 1` (`UI-Schema-Version` é versão de envelope de UI, não de API HTTP).
 
 ---
 
@@ -29,8 +31,8 @@ cliente.
   `com.fasterxml.jackson.core:jackson-annotations` 2.21).
 - **Concorrência:** Spring MVC sobre **Virtual Threads Java 25** (`spring.threads.virtual.enabled: true`). Proibido o
   uso de Coroutines (`suspend fun`), WebFlux ou bibliotecas reativas (ADR-012).
-- **Bancos e Cache:** MongoDB 8.3+ (fonte de verdade de specs, skeletons e catálogo) e Redis (cache de árvore e
-  singleflight).
+- **Bancos e Cache:** padrão em memória. Opcionalmente (ADR-021) MongoDB 8.3+ em replica set como autoridade da
+  governança e Redis como cache de spec, árvore e last good. Singleflight e limitador continuam locais ao processo.
 - **Testes & Governança:** JUnit Jupiter, AssertJ, MockMvc e ArchUnit 1.5.0.
 
 ---
@@ -50,8 +52,8 @@ sdui-integration-test --> testImplementation de todos os módulos + ArchUnit
   `SpecValidator`, `Guards` e `TokenBucket`.
 - **`sdui-contract`:** DTOs públicos de resposta (`ScreenEnvelope`, `ScreenResponse`, `SectionResponse`,
   `ActionResponse`, etc.). Não referencia `sdui-core`.
-- **`sdui-app`:** Orquestrador (`compose`, `hydration`, `admin`), adaptadores (`memory`, `mongo`, `redis`, `seed`) e
-  controladores REST (`HomeController`, `AdminController`).
+- **`sdui-app`:** Orquestrador (`compose`, `hydration`, `admin`), adaptadores (`memory`, `mongo`, `redis`, `json`,
+  `seed`, `health`, `invalidation`, `observability`) e controladores REST (`SurfaceController`, `AdminController`).
 - **`sdui-bootstrap`:** Único módulo executável contendo `@SpringBootApplication`.
 - **`sdui-integration-test`:** Suíte ArchUnit validando isolamento de camadas e regras de dependência.
 
@@ -74,8 +76,8 @@ O fluxo de composição executa 6 fases determinísticas:
 3. FILTER    ── Omissão graciosa de seções incompatíveis com as capabilities
       │         do cliente móvel. Ordenação estável TimSort O(N log N).
       ▼
-4. HYDRATE   ── Fan-out assíncrono em Virtual Threads delimitado por Semaphore.
-      │         Cancelamento ativo em timeout por seção.
+4. HYDRATE   ── Hidratador sem I/O (pass-through) na thread da requisição; hidratador com
+      │         I/O em Virtual Threads com Semaphore, prazo e cancelamento por seção.
       ▼
 5. GUARD /   ── VisualGuard (anti-CSS) e PiiGuard (anti-PII/CPF/PAN). Se slots portantes
    FALLBACK     ('header'/'accounts') falharem: Escada de Fallback (Cache -> LastGood -> 503).
@@ -95,7 +97,7 @@ Durante a revisão técnica multidimensional do MVP (`H00` a `H18`), foram sanad
    em timeout retorna `WaitTimeout()` sem cancelar o future compartilhado do líder.
 2. **SemVer Overflow Protection (`SemVer.kt`):** Substituído `.toInt()` por `.toIntOrNull() ?: return null` nos grupos
    de captura regex, evitando `NumberFormatException` (HTTP 500) e gerando `ContextValidation.Invalid` (HTTP 400).
-3. **Eliminação de Dupla Serialização (`HomeController.kt`):** O controller agora entrega o `byte[]` pré-serializado
+3. **Eliminação de Dupla Serialização (`SurfaceController.kt`, antes `HomeController.kt`):** O controller agora entrega o `byte[]` pré-serializado
    diretamente no `ResponseEntity` com `MediaType.APPLICATION_JSON`, reduzindo em 50% o overhead de CPU e GC.
 4. **Constantes Pré-calculadas em Guards (`Guards.kt`):** `LOWER_VISUAL_KEYS` e `LOWER_PII_KEYS` cacheados como
    `private val`, eliminando alocações repetidas de `Set` durante o `PropWalk`.
@@ -110,7 +112,7 @@ Durante a revisão técnica multidimensional do MVP (`H00` a `H18`), foram sanad
    `.handle`, blindando `job.join()` contra `CompletionException`.
 10. **Poda e Retenção em Stores (`InMemoryStores.kt`):** Adicionada rotina periódica `prune()` no
     `InMemoryProjectionStore`
-    (teto de 10.000 entradas) e anel FIFO no `InMemoryAuditLogStore` (limite de 2.000 eventos).
+    (teto de 10.000 entradas, varredura no máximo a cada minuto) e teto FIFO no `InMemoryAuditLogStore` (2.000 eventos).
 11. **Pré-cálculo de Capability e SlotOrder (`Section.kt`, `Skeleton.kt`, `Filter.kt`):** `Section.capability` e
     `Skeleton.slotOrder` / `requiredSlotIds` pré-calculados imutavelmente, eliminando milhares de alocações transitórias
     no hot path.
@@ -169,10 +171,14 @@ Durante a revisão técnica multidimensional do MVP (`H00` a `H18`), foram sanad
 - **SLO Hot Path (Cache Hit):** P99 ≤ 400 ms.
 - **SLO End-to-End (App):** P99 ≤ 1200 ms (Rede + Compose + First Paint).
 - **Cache Hit Ratio Esperado:** ≥ 90%.
-- **Métricas Emitidas:** `compose.hit`, `compose.miss`, `compose.fallback`, `compose.singleflight.wait`,
-  `payload.bytes`, `serialize.ms`, `section.<type>.ms`, `section.omitted`, `select.no_candidate`.
+- **Métricas Emitidas:** catálogo completo em `MetricNames` (`sdui-app`, `orchestrator/port/outbound`), entre elas
+  `compose.duration`, `compose.hit`, `compose.miss`, `compose.fallback`, `compose.singleflight.wait`,
+  `compose.singleflight.recheck_hit`, `payload.bytes`, `mapping.ms`, `serialize.ms`, `section.hydrate.ms{type}`,
+  `section.omitted`, `select.no_candidate`, `store.failure{stage}`, `cache.*`. Nenhuma tag leva versão exata de app.
 - **Cenário de Carga Versionado:** [
-  `sdui-app/src/test/resources/load/compose-hit-p99.yaml`](../sdui-app/src/test/resources/load/compose-hit-p99.yaml).
+  `sdui-app/src/test/resources/load/compose-hit-p99.yaml`](../sdui-app/src/test/resources/load/compose-hit-p99.yaml),
+  executado por `HttpLoadGenerator` (`gradlew :sdui-app:loadTest`); medições em
+  [`performance/medicoes-2026-09-23.md`](performance/medicoes-2026-09-23.md).
 
 ---
 
@@ -209,8 +215,8 @@ viva do serviço:
 
 5. **Montagem Variável de Surface e Vocabulário de Slots (ADR-018):**
     - Ordem e layout dos slots desacoplados da superfície e versionados no `Skeleton`.
-    - Vocabulário de slots fechado (`SLOT_VOCABULARY`) com layouts permitidos (`allowedLayouts` por slot) validados em
-      `SkeletonValidator`.
+    - Vocabulário de slots fechado por surface (`Surfaces`, ADR-020) com layouts permitidos (`allowedLayouts` por
+      slot) validados em `SkeletonValidator`.
     - Disponibilização de skeletons canônicos: `home.default` (sequencial tradicional) e `home.cards_first` (cartões em
       grade de 2 colunas logo abaixo do header).
 
@@ -218,3 +224,22 @@ viva do serviço:
     - Remoção de `variant: "compact"` do `shortcut_shelf@1` e inserção em `MvpCatalog.VISUAL_KEYS`.
     - Garantia de que a renderização visual e densidade de tela pertencem exclusivamente às classes de tamanho nativas
       (`WindowSizeClass` e `SizeClass`).
+
+---
+
+## 9. Ciclo de 2026-09-23 — surfaces, contratos, persistência e performance
+
+1. **Múltiplas surfaces (ADR-020, `PROPOSTO`):** allowlist `home`/`catalog` em `Surfaces`; mapeamento HTTP literal
+   por surface; surface propagada a pointer, seleção, cache, singleflight, last good e métricas. Catálogo fechado em
+   `ComponentContracts.APPROVED`; `transaction_summary@1`, `catalog_navigation@1` e `product_collection@1` só chegam
+   a quem declara a capability. Exemplos e tutorial em `docs/examples/screens` e
+   `docs/guia-criacao-telas-componentes.md`.
+2. **Persistência (ADR-021, `PROPOSTO`, não homologada):** `sdui.persistence.store=memory|mongo` e
+   `sdui.persistence.cache=memory|redis`. Mongo transacional (replica set) para governança e idempotência; Redis para
+   caches; outbox de invalidação e lápide do last good pela versão do pointer. Padrão continua em memória e instância
+   única até o roteiro de `runbooks/persistencia-mongodb-redis.md` ser executado.
+3. **Idempotência:** reserva com fingerprint dos parâmetros (reuso com outro alvo = 422); registro vivo nunca sai
+   por pressão; no teto em memória, admissão recusada com 503.
+4. **Performance medida:** seleção pelo pointer com índice de publicadas (~100× com 10 mil revisões), hidratação
+   pass-through síncrona (~8× no miss), teto estrito no cache de árvore, cardinalidade de métricas fechada, listagens
+   paginadas. Números e experimentos rejeitados em `performance/medicoes-2026-09-23.md`.

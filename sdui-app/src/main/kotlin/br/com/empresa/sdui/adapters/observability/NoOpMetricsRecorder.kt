@@ -10,4 +10,5 @@ object NoOpMetricsRecorder : MetricsRecorder {
     override fun increment(name: String, tags: Map<String, String>) = Unit
     override fun recordTime(name: String, durationMs: Long, tags: Map<String, String>) = Unit
     override fun recordBytes(name: String, bytes: Long, tags: Map<String, String>) = Unit
+    override fun recordNanos(name: String, durationNanos: Long, tags: Map<String, String>) = Unit
 }

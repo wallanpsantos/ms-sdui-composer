@@ -15,8 +15,10 @@ import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.SlotDefinition
 import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.SpecStatus
+import br.com.empresa.sdui.core.model.Surfaces
 import br.com.empresa.sdui.core.model.Targeting
 import br.com.empresa.sdui.core.model.VersionRange
+import br.com.empresa.sdui.orchestrator.port.inbound.ComposeResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -66,6 +68,7 @@ class DefaultFallbackCoordinatorTest {
     @Test
     fun `devolve Unavailable quando nao ha last good salvo`() {
         val result = coordinator.fallbackOrUnavailable(
+            surface = Surfaces.HOME,
             context = sampleContext,
             channel = Channel.STABLE,
             reason = FallbackReason.REDIS_UNAVAILABLE,
@@ -85,6 +88,7 @@ class DefaultFallbackCoordinatorTest {
         lastGoodStore.put(screen)
 
         val result = coordinator.fallbackOrUnavailable(
+            surface = Surfaces.HOME,
             context = sampleContext,
             channel = Channel.STABLE,
             reason = FallbackReason.DEPENDENCY_TIMEOUT,
@@ -107,6 +111,7 @@ class DefaultFallbackCoordinatorTest {
         clock.now = baseInstant.plus(Duration.ofHours(2)) // excede maxFallbackAge de 1h
 
         val result = coordinator.fallbackOrUnavailable(
+            surface = Surfaces.HOME,
             context = sampleContext,
             channel = Channel.STABLE,
             reason = FallbackReason.REDIS_UNAVAILABLE,

@@ -8,6 +8,10 @@ import java.time.Instant
  * E o que se guarda no cache e como last good. Nao carrega nada especifico de usuario, o que
  * permite compartilhar a mesma arvore entre todos os clientes de mesma plataforma, schema, faixa
  * de app, capabilities e canal — exatamente os campos da chave de cache.
+ *
+ * [pointerVersion] e a versao do pointer lida na selecao que produziu a arvore (0 sem pointer).
+ * O last good usa esse numero para recusar a escrita atrasada de uma composicao iniciada antes de
+ * uma publicacao ou rollback (ADR-021).
  */
 data class ComposedScreen(
     val surface: String,
@@ -28,9 +32,8 @@ data class ComposedScreen(
     val experience: String,
     val skeleton: Skeleton,
     val sections: List<Section>,
-) {
-    fun analyticsSectionCount(): Int = sections.size
-}
+    val pointerVersion: Long = 0,
+)
 
 /**
  * Montagem das chaves de cache, num lugar so.

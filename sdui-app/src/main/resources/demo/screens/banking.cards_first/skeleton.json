@@ -1,0 +1,72 @@
+{
+  "skeletonId": "home.cards_first",
+  "revision": 1,
+  "surface": "home",
+  "layout": "vertical_scroll",
+  "status": "PUBLISHED",
+  "slots": [
+    {
+      "id": "header",
+      "layout": "FIXED",
+      "title": null,
+      "maxInstances": 1,
+      "allowedTypes": ["top_bar"],
+      "required": true,
+      "allowedLayouts": ["FIXED"]
+    },
+    {
+      "id": "accounts",
+      "layout": "LIST",
+      "title": "Conta",
+      "maxInstances": 1,
+      "allowedTypes": ["account_card"],
+      "required": true,
+      "allowedLayouts": ["LIST", "FIXED"]
+    },
+    {
+      "id": "cards",
+      "layout": "LIST",
+      "title": "Cartão de crédito",
+      "maxInstances": 3,
+      "allowedTypes": ["card_product"],
+      "required": false,
+      "allowedLayouts": ["LIST", "PAGER"]
+    },
+    {
+      "id": "shortcuts",
+      "layout": "GRID",
+      "title": null,
+      "maxInstances": 1,
+      "allowedTypes": ["shortcut_shelf"],
+      "required": false,
+      "allowedLayouts": ["SHELF", "GRID"]
+    },
+    {
+      "id": "offers",
+      "layout": "LIST",
+      "title": "Crédito",
+      "maxInstances": 4,
+      "allowedTypes": ["credit_offer"],
+      "required": false,
+      "allowedLayouts": ["LIST", "PAGER"]
+    },
+    {
+      "id": "coverage",
+      "layout": "LIST",
+      "title": "Seguros",
+      "maxInstances": 3,
+      "allowedTypes": ["coverage_card"],
+      "required": false,
+      "allowedLayouts": ["LIST", "SHELF"]
+    },
+    {
+      "id": "foryou",
+      "layout": "PAGER",
+      "title": "Para você",
+      "maxInstances": 2,
+      "allowedTypes": ["decision_card"],
+      "required": false,
+      "allowedLayouts": ["PAGER", "LIST"]
+    }
+  ]
+}
