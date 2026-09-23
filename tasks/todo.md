@@ -10,7 +10,7 @@ suíte está na seção [Verificação final](#verificação-final).
   Evidência: matriz em [`docs/examples/screens/README.md`](../docs/examples/screens/README.md#matriz-de-rastreabilidade-t01)
   (reutilizável / contrato novo / nativo / não mapeado).
 - [x] Definir tipos, props, limites, capabilities e destinos; registrar propostas de ADR sem considerá-las aprovadas.
-  Evidência: [ADR-020](../docs/adr/ADR-020-multiplas-surfaces-e-contratos-de-componente.md) (`PROPOSTO`),
+  Evidência: [ADR-020](../docs/memoria-operacional-e-arquitetural.md#adr-020--múltiplas-surfaces-e-contratos-de-componente) (`PROPOSTO`),
   [`transaction-summary-v1.md`](../docs/contratos/transaction-summary-v1.md),
   [`componentes-comercio-v1.md`](../docs/contratos/componentes-comercio-v1.md), índice em `docs/adr/README.md`.
 - [x] Distinguir referências Android de contrato mobile formal. Evidência: avisos em todos os READMEs de exemplo;
@@ -208,7 +208,7 @@ Deferido com justificativa (entra no ensaio P13, porque o modo Mongo não está 
 - [x] Implementar R01–R12 da [análise](../docs/analise-bugs-seguranca-2026-09-23.md).
 - [x] Escrever regressões de entrada, schema, IDs, skeleton exato, revisão humana, CAS, rollback,
   dono de idempotência, overflow e índice Redis; adaptar os testes/harness às assinaturas.
-- [x] Registrar [ADR-022](../docs/adr/ADR-022-integridade-da-governanca-e-limites-de-entrada.md),
+- [x] Registrar [ADR-022](../docs/memoria-operacional-e-arquitetural.md#adr-022--integridade-da-governança-e-limites-de-entrada),
   incluindo reabertura de pedidos antigos e drenagem de escritores na atualização.
 - [x] Revisar estaticamente o diff, dependências entre camadas e chamadores das portas alteradas.
 - [ ] Compilar e executar a suíte uma única vez ao final, quando o operador autorizar.

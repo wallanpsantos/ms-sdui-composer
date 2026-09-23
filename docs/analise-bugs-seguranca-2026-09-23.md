@@ -14,7 +14,7 @@ encerrada: há caminhos para HTTP 500 e riscos de esgotamento de recursos.
 Os 12 achados receberam implementação e fontes de regressão. **Ainda não compilados nem testados
 neste ciclo**; os cenários abaixo preservam o diagnóstico original e suas linhas são referências
 históricas. Decisões e atualização operacional no
-[ADR-022](adr/ADR-022-integridade-da-governanca-e-limites-de-entrada.md).
+[ADR-022](memoria-operacional-e-arquitetural.md#adr-022--integridade-da-governança-e-limites-de-entrada).
 
 | Achado | Correção aplicada | Regressão escrita |
 |--------|-------------------|-------------------|

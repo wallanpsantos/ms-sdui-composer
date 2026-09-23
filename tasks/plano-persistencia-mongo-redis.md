@@ -1,7 +1,7 @@
 # Plano separado — persistência MongoDB e cache Redis
 
 Status: **P01–P12 implementados em 2026-09-23; P13 (ensaio operacional) pendente.** Decisão em
-[ADR-021](../docs/adr/ADR-021-persistencia-mongodb-e-cache-redis.md) (`PROPOSTO`, não homologado). O modo padrão
+[ADR-021](../docs/memoria-operacional-e-arquitetural.md#adr-021--persistência-mongodb-83-e-cache-redis) (`PROPOSTO`, não homologado). O modo padrão
 continua em memória e a restrição de instância única do AGENTS.md §17 continua valendo até o roteiro de homologação de
 [`persistencia-mongodb-redis.md`](../docs/runbooks/persistencia-mongodb-redis.md) ser executado e registrado. Testes com
 infraestrutura real só rodam com `SDUI_IT_MONGO_URI`/`SDUI_IT_REDIS_URL`; na execução desta entrega não havia Docker

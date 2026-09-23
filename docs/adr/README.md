@@ -2,12 +2,13 @@
 
 Este documento centraliza o catálogo completo de **Registros de Decisões Arquiteturais (ADRs)** do `ms-sdui-composer`.
 
-As decisões ADR-001 a ADR-019 foram implementadas no código produtivo, cobertas por testes automatizados e
-consolidadas na especificação canônica em [
-`docs/memoria-operacional-e-arquitetural.md`](../memoria-operacional-e-arquitetural.md); os arquivos individuais delas
-foram aposentados. Decisões novas ganham arquivo próprio `ADR-XXX-<slug>.md` neste diretório (AGENTS.md §14) com
-Status, Contexto, Decisão, Alternativas descartadas, Consequências e Verificação. `PROPOSTO` significa decisão
-registrada e ainda não aprovada/homologada — mesmo quando já existe código que a implementa.
+As decisões ADR-001 a ADR-022 foram implementadas no código produtivo (com 020 a 022 em status `PROPOSTO`),
+cobertas por testes e consolidadas na especificação canônica em [
+`docs/memoria-operacional-e-arquitetural.md`](../memoria-operacional-e-arquitetural.md); os arquivos individuais foram
+aposentados, mantendo este documento como matriz unificada de decisões do repositório. Decisões novas ganham arquivo
+próprio `ADR-XXX-<slug>.md` neste diretório (AGENTS.md §14) com Status, Contexto, Decisão, Alternativas descartadas,
+Consequências e Verificação. `PROPOSTO` significa decisão registrada e ainda não aprovada/homologada — mesmo quando já
+existe código que a implementa.
 
 ---
 
@@ -34,9 +35,9 @@ registrada e ainda não aprovada/homologada — mesmo quando já existe código 
 | **ADR-017** | Experimentação por Revisão de Spec    |  `PROPOSTO`  | Modelagem `ExperimentArm` e `ExperimentConfig` no `Pointer`; tráfego adiado                                      | `Pointer.kt`                                         |
 | **ADR-018** | Montagem Variável de Surface          |   `ACEITO`   | Ordem de slots e layouts como dado no `Skeleton` (`allowedLayouts`, seed `home.cards_first`)                     | `Skeleton.kt`, `SkeletonValidator.kt`, `HomeSeed.kt` |
 | **ADR-019** | Remoção de `variant` do Catálogo      |   `ACEITO`   | Eliminação de `variant: "compact"` do `shortcut_shelf@1` e inserção em `VISUAL_KEYS`                             | `NoVisualAttributesTest.kt`, fixtures canônicas      |
-| **ADR-020** | [Múltiplas Surfaces e Contratos](ADR-020-multiplas-surfaces-e-contratos-de-componente.md) |  `PROPOSTO`  | Allowlist `home`/`catalog`, catálogo fechado em contratos aprovados, types novos só por capability declarada     | `Surface.kt`, `ComponentPropsValidator.kt`, `SurfaceController.kt` |
-| **ADR-021** | [Persistência MongoDB e Cache Redis](ADR-021-persistencia-mongodb-e-cache-redis.md) |  `PROPOSTO`  | Mongo como autoridade transacional, Redis como cache, outbox + lápide versionada; modo em memória segue padrão    | `adapters/mongo`, `adapters/redis`, `DurablePersistenceConfiguration.kt` |
-| **ADR-022** | [Integridade da Governança e Limites](ADR-022-integridade-da-governanca-e-limites-de-entrada.md) | `PROPOSTO` | Hash revisado, CAS de rascunho, transação em memória, dono de reserva e entradas/cache limitados; validação executável pendente | `InMemoryGovernance`, `AdminServices`, `AdminRequestLimitFilter`, `RedisCaches` |
+| **ADR-020** | [Múltiplas Surfaces e Contratos](../memoria-operacional-e-arquitetural.md#adr-020--múltiplas-surfaces-e-contratos-de-componente) |  `PROPOSTO`  | Allowlist `home`/`catalog`, catálogo fechado em contratos aprovados, types novos só por capability declarada     | `Surface.kt`, `ComponentPropsValidator.kt`, `SurfaceController.kt` |
+| **ADR-021** | [Persistência MongoDB e Cache Redis](../memoria-operacional-e-arquitetural.md#adr-021--persistência-mongodb-83-e-cache-redis) |  `PROPOSTO`  | Mongo como autoridade transacional, Redis como cache, outbox + lápide versionada; modo em memória segue padrão    | `adapters/mongo`, `adapters/redis`, `DurablePersistenceConfiguration.kt` |
+| **ADR-022** | [Integridade da Governança e Limites](../memoria-operacional-e-arquitetural.md#adr-022--integridade-da-governança-e-limites-de-entrada) | `PROPOSTO` | Hash revisado, CAS de rascunho, transação em memória, dono de reserva e entradas/cache limitados; validação executável pendente | `InMemoryGovernance`, `AdminServices`, `AdminRequestLimitFilter`, `RedisCaches` |
 
 ---
 
@@ -47,8 +48,9 @@ Para a fundamentação técnica aprofundada, consulte os documentos canônicos:
 - **ADRs 001 a 013:** Detalhados na seção 16 de [`docs/arquitetura-de-referencia.md`](../arquitetura-de-referencia.md).
 - **ADRs 014 a 019:** Consolidados na seção 8 de [
   `docs/memoria-operacional-e-arquitetural.md`](../memoria-operacional-e-arquitetural.md).
-- **ADRs 020 e 021:** Arquivos próprios neste diretório, com status `PROPOSTO` até a homologação móvel (020) e o
-  ensaio operacional de persistência (021).
-- **ADR-022:** correções de integridade e limites implementadas; compilação, regressões e homologação pendentes.
+- **ADRs 020 a 022:** Consolidados na seção 9 de [
+  `docs/memoria-operacional-e-arquitetural.md`](../memoria-operacional-e-arquitetural.md), com status `PROPOSTO` até a
+  homologação móvel (020), o ensaio operacional de persistência (021) e a validação executável das correções de
+  integridade e limites (022).
 - **Contrato de Retry Móvel:** Detalhado em [
   `docs/runbooks/contrato-de-retry-clientes-moveis.md`](../runbooks/contrato-de-retry-clientes-moveis.md).

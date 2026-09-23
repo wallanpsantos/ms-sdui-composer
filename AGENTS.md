@@ -138,7 +138,7 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 ## 11. Lacunas Documentais Registradas
 
-- ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/arquitetura-de-referencia.md` e os ADRs 014 a 019
+- ADRs canônicos (ADR-001 a ADR-013) estão narrados em `docs/arquitetura-de-referencia.md` e os ADRs 014 a 022
   estão consolidados em `docs/memoria-operacional-e-arquitetural.md` (matriz unificada em `docs/adr/README.md`).
 - Presente: `docs/README.md` — catálogo da documentação canônica em 3 arquivos (`arquitetura-de-referencia.md`,
   `memoria-operacional-e-arquitetural.md`, `guia-depreciacao-e-migracao.md`).
@@ -151,10 +151,10 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 - Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`. A skill ausente não
   bloqueia o que já está especificado nas histórias, no plano, na pré-arquitetura, nos ADRs e no contrato.
 - Presente: catálogo das histórias concluídas do MVP (`H00`–`H18`) consolidado na Seção 10 de `docs/memoria-operacional-e-arquitetural.md`.
-- Presente: `docs/adr/ADR-020-*.md` e `docs/adr/ADR-021-*.md` (`PROPOSTO`); `docs/contratos/` com os contratos
-  propostos; `docs/examples/screens/` com os quatro exemplos (skeleton, spec, resposta, matriz de rastreabilidade);
-  `docs/guia-criacao-telas-componentes.md`; `docs/performance/medicoes-2026-09-23.md`;
-  `docs/runbooks/persistencia-mongodb-redis.md`.
+- Presente: ADRs 020 a 022 consolidados na Seção 9 de `docs/memoria-operacional-e-arquitetural.md` (matriz unificada
+  em `docs/adr/README.md`); `docs/contratos/` com os contratos propostos; `docs/examples/screens/` com os quatro exemplos
+  (skeleton, spec, resposta, matriz de rastreabilidade); `docs/guia-criacao-telas-componentes.md`;
+  `docs/performance/medicoes-2026-09-23.md`; `docs/runbooks/persistencia-mongodb-redis.md`.
 - Pendente de terceiros: homologação móvel dos contratos novos e ensaio operacional da persistência.
 
 ## 12. Decisões Provisórias
