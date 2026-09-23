@@ -5,7 +5,8 @@ O `ms-sdui-composer` atua como **Presentation + Application Controller + BFF de 
 árvores de componentes hidratadas, determinísticas e compatíveis a partir de especificações versionadas, capabilities
 homologadas e contexto dinâmico do cliente móvel.
 
-## Importante: 
+## Importante:
+
 De acordo: como o serviços ainda não esta em produção, é o momento barato para realizar desenvolvimento!
 
 ---
@@ -263,34 +264,34 @@ docker compose --profile infra up -d
 
 As propriedades podem ser customizadas via `application.yml` ou variáveis de ambiente com o prefixo `SDUI_`:
 
-| Propriedade                           |  Padrão  | Descrição                                                               |
-|---------------------------------------|:--------:|-------------------------------------------------------------------------|
-| `server.port`                         |  `8080`  | Porta HTTP da aplicação                                                 |
-| `spring.threads.virtual.enabled`      |  `true`  | Habilita concorrência com Virtual Threads                               |
-| `sdui.seed-ios`                       |  `true`  | Carrega o catálogo MVP e a fixture canônica da Home iOS no startup      |
-| `sdui.tree-ttl-seconds`               |   `60`   | TTL do cache de tela pré-composta (memória ou Redis)                    |
-| `sdui.tree-cache-max-entries`         | `10000`  | Teto de árvores no cache de composição em memória                       |
-| `sdui.hydration-timeout-ms`           |   `80`   | Timeout individual de hidratação remota de section                      |
-| `sdui.hydration-fanout`               |   `8`    | Limite de seções hidratadas concorrentemente por requisição             |
-| `sdui.request-budget-ms`              |  `1000`  | Orçamento total da requisição; limita as esperas do pipeline            |
-| `sdui.singleflight-timeout-ms`        |  `150`   | Espera máxima de waiters pelo líder no singleflight antes do fallback   |
-| `sdui.read-bulkhead-permits`          |   `32`   | Teto de concorrência simultânea do plano de leitura (bulkhead)          |
-| `sdui.read-bulkhead-wait-ms`          |   `50`   | Espera máxima por permissão no bulkhead de leitura antes de degradar    |
-| `sdui.max-fallback-age-seconds`       | `86400`  | Idade máxima do last good servido como fallback (24h)                   |
-| `sdui.retry-after-seconds`            |   `5`    | Valor base do Retry-After para HTTP 503 (com jitter de ±40%)            |
-| `sdui.rate-limit-retry-after-seconds` |   `2`    | Valor base do Retry-After para HTTP 429 (com jitter de ±40%)            |
-| `sdui.rate-limit-capacity`            | `10000`  | Capacidade do Token Bucket por coorte/cliente                           |
-| `sdui.rate-limit-refill-per-second`   | `10000`  | Taxa de reabastecimento de tokens por segundo do rate limiter           |
-| `sdui.rate-limit-max-keys`            | `100000` | Teto de buckets residentes; descarta os ociosos e os cheios sob pressão |
-| `sdui.idempotency-ttl-seconds`        | `86400`  | Validade de uma chave de idempotência administrativa (24h)              |
-| `sdui.idempotency-max-keys`           | `10000`  | Teto de chaves em memória; no teto só com chaves vivas, recusa com 503  |
-| `sdui.idempotency-reservation-timeout-seconds` | `300` | Reserva em voo mais velha que isto é tratada como abandonada   |
-| `sdui.metrics-max-tag-values`         |   `64`   | Teto de valores distintos por tag nas métricas próprias                 |
-| `sdui.demo-enabled`                   | `false`  | Publica os quatro exemplos de `docs/examples/screens` (nunca em produção) |
-| `sdui.persistence.store`              | `memory` | `memory` ou `mongo` (ADR-021); `mongo` exige `SDUI_PERSISTENCE_MONGO_URI` |
-| `sdui.persistence.cache`              | `memory` | `memory` ou `redis` (ADR-021); `redis` exige `SDUI_PERSISTENCE_REDIS_URL` |
-| `sdui.canary-ios-builds`              |   `[]`   | Lista de builds de iOS autorizadas para canal Canary                    |
-| `sdui.canary-android-builds`          |   `[]`   | Lista de builds de Android autorizadas para canal Canary                |
+| Propriedade                                    |  Padrão  | Descrição                                                                 |
+|------------------------------------------------|:--------:|---------------------------------------------------------------------------|
+| `server.port`                                  |  `8080`  | Porta HTTP da aplicação                                                   |
+| `spring.threads.virtual.enabled`               |  `true`  | Habilita concorrência com Virtual Threads                                 |
+| `sdui.seed-ios`                                |  `true`  | Carrega o catálogo MVP e a fixture canônica da Home iOS no startup        |
+| `sdui.tree-ttl-seconds`                        |   `60`   | TTL do cache de tela pré-composta (memória ou Redis)                      |
+| `sdui.tree-cache-max-entries`                  | `10000`  | Teto de árvores no cache de composição em memória                         |
+| `sdui.hydration-timeout-ms`                    |   `80`   | Timeout individual de hidratação remota de section                        |
+| `sdui.hydration-fanout`                        |   `8`    | Limite de seções hidratadas concorrentemente por requisição               |
+| `sdui.request-budget-ms`                       |  `1000`  | Orçamento total da requisição; limita as esperas do pipeline              |
+| `sdui.singleflight-timeout-ms`                 |  `150`   | Espera máxima de waiters pelo líder no singleflight antes do fallback     |
+| `sdui.read-bulkhead-permits`                   |   `32`   | Teto de concorrência simultânea do plano de leitura (bulkhead)            |
+| `sdui.read-bulkhead-wait-ms`                   |   `50`   | Espera máxima por permissão no bulkhead de leitura antes de degradar      |
+| `sdui.max-fallback-age-seconds`                | `86400`  | Idade máxima do last good servido como fallback (24h)                     |
+| `sdui.retry-after-seconds`                     |   `5`    | Valor base do Retry-After para HTTP 503 (com jitter de ±40%)              |
+| `sdui.rate-limit-retry-after-seconds`          |   `2`    | Valor base do Retry-After para HTTP 429 (com jitter de ±40%)              |
+| `sdui.rate-limit-capacity`                     | `10000`  | Capacidade do Token Bucket por coorte/cliente                             |
+| `sdui.rate-limit-refill-per-second`            | `10000`  | Taxa de reabastecimento de tokens por segundo do rate limiter             |
+| `sdui.rate-limit-max-keys`                     | `100000` | Teto de buckets residentes; descarta os ociosos e os cheios sob pressão   |
+| `sdui.idempotency-ttl-seconds`                 | `86400`  | Validade de uma chave de idempotência administrativa (24h)                |
+| `sdui.idempotency-max-keys`                    | `10000`  | Teto de chaves em memória; no teto só com chaves vivas, recusa com 503    |
+| `sdui.idempotency-reservation-timeout-seconds` |  `300`   | Reserva em voo mais velha que isto é tratada como abandonada              |
+| `sdui.metrics-max-tag-values`                  |   `64`   | Teto de valores distintos por tag nas métricas próprias                   |
+| `sdui.demo-enabled`                            | `false`  | Publica os quatro exemplos de `docs/examples/screens` (nunca em produção) |
+| `sdui.persistence.store`                       | `memory` | `memory` ou `mongo` (ADR-021); `mongo` exige `SDUI_PERSISTENCE_MONGO_URI` |
+| `sdui.persistence.cache`                       | `memory` | `memory` ou `redis` (ADR-021); `redis` exige `SDUI_PERSISTENCE_REDIS_URL` |
+| `sdui.canary-ios-builds`                       |   `[]`   | Lista de builds de iOS autorizadas para canal Canary                      |
+| `sdui.canary-android-builds`                   |   `[]`   | Lista de builds de Android autorizadas para canal Canary                  |
 
 O modo persistente está implementado e **não homologado**: até o roteiro de
 [`persistencia-mongodb-redis.md`](docs/runbooks/persistencia-mongodb-redis.md) ser executado, rode em memória e em
@@ -768,8 +769,12 @@ A documentação técnica detalhada do projeto está versionada na pasta [`docs/
 - [`docs/runbooks/`](docs/runbooks/) — Procedimentos operacionais para rollback de Canary
   ([iOS](docs/runbooks/ios-canary-rollback.md) e [Android](docs/runbooks/android-canary-rollback.md))
   e [Contrato de Retry para Clientes Móveis](docs/runbooks/contrato-de-retry-clientes-moveis.md).
-- [Histórico do MVP (`H00`–`H18`)](docs/memoria-operacional-e-arquitetural.md#10-registro-consolidado-de-histórias-do-mvp-h00h18) — Matriz consolidada de entrega das histórias do MVP (100% entregues e validadas).
+- [Histórico do MVP (`H00`–
+  `H18`)](docs/memoria-operacional-e-arquitetural.md#10-registro-consolidado-de-histórias-do-mvp-h00h18) — Matriz
+  consolidada de entrega das histórias do MVP (100% entregues e validadas).
 - [`docs/images/`](docs/images/README.md) — Catálogo de compatibilidade visual de telas móveis reais.
-- [`docs/examples/screens/`](docs/examples/screens/README.md) — Composições de exemplo executáveis (skeleton, spec e resposta).
-- Fixtures canônicas e contratos oficiais versionados em [`sdui-contract/src/test/resources/fixtures/`](sdui-contract/src/test/resources/fixtures/)
+- [`docs/examples/screens/`](docs/examples/screens/README.md) — Composições de exemplo executáveis (skeleton, spec e
+  resposta).
+- Fixtures canônicas e contratos oficiais versionados em [
+  `sdui-contract/src/test/resources/fixtures/`](sdui-contract/src/test/resources/fixtures/)
   (`contrato-sdui-home-definitivo.json` e `contrato-sdui-home-cards-first.json`).

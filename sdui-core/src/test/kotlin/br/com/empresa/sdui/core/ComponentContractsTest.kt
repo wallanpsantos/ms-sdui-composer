@@ -29,7 +29,8 @@ class ComponentContractsTest {
         val arbitrary = Catalog(approved.components + ComponentType("tipo_livre", 1, "DEPRECATED", "3", emptyList()))
         assertThat(CatalogValidator.validate(arbitrary)).anyMatch { it.contains("sem contrato aprovado: tipo_livre@1") }
 
-        val unknownVersion = Catalog(approved.components + ComponentType("product_collection", 2, "ACTIVE", "3", emptyList()))
+        val unknownVersion =
+            Catalog(approved.components + ComponentType("product_collection", 2, "ACTIVE", "3", emptyList()))
         assertThat(CatalogValidator.validate(unknownVersion)).anyMatch { it.contains("product_collection@2") }
     }
 
@@ -63,7 +64,11 @@ class ComponentContractsTest {
             }
         }
         val declared = matrix.effective(
-            context(ClientPlatform.IOS, SemVer(8, 14, 2), listOf(ComponentContracts.TRANSACTION_SUMMARY, Capability("inventado", 1))),
+            context(
+                ClientPlatform.IOS,
+                SemVer(8, 14, 2),
+                listOf(ComponentContracts.TRANSACTION_SUMMARY, Capability("inventado", 1))
+            ),
         )
         assertThat(declared).contains(ComponentContracts.TRANSACTION_SUMMARY).doesNotContain(Capability("inventado", 1))
     }
@@ -111,7 +116,8 @@ class ComponentContractsTest {
         )
         assertThat(ComponentPropsValidator.validate(twoSelected)).anyMatch { it.contains("no maximo uma categoria") }
 
-        val search = section("catalog_navigation", mapOf("searchPlaceholder" to "Buscar", "searchActionId" to "act_search"))
+        val search =
+            section("catalog_navigation", mapOf("searchPlaceholder" to "Buscar", "searchActionId" to "act_search"))
         assertThat(ComponentPropsValidator.validate(search)).isEmpty()
     }
 

@@ -13,14 +13,14 @@
 
 ## Mapeamento
 
-| Section               | Type                | Slot        | Conteúdo sintético                                   |
-|-----------------------|---------------------|-------------|------------------------------------------------------|
-| `sec_header`          | `top_bar@1`         | `header`    | "Olá, Cliente"; ação "Ajuda"                         |
-| `sec_account`         | `account_card@1`    | `accounts`  | Saldo ocultável                                      |
-| `sec_shortcuts`       | `shortcut_shelf@1`  | `shortcuts` | Área Pix, Pagar, Pegar emprestado (badge), Transferir |
-| `sec_card`            | `card_product@1`    | `cards`     | Fatura, limite, débito automático; "Meus cartões"     |
-| `sec_offer`           | `credit_offer@1`    | `offers`    | Empréstimo disponível                                 |
-| `sec_coverage_phone`, `sec_coverage_life` | `coverage_card@1` | `coverage` | Seguro celular, seguro de vida            |
+| Section                                   | Type               | Slot        | Conteúdo sintético                                    |
+|-------------------------------------------|--------------------|-------------|-------------------------------------------------------|
+| `sec_header`                              | `top_bar@1`        | `header`    | "Olá, Cliente"; ação "Ajuda"                          |
+| `sec_account`                             | `account_card@1`   | `accounts`  | Saldo ocultável                                       |
+| `sec_shortcuts`                           | `shortcut_shelf@1` | `shortcuts` | Área Pix, Pagar, Pegar emprestado (badge), Transferir |
+| `sec_card`                                | `card_product@1`   | `cards`     | Fatura, limite, débito automático; "Meus cartões"     |
+| `sec_offer`                               | `credit_offer@1`   | `offers`    | Empréstimo disponível                                 |
+| `sec_coverage_phone`, `sec_coverage_life` | `coverage_card@1`  | `coverage`  | Seguro celular, seguro de vida                        |
 
 Blocos não mapeados (NuEnsina, "Acompanhe também") e responsabilidades nativas estão na
 [matriz](../README.md#nubank--duas-montagens-da-home-android).

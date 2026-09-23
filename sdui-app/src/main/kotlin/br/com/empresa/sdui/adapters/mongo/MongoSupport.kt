@@ -118,11 +118,15 @@ object MongoSchema {
         specs.createIndex(Indexes.ascending("specId", "revision"), IndexOptions().name("ix_spec_revisions"))
         database.getCollection(SKELETONS)
             .createIndex(Indexes.compoundIndex(Indexes.ascending("skeletonId"), Indexes.descending("revision")))
-        database.getCollection(AUDIT_EVENTS).createIndex(Indexes.descending("tsMillis"), IndexOptions().name("ix_audit_ts"))
+        database.getCollection(AUDIT_EVENTS)
+            .createIndex(Indexes.descending("tsMillis"), IndexOptions().name("ix_audit_ts"))
         // TTL: o proprio MongoDB remove reserva abandonada e resultado fora da janela. Nenhuma
         // reserva viva e removida por pressao — o documento so sai quando expiresAt passa.
         database.getCollection(IDEMPOTENCY)
-            .createIndex(Indexes.ascending("expiresAt"), IndexOptions().expireAfter(0L, TimeUnit.SECONDS).name("ttl_idempotency"))
+            .createIndex(
+                Indexes.ascending("expiresAt"),
+                IndexOptions().expireAfter(0L, TimeUnit.SECONDS).name("ttl_idempotency")
+            )
         database.getCollection(CACHE_INVALIDATIONS)
             .createIndex(Indexes.ascending("createdAtMillis"), IndexOptions().name("ix_invalidation_created"))
     }
@@ -183,7 +187,11 @@ internal fun MongoCollection<Document>.replace(
 ): UpdateResult {
     val options = ReplaceOptions().upsert(upsert)
     val session = sessions.current()
-    return if (session != null) replaceOne(session, filter, document, options) else replaceOne(filter, document, options)
+    return if (session != null) replaceOne(session, filter, document, options) else replaceOne(
+        filter,
+        document,
+        options
+    )
 }
 
 internal fun MongoCollection<Document>.insert(sessions: MongoSessionContext, document: Document) {

@@ -146,12 +146,24 @@ class ComposeScreenService(
             }
         } catch (error: Exception) {
             fallbackCoordinator.reportStoreFailure(STAGE_SELECT, error)
-            return fallbackCoordinator.fallbackOrUnavailable(surface, context, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
+            return fallbackCoordinator.fallbackOrUnavailable(
+                surface,
+                context,
+                channel,
+                FallbackReason.REDIS_UNAVAILABLE,
+                tags
+            )
         }
         val selected = selection.spec
         if (selected == null || !RevisionIds.isValid(selected.specRevisionId)) {
             metrics.increment(MetricNames.SELECT_NO_CANDIDATE, tags)
-            return fallbackCoordinator.fallbackOrUnavailable(surface, context, channel, FallbackReason.NO_COMPATIBLE_SPEC, tags)
+            return fallbackCoordinator.fallbackOrUnavailable(
+                surface,
+                context,
+                channel,
+                FallbackReason.NO_COMPATIBLE_SPEC,
+                tags
+            )
         }
 
         // Com a revisao em maos o ETag ja e conhecido: uma revalidacao termina aqui, sem tocar no
@@ -200,14 +212,30 @@ class ComposeScreenService(
                     ComposeResult.Success(refreshed.withRequester(clock, context), fromCache = true)
                 } else {
                     composeFresh(
-                        ComposeInput(surface, context, channel, caps, selected, selection.pointerVersion, etag, treeKey, tags),
+                        ComposeInput(
+                            surface,
+                            context,
+                            channel,
+                            caps,
+                            selected,
+                            selection.pointerVersion,
+                            etag,
+                            treeKey,
+                            tags
+                        ),
                         budget,
                     )
                 }
             }
         } catch (error: Exception) {
             fallbackCoordinator.reportStoreFailure(STAGE_SINGLEFLIGHT, error)
-            return fallbackCoordinator.fallbackOrUnavailable(surface, context, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
+            return fallbackCoordinator.fallbackOrUnavailable(
+                surface,
+                context,
+                channel,
+                FallbackReason.DEPENDENCY_TIMEOUT,
+                tags
+            )
         }
         return when (outcome) {
             is SingleflightOutcome.Leader -> outcome.value
@@ -221,7 +249,13 @@ class ComposeScreenService(
             is SingleflightOutcome.WaitTimeout -> {
                 metrics.increment(MetricNames.COMPOSE_SINGLEFLIGHT_WAIT, tags)
                 metrics.increment(MetricNames.COMPOSE_DEADLINE_EXCEEDED, tags + (TAG_STAGE to STAGE_SINGLEFLIGHT))
-                fallbackCoordinator.fallbackOrUnavailable(surface, context, channel, FallbackReason.DEPENDENCY_TIMEOUT, tags)
+                fallbackCoordinator.fallbackOrUnavailable(
+                    surface,
+                    context,
+                    channel,
+                    FallbackReason.DEPENDENCY_TIMEOUT,
+                    tags
+                )
             }
         }
     }

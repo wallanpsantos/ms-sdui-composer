@@ -51,9 +51,11 @@ class DurableModeBootIT {
                 assertThat(composeCatalog(context)).isInstanceOf(ComposeResult.Success::class.java)
             }
             boot(properties).use { context ->
-                val pointer = context.getBean(PointerStore::class.java).find("catalog", ClientPlatform.IOS, Channel.STABLE)
+                val pointer =
+                    context.getBean(PointerStore::class.java).find("catalog", ClientPlatform.IOS, Channel.STABLE)
                 assertThat(pointer?.specRevisionId).isEqualTo("rev_demo_ios_fashion_catalog")
-                val approvals = context.getBean(AuditLogStore::class.java).recent(50).count { it.action == "publish.approve" }
+                val approvals =
+                    context.getBean(AuditLogStore::class.java).recent(50).count { it.action == "publish.approve" }
                 assertThat(approvals).`as`("demo nao republica no segundo boot").isEqualTo(4)
                 assertThat(composeCatalog(context)).isInstanceOf(ComposeResult.Success::class.java)
             }

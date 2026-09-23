@@ -59,7 +59,16 @@ class SurfaceRulesTest {
     @Test
     fun `slot financeiro no catalogo e type de comercio na home sao recusados`() {
         val withAccounts = catalogSkeleton().let {
-            it.copy(slots = it.slots + SlotDefinition("accounts", SlotLayout.LIST, null, 1, listOf("account_card"), required = true))
+            it.copy(
+                slots = it.slots + SlotDefinition(
+                    "accounts",
+                    SlotLayout.LIST,
+                    null,
+                    1,
+                    listOf("account_card"),
+                    required = true
+                )
+            )
         }
         assertThat(SkeletonValidator.validate(withAccounts))
             .anyMatch { it.contains("slots desconhecidos para a surface 'catalog'") }
@@ -105,7 +114,8 @@ class SurfaceRulesTest {
 
     @Test
     fun `spec de surface desconhecida e recusado`() {
-        val errors = SpecValidator.validateDraft(catalogSpec().copy(surface = "wallet"), catalogSkeleton(), catalog, matrix)
+        val errors =
+            SpecValidator.validateDraft(catalogSpec().copy(surface = "wallet"), catalogSkeleton(), catalog, matrix)
         assertThat(errors).anyMatch { it.contains("surface desconhecida: 'wallet'") }
     }
 
@@ -129,7 +139,14 @@ class SurfaceRulesTest {
         repeat(20) { deep = mapOf("nivel" to deep) }
         val spec = catalogSpec().let { spec ->
             spec.copy(
-                sections = spec.sections.map { if (it.id == "sec_header") it.copy(props = mapOf("greetingName" to "Cliente", "extra" to deep)) else it },
+                sections = spec.sections.map {
+                    if (it.id == "sec_header") it.copy(
+                        props = mapOf(
+                            "greetingName" to "Cliente",
+                            "extra" to deep
+                        )
+                    ) else it
+                },
             )
         }
         assertThat(SpecValidator.validateDraft(spec, catalogSkeleton(), catalog, matrix))
@@ -202,7 +219,14 @@ class SurfaceRulesTest {
                         mapOf("id" to "p1", "name" to "Camiseta", "priceDisplay" to "R$ 79,90", "actionId" to "act_p1"),
                     ),
                 ),
-                actions = listOf(Action("act_p1", "navigate", "Ver produto", ActionPayload(route = "app://shop/products/p1"))),
+                actions = listOf(
+                    Action(
+                        "act_p1",
+                        "navigate",
+                        "Ver produto",
+                        ActionPayload(route = "app://shop/products/p1")
+                    )
+                ),
             ),
         ),
         checksum = "sha256:0a1b2c",

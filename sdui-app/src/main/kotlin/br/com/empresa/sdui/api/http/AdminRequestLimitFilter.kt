@@ -41,7 +41,11 @@ class AdminRequestLimitFilter(
         return !path.startsWith("/admin")
     }
 
-    override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
+    override fun doFilterInternal(
+        request: HttpServletRequest,
+        response: HttpServletResponse,
+        filterChain: FilterChain
+    ) {
         if (request.getHeader("Actor-Id").isNullOrBlank() || ActorRole.parse(request.getHeader("Actor-Role")) == null) {
             reject(response, 403, "FORBIDDEN", "ator ausente ou invalido", "denied")
             return
@@ -78,7 +82,8 @@ class AdminRequestLimitFilter(
     }
 }
 
-private class BufferedAdminRequest(request: HttpServletRequest, private val bytes: ByteArray) : HttpServletRequestWrapper(request) {
+private class BufferedAdminRequest(request: HttpServletRequest, private val bytes: ByteArray) :
+    HttpServletRequestWrapper(request) {
     private val stream = object : ServletInputStream() {
         private val delegate = ByteArrayInputStream(bytes)
         override fun read(): Int = delegate.read()

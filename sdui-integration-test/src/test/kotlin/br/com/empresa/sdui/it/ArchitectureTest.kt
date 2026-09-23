@@ -132,7 +132,8 @@ class ArchitectureTest {
     @Test
     fun `nenhuma classe de producao usa transacao do Spring ou do Jakarta`() {
         noClasses()
-            .should().dependOnClassesThat().resideInAnyPackage("org.springframework.transaction..", "jakarta.transaction..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("org.springframework.transaction..", "jakarta.transaction..")
             .check(importedClasses)
     }
 
@@ -159,7 +160,8 @@ class ArchitectureTest {
     @Test
     fun `drivers de persistencia ficam confinados aos adapters`() {
         noClasses().that().resideOutsideOfPackages("..sdui.adapters..")
-            .should().dependOnClassesThat().resideInAnyPackage("com.mongodb..", "org.bson..", "io.lettuce..", "org.springframework.data..")
+            .should().dependOnClassesThat()
+            .resideInAnyPackage("com.mongodb..", "org.bson..", "io.lettuce..", "org.springframework.data..")
             .check(importedClasses)
     }
 }

@@ -10,45 +10,68 @@
       "layout": "FIXED",
       "title": null,
       "maxInstances": 1,
-      "allowedTypes": ["top_bar"],
+      "allowedTypes": [
+        "top_bar"
+      ],
       "required": true,
-      "allowedLayouts": ["FIXED"]
+      "allowedLayouts": [
+        "FIXED"
+      ]
     },
     {
       "id": "accounts",
       "layout": "FIXED",
       "title": null,
       "maxInstances": 1,
-      "allowedTypes": ["account_card"],
+      "allowedTypes": [
+        "account_card"
+      ],
       "required": true,
-      "allowedLayouts": ["LIST", "FIXED"]
+      "allowedLayouts": [
+        "LIST",
+        "FIXED"
+      ]
     },
     {
       "id": "cards",
       "layout": "PAGER",
       "title": "Cartões",
       "maxInstances": 3,
-      "allowedTypes": ["card_product"],
+      "allowedTypes": [
+        "card_product"
+      ],
       "required": false,
-      "allowedLayouts": ["LIST", "PAGER"]
+      "allowedLayouts": [
+        "LIST",
+        "PAGER"
+      ]
     },
     {
       "id": "shortcuts",
       "layout": "GRID",
       "title": null,
       "maxInstances": 1,
-      "allowedTypes": ["shortcut_shelf"],
+      "allowedTypes": [
+        "shortcut_shelf"
+      ],
       "required": false,
-      "allowedLayouts": ["SHELF", "GRID"]
+      "allowedLayouts": [
+        "SHELF",
+        "GRID"
+      ]
     },
     {
       "id": "transactions",
       "layout": "LIST",
       "title": "Últimas transações",
       "maxInstances": 1,
-      "allowedTypes": ["transaction_summary"],
+      "allowedTypes": [
+        "transaction_summary"
+      ],
       "required": false,
-      "allowedLayouts": ["LIST"]
+      "allowedLayouts": [
+        "LIST"
+      ]
     }
   ]
 }

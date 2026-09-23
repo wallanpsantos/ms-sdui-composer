@@ -48,6 +48,7 @@ fun <T> List<T>.page(page: PageRequest): List<T> =
 /** Persistencia de specs. Uma revisao PUBLISHED e imutavel — a implementacao deve recusar sobrescrita. */
 interface SpecStore {
     fun save(spec: Spec): Spec
+
     /** Cria se expected for null; caso contrario substitui somente o conteudo observado. */
     fun compareAndSet(expected: Spec?, updated: Spec): Spec
     fun findByRevisionId(specRevisionId: String): Spec?

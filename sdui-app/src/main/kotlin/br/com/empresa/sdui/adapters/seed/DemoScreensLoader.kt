@@ -74,7 +74,13 @@ class DemoScreensLoader(
                 drafts.upsertComponent(
                     DraftCatalogCommand(
                         MAKER,
-                        ComponentType(capability.type, capability.typeVersion, "ACTIVE", MvpCatalog.SCHEMA_VERSION, emptyList()),
+                        ComponentType(
+                            capability.type,
+                            capability.typeVersion,
+                            "ACTIVE",
+                            MvpCatalog.SCHEMA_VERSION,
+                            emptyList()
+                        ),
                     ),
                 )
             }

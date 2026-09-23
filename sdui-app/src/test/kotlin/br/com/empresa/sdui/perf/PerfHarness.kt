@@ -75,8 +75,9 @@ import java.util.concurrent.atomic.AtomicLong
  * nem o SLO de P99. Serve para comparar o mesmo mecanismo antes e depois de uma mudanca.
  */
 
-private val SEED: String = checkNotNull(PerfHarness::class.java.getResourceAsStream("/seed/contrato-sdui-home-definitivo.json"))
-    .use { it.readBytes().decodeToString() }
+private val SEED: String =
+    checkNotNull(PerfHarness::class.java.getResourceAsStream("/seed/contrato-sdui-home-definitivo.json"))
+        .use { it.readBytes().decodeToString() }
 private val MAPPER: JsonMapper = JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
 private val TMX = ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
 
@@ -89,7 +90,9 @@ object PerfHarness {
         )
         println(
             "JVM ${System.getProperty("java.vm.name")} ${System.getProperty("java.vm.version")} | " +
-                "CPUs=${Runtime.getRuntime().availableProcessors()} | maxHeap=${Runtime.getRuntime().maxMemory() / MIB}MiB",
+                    "CPUs=${Runtime.getRuntime().availableProcessors()} | maxHeap=${
+                        Runtime.getRuntime().maxMemory() / MIB
+                    }MiB",
         )
         val selected = if (args.isEmpty()) all.keys else args.toList()
         for (key in selected) all.getValue(key)()
@@ -159,7 +162,11 @@ private class Harness(
         ),
         matrix = CapabilityMatrix(),
         canaryPolicy = DefaultCanaryPolicy,
-        rateLimiter = TokenBucketRateLimiter(capacity = rateCapacity, refillPerSecond = rateCapacity, maxKeys = 1_000_000),
+        rateLimiter = TokenBucketRateLimiter(
+            capacity = rateCapacity,
+            refillPerSecond = rateCapacity,
+            maxKeys = 1_000_000
+        ),
         readBulkhead = Bulkhead(1024),
         metrics = metrics,
         clock = clock,
@@ -223,7 +230,7 @@ private fun m1Cardinality() {
     repeat(1000) { i -> rl.compose(version = "8.${10 + i % 10}.${i / 10}") }
     println(
         "rate limited com 1000 Client-Version distintas: meters=${rlRegistry.meters.size} " +
-            "(${rlRegistry.meters.count { it.id.name == "compose.rate_limited" }} de compose.rate_limited)",
+                "(${rlRegistry.meters.count { it.id.name == "compose.rate_limited" }} de compose.rate_limited)",
     )
     val drafts = DraftService(h.specStore, h.skeletonStore, h.catalogStore, CapabilityMatrix())
     var inactiveAccepted = 0
@@ -274,8 +281,8 @@ private fun m2Idempotency() {
     val lostResults = (0 until 3).count { store.find("fechada-$it") == null }
     println(
         "reserva inicial=${first.javaClass.simpleName}, nova admissao no teto=${newcomer.javaClass.simpleName}, " +
-            "reserva em voo preservada=$preserved, retry da chave=${retake.javaClass.simpleName}, " +
-            "resultados dentro do TTL expulsos=$lostResults/3",
+                "reserva em voo preservada=$preserved, retry da chave=${retake.javaClass.simpleName}, " +
+                "resultados dentro do TTL expulsos=$lostResults/3",
     )
     clock.now = clock.now.plus(Duration.ofHours(2))
     val afterExpiry = store.reserve("nova", "publish.open", "fp")
@@ -364,10 +371,16 @@ private fun m4Singleflight() {
         perRound += (burstHydrator.calls.get() - before) / 8
     }
     pool.close()
-    println("rajada 64 concorrentes x 50 rodadas: composicoes/rodada media=%.2f max=%d".format(perRound.average(), perRound.max()))
+    println(
+        "rajada 64 concorrentes x 50 rodadas: composicoes/rodada media=%.2f max=%d".format(
+            perRound.average(),
+            perRound.max()
+        )
+    )
 
     val started = CountDownLatch(1)
-    val slow = Harness(hydrators = listOf(CountingHydrator(delayMs = 100, started = started)), hydrationTimeoutMs = 5_000)
+    val slow =
+        Harness(hydrators = listOf(CountingHydrator(delayMs = 100, started = started)), hydrationTimeoutMs = 5_000)
     val vpool = Executors.newVirtualThreadPerTaskExecutor()
     val leader = vpool.submit<ComposeResult> { slow.compose(build = "81420") }
     started.await()
@@ -377,7 +390,7 @@ private fun m4Singleflight() {
     vpool.close()
     println(
         "waiter com build 99999 / versao 8.15.0 recebeu client.build=${w.screen.client.build} " +
-            "appVersion=${w.screen.client.appVersion} (fromCache=${w.fromCache})",
+                "appVersion=${w.screen.client.appVersion} (fromCache=${w.fromCache})",
     )
 }
 
@@ -448,7 +461,11 @@ private fun m6Prune() {
     repeat(5_000) { hot.put("sdui:tree:home:ios:3:hot_$it:c:stable", sample, Duration.ofSeconds(120)) }
     repeat(6_000) { hot.put("sdui:tree:home:ios:3:cold_$it:c:stable", sample, Duration.ofSeconds(60)) }
     val hits = (0 until 5_000).count { hot.get("sdui:tree:home:ios:3:hot_$it:c:stable") != null }
-    println("conjunto quente de 5.000 (TTL maior) apos 6.000 frias: hit ratio=%.1f%% residente=${hot.residentEntries()}".format(hits / 50.0))
+    println(
+        "conjunto quente de 5.000 (TTL maior) apos 6.000 frias: hit ratio=%.1f%% residente=${hot.residentEntries()}".format(
+            hits / 50.0
+        )
+    )
 }
 
 private fun m7Listings() {

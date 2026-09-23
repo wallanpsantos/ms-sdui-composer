@@ -1,10 +1,10 @@
 package br.com.empresa.sdui.adapters.configuration
 
-import br.com.empresa.sdui.adapters.memory.InMemoryGovernance
 import br.com.empresa.sdui.adapters.memory.InMemoryAuditLogStore
 import br.com.empresa.sdui.adapters.memory.InMemoryCacheInvalidationOutbox
 import br.com.empresa.sdui.adapters.memory.InMemoryCatalogStore
 import br.com.empresa.sdui.adapters.memory.InMemoryDiffStore
+import br.com.empresa.sdui.adapters.memory.InMemoryGovernance
 import br.com.empresa.sdui.adapters.memory.InMemoryHydratedScreenCache
 import br.com.empresa.sdui.adapters.memory.InMemoryIdempotencyStore
 import br.com.empresa.sdui.adapters.memory.InMemoryLastGoodScreenStore
@@ -58,7 +58,8 @@ class MemoryStoreConfiguration {
     fun pointerStore(governance: InMemoryGovernance): PointerStore = InMemoryPointerStore(governance)
 
     @Bean
-    fun publishRequestStore(governance: InMemoryGovernance): PublishRequestStore = InMemoryPublishRequestStore(governance)
+    fun publishRequestStore(governance: InMemoryGovernance): PublishRequestStore =
+        InMemoryPublishRequestStore(governance)
 
     @Bean
     fun diffStore(governance: InMemoryGovernance): DiffStore = InMemoryDiffStore(governance)
@@ -77,10 +78,12 @@ class MemoryStoreConfiguration {
         )
 
     @Bean
-    fun transactionalUnitOfWork(governance: InMemoryGovernance): TransactionalUnitOfWork = InMemoryTransactionalUnitOfWork(governance)
+    fun transactionalUnitOfWork(governance: InMemoryGovernance): TransactionalUnitOfWork =
+        InMemoryTransactionalUnitOfWork(governance)
 
     @Bean
-    fun cacheInvalidationOutbox(governance: InMemoryGovernance): CacheInvalidationOutbox = InMemoryCacheInvalidationOutbox(governance = governance)
+    fun cacheInvalidationOutbox(governance: InMemoryGovernance): CacheInvalidationOutbox =
+        InMemoryCacheInvalidationOutbox(governance = governance)
 }
 
 /** Caches em memoria (`sdui.persistence.cache=memory`, o padrao), locais a cada processo. */

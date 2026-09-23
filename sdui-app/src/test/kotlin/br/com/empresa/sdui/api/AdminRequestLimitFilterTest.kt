@@ -31,7 +31,10 @@ class AdminRequestLimitFilterTest {
             addHeader("Actor-Role", "MAKER")
         }
         val response = MockHttpServletResponse()
-        AdminRequestLimitFilter(16, 1, RecordingMetrics()).doFilter(input, response, FilterChain { _, _ -> error("nao deve entrar") })
+        AdminRequestLimitFilter(16, 1, RecordingMetrics()).doFilter(
+            input,
+            response,
+            FilterChain { _, _ -> error("nao deve entrar") })
         assertThat(response.status).isEqualTo(413)
         assertThat(response.contentAsString).contains("REQUEST_TOO_LARGE")
     }
@@ -54,7 +57,10 @@ class AdminRequestLimitFilterTest {
 
         val bytes = "1234567890123456".toByteArray()
         var received: ByteArray? = null
-        filter.doFilter(request(bytes), MockHttpServletResponse(), FilterChain { req, _ -> received = req.inputStream.readAllBytes() })
+        filter.doFilter(
+            request(bytes),
+            MockHttpServletResponse(),
+            FilterChain { req, _ -> received = req.inputStream.readAllBytes() })
         assertThat(received).isEqualTo(bytes)
     }
 
@@ -64,7 +70,10 @@ class AdminRequestLimitFilterTest {
             override fun getInputStream(): ServletInputStream = error("nao deve ler")
         }
         val response = MockHttpServletResponse()
-        AdminRequestLimitFilter(16, 1, RecordingMetrics()).doFilter(input, response, FilterChain { _, _ -> error("nao deve entrar") })
+        AdminRequestLimitFilter(16, 1, RecordingMetrics()).doFilter(
+            input,
+            response,
+            FilterChain { _, _ -> error("nao deve entrar") })
         assertThat(response.status).isEqualTo(403)
     }
 

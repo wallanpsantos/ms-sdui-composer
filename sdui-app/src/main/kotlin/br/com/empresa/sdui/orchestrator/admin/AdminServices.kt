@@ -182,42 +182,43 @@ class PublishService(
         }
     }
 
-    private fun openReserved(command: OpenPublishCommand, fingerprint: String, token: String): PublishRequest = tx.execute {
-        val spec = specStore.findBySpecIdAndRevision(command.specId, command.revision)
-            ?: throw AdminNotFound("spec ${command.specId}#${command.revision}")
-        if (spec.status == SpecStatus.PUBLISHED) {
-            throw AdminValidation(listOf("revisao ja publicada"))
+    private fun openReserved(command: OpenPublishCommand, fingerprint: String, token: String): PublishRequest =
+        tx.execute {
+            val spec = specStore.findBySpecIdAndRevision(command.specId, command.revision)
+                ?: throw AdminNotFound("spec ${command.specId}#${command.revision}")
+            if (spec.status == SpecStatus.PUBLISHED) {
+                throw AdminValidation(listOf("revisao ja publicada"))
+            }
+            val skeleton = skeletonStore.findFor(spec) ?: throw AdminNotFound("skeleton")
+            val catalog = catalogStore.current()
+            val catalogErrors = CatalogValidator.validate(catalog)
+            val specErrors = SpecValidator.validateDraft(spec, skeleton, catalog, matrix)
+            if (catalogErrors.isNotEmpty() || specErrors.isNotEmpty()) {
+                throw AdminValidation(catalogErrors + specErrors)
+            }
+            val previous = specStore.listBySpecId(spec.specId)
+                .filter { it.status == SpecStatus.PUBLISHED }
+                .maxByOrNull { it.revision }
+            val diff = SpecDiffFactory.diff(previous, spec, skeleton)
+            val request = PublishRequest(
+                requestId = "pr_${UUID.randomUUID()}",
+                specId = spec.specId,
+                revision = spec.revision,
+                specRevisionId = spec.specRevisionId,
+                surface = spec.surface,
+                platform = spec.platform,
+                channel = command.channel,
+                makerId = command.actor.id,
+                status = PublishRequestStatus.OPEN,
+                reviewedContentHash = publicationFingerprint.of(spec, skeleton),
+            )
+            diffStore.save(diff)
+            val saved = publishStore.save(request)
+            idempotency.complete(
+                IdempotencyRecord(command.idempotencyKey, OPERATION_OPEN, saved.requestId, fingerprint), token,
+            )
+            saved
         }
-        val skeleton = skeletonStore.findFor(spec) ?: throw AdminNotFound("skeleton")
-        val catalog = catalogStore.current()
-        val catalogErrors = CatalogValidator.validate(catalog)
-        val specErrors = SpecValidator.validateDraft(spec, skeleton, catalog, matrix)
-        if (catalogErrors.isNotEmpty() || specErrors.isNotEmpty()) {
-            throw AdminValidation(catalogErrors + specErrors)
-        }
-        val previous = specStore.listBySpecId(spec.specId)
-            .filter { it.status == SpecStatus.PUBLISHED }
-            .maxByOrNull { it.revision }
-        val diff = SpecDiffFactory.diff(previous, spec, skeleton)
-        val request = PublishRequest(
-            requestId = "pr_${UUID.randomUUID()}",
-            specId = spec.specId,
-            revision = spec.revision,
-            specRevisionId = spec.specRevisionId,
-            surface = spec.surface,
-            platform = spec.platform,
-            channel = command.channel,
-            makerId = command.actor.id,
-            status = PublishRequestStatus.OPEN,
-            reviewedContentHash = publicationFingerprint.of(spec, skeleton),
-        )
-        diffStore.save(diff)
-        val saved = publishStore.save(request)
-        idempotency.complete(
-            IdempotencyRecord(command.idempotencyKey, OPERATION_OPEN, saved.requestId, fingerprint), token,
-        )
-        saved
-    }
 
     /**
      * Devolve o resultado ja produzido para uma chave, ou recusa se ela ainda estiver em voo.
@@ -233,7 +234,12 @@ class PublishService(
     override fun approve(command: DecidePublishCommand): PublishRequest {
         requireRole(command.actor.role, ActorRole.CHECKER)
         val fingerprint = fingerprintOf(OPERATION_APPROVE, command.requestId)
-        return idempotency.idempotent(command.idempotencyKey, OPERATION_APPROVE, fingerprint, ::replayPublish) { token ->
+        return idempotency.idempotent(
+            command.idempotencyKey,
+            OPERATION_APPROVE,
+            fingerprint,
+            ::replayPublish
+        ) { token ->
             val outcome = approveReserved(command, fingerprint, token)
             // Escritas de cache ficam fora da transacao: nao sao transacionais e, aplicadas antes
             // do commit, entregariam aos leitores uma revisao que um rollback ainda pode desfazer.
@@ -245,81 +251,86 @@ class PublishService(
         }
     }
 
-    private fun approveReserved(command: DecidePublishCommand, fingerprint: String, token: String): PublishOutcome = tx.execute {
-        val open = publishStore.find(command.requestId) ?: throw AdminNotFound("publish ${command.requestId}")
-        if (open.makerId == command.actor.id && open.channel != Channel.INTERNAL) {
-            throw AdminDenied("maker nao aprova o proprio pedido")
+    private fun approveReserved(command: DecidePublishCommand, fingerprint: String, token: String): PublishOutcome =
+        tx.execute {
+            val open = publishStore.find(command.requestId) ?: throw AdminNotFound("publish ${command.requestId}")
+            if (open.makerId == command.actor.id && open.channel != Channel.INTERNAL) {
+                throw AdminDenied("maker nao aprova o proprio pedido")
+            }
+            if (open.status != PublishRequestStatus.OPEN) {
+                throw AdminConflict("pedido nao esta aberto")
+            }
+            val spec = specStore.findBySpecIdAndRevision(open.specId, open.revision)
+                ?: throw AdminNotFound("spec")
+            if (spec.status != SpecStatus.DRAFT) throw AdminConflict("revisao ja publicada")
+            val skeleton = skeletonStore.findFor(spec) ?: throw AdminNotFound("skeleton")
+            if (open.reviewedContentHash == null || open.reviewedContentHash != publicationFingerprint.of(
+                    spec,
+                    skeleton
+                )
+            ) {
+                throw AdminConflict("conteudo alterado desde a abertura; reabra o pedido")
+            }
+            val errors = SpecValidator.validateDraft(spec, skeleton, catalogStore.current(), matrix)
+            if (errors.isNotEmpty()) throw AdminValidation(errors)
+            // Revisao com pai exige diff calculado: e o que o checker revisa antes de aprovar. A
+            // primeira revisao de um spec nao tem pai e portanto nao tem diff.
+            val parentRev = spec.parentRevision
+            if (parentRev != null) {
+                diffStore.find(spec.specId, parentRev, spec.revision)
+                    ?: throw AdminValidation(listOf("diff ausente"))
+            }
+            val approved = open.copy(status = PublishRequestStatus.APPROVED, checkerId = command.actor.id)
+            val won = publishStore.compareAndSetStatus(open.requestId, PublishRequestStatus.OPEN, approved)
+                ?: throw AdminConflict("approve concorrente")
+            val now = clock.instant()
+            val published = specStore.compareAndSet(
+                spec,
+                spec.copy(
+                    status = SpecStatus.PUBLISHED,
+                    publishedAt = now,
+                    publishedBy = command.actor.id,
+                ),
+            )
+            if (skeleton.status != SpecStatus.PUBLISHED) {
+                skeletonStore.compareAndSet(skeleton, skeleton.copy(status = SpecStatus.PUBLISHED))
+            }
+            val currentPointer = pointerStore.find(published.surface, published.platform, open.channel)
+            val moved = pointerStore.compareAndSet(
+                currentPointer?.version,
+                Pointer(
+                    surface = published.surface,
+                    platform = published.platform,
+                    channel = open.channel,
+                    specId = published.specId,
+                    specRevisionId = published.specRevisionId,
+                    previousSpecRevisionId = currentPointer?.specRevisionId,
+                    version = (currentPointer?.version ?: 0) + 1,
+                ),
+            )
+            auditLog.append(
+                AuditEvent(
+                    id = UUID.randomUUID().toString(),
+                    ts = now,
+                    actorId = command.actor.id,
+                    role = command.actor.role,
+                    action = OPERATION_APPROVE,
+                    surface = published.surface,
+                    platform = published.platform,
+                    channel = open.channel,
+                    specId = published.specId,
+                    fromRevision = currentPointer?.specRevisionId,
+                    toRevision = published.specRevisionId,
+                    requestId = open.requestId,
+                ),
+            )
+            val invalidation = invalidationFor(moved, currentPointer?.specRevisionId, now)
+            outbox.record(invalidation)
+            idempotency.complete(
+                IdempotencyRecord(command.idempotencyKey, OPERATION_APPROVE, won.requestId, fingerprint), token,
+            )
+            PublishOutcome(won, published, invalidation)
         }
-        if (open.status != PublishRequestStatus.OPEN) {
-            throw AdminConflict("pedido nao esta aberto")
-        }
-        val spec = specStore.findBySpecIdAndRevision(open.specId, open.revision)
-            ?: throw AdminNotFound("spec")
-        if (spec.status != SpecStatus.DRAFT) throw AdminConflict("revisao ja publicada")
-        val skeleton = skeletonStore.findFor(spec) ?: throw AdminNotFound("skeleton")
-        if (open.reviewedContentHash == null || open.reviewedContentHash != publicationFingerprint.of(spec, skeleton)) {
-            throw AdminConflict("conteudo alterado desde a abertura; reabra o pedido")
-        }
-        val errors = SpecValidator.validateDraft(spec, skeleton, catalogStore.current(), matrix)
-        if (errors.isNotEmpty()) throw AdminValidation(errors)
-        // Revisao com pai exige diff calculado: e o que o checker revisa antes de aprovar. A
-        // primeira revisao de um spec nao tem pai e portanto nao tem diff.
-        val parentRev = spec.parentRevision
-        if (parentRev != null) {
-            diffStore.find(spec.specId, parentRev, spec.revision)
-                ?: throw AdminValidation(listOf("diff ausente"))
-        }
-        val approved = open.copy(status = PublishRequestStatus.APPROVED, checkerId = command.actor.id)
-        val won = publishStore.compareAndSetStatus(open.requestId, PublishRequestStatus.OPEN, approved)
-            ?: throw AdminConflict("approve concorrente")
-        val now = clock.instant()
-        val published = specStore.compareAndSet(
-            spec,
-            spec.copy(
-                status = SpecStatus.PUBLISHED,
-                publishedAt = now,
-                publishedBy = command.actor.id,
-            ),
-        )
-        if (skeleton.status != SpecStatus.PUBLISHED) {
-            skeletonStore.compareAndSet(skeleton, skeleton.copy(status = SpecStatus.PUBLISHED))
-        }
-        val currentPointer = pointerStore.find(published.surface, published.platform, open.channel)
-        val moved = pointerStore.compareAndSet(
-            currentPointer?.version,
-            Pointer(
-                surface = published.surface,
-                platform = published.platform,
-                channel = open.channel,
-                specId = published.specId,
-                specRevisionId = published.specRevisionId,
-                previousSpecRevisionId = currentPointer?.specRevisionId,
-                version = (currentPointer?.version ?: 0) + 1,
-            ),
-        )
-        auditLog.append(
-            AuditEvent(
-                id = UUID.randomUUID().toString(),
-                ts = now,
-                actorId = command.actor.id,
-                role = command.actor.role,
-                action = OPERATION_APPROVE,
-                surface = published.surface,
-                platform = published.platform,
-                channel = open.channel,
-                specId = published.specId,
-                fromRevision = currentPointer?.specRevisionId,
-                toRevision = published.specRevisionId,
-                requestId = open.requestId,
-            ),
-        )
-        val invalidation = invalidationFor(moved, currentPointer?.specRevisionId, now)
-        outbox.record(invalidation)
-        idempotency.complete(
-            IdempotencyRecord(command.idempotencyKey, OPERATION_APPROVE, won.requestId, fingerprint), token,
-        )
-        PublishOutcome(won, published, invalidation)
-    }
 
     override fun reject(command: DecidePublishCommand, reason: String): PublishRequest {
         requireRole(command.actor.role, ActorRole.CHECKER)
@@ -474,7 +485,8 @@ class RollbackService(
                     OPERATION_ROLLBACK,
                     "${command.surface}:${command.platform.wire()}:${command.channel.wire()}@${persisted.version}",
                     fingerprint,
-                ), token,
+                ),
+                token,
             )
             RollbackOutcome(persisted, target, invalidation)
         }

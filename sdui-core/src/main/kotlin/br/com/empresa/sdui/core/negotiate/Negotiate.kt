@@ -6,8 +6,8 @@ import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.ContextValidation
 import br.com.empresa.sdui.core.model.ContextViolation
-import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.MvpCatalog
+import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.SemVer
 
 /**

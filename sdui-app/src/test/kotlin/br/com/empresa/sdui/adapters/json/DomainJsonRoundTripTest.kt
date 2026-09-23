@@ -38,7 +38,13 @@ class DomainJsonRoundTripTest {
     init {
         val seed = checkNotNull(javaClass.getResourceAsStream("/seed/contrato-sdui-home-definitivo.json"))
             .use { it.readBytes().decodeToString() }
-        HomeSeed(catalogStore, skeletonStore, specStore, InMemoryPointerStore(), JsonMapper.builder().addModule(KotlinModule.Builder().build()).build())
+        HomeSeed(
+            catalogStore,
+            skeletonStore,
+            specStore,
+            InMemoryPointerStore(),
+            JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
+        )
             .seedFromCanonicalFixture(seed)
     }
 
@@ -79,7 +85,9 @@ class DomainJsonRoundTripTest {
             "i", "catalog", ClientPlatform.ANDROID, Channel.STABLE, 4, null,
             Instant.parse("2026-09-23T12:34:56.123456789Z"),
         )
-        assertThat(DomainJson.read(DomainJson.write(invalidation), CacheInvalidation::class.java)).isEqualTo(invalidation)
+        assertThat(DomainJson.read(DomainJson.write(invalidation), CacheInvalidation::class.java)).isEqualTo(
+            invalidation
+        )
     }
 
     @Test

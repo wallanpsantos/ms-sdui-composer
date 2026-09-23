@@ -142,17 +142,19 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
   estão consolidados em `docs/memoria-operacional-e-arquitetural.md` (matriz unificada em `docs/adr/README.md`).
 - Presente: `docs/README.md` — catálogo da documentação canônica em 3 arquivos (`arquitetura-de-referencia.md`,
   `memoria-operacional-e-arquitetural.md`, `guia-depreciacao-e-migracao.md`).
-- Presente: `sdui-contract/src/test/resources/fixtures/contrato-sdui-home-definitivo.json`. Fonte de verdade do contrato Home iOS (exemplos em `docs/examples/screens/`).
+- Presente: `sdui-contract/src/test/resources/fixtures/contrato-sdui-home-definitivo.json`. Fonte de verdade do contrato
+  Home iOS (exemplos em `docs/examples/screens/`).
 - Presente: `docs/memoria-operacional-e-arquitetural.md` — memória operacional e arquitetural consolidada do serviço.
 - `documentacao-contrato-sdui-home-v3.docx`: removido de propósito. Não recriar. Semântica de campo vive no JSON
   canônico e nos testes de `sdui-contract`.
 - Ausente: `contrato-sdui-home-android-proposto.json` (H14 pendente de fornecimento pela equipe mobile).
 - Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`. A skill ausente não
   bloqueia o que já está especificado nas histórias, no plano, na pré-arquitetura, nos ADRs e no contrato.
-- Presente: catálogo das histórias concluídas do MVP (`H00`–`H18`) consolidado na Seção 10 de `docs/memoria-operacional-e-arquitetural.md`.
+- Presente: catálogo das histórias concluídas do MVP (`H00`–`H18`) consolidado na Seção 10 de
+  `docs/memoria-operacional-e-arquitetural.md`.
 - Presente: ADRs 020 a 022 consolidados na Seção 9 de `docs/memoria-operacional-e-arquitetural.md` (matriz unificada
-  em `docs/adr/README.md`); `docs/contratos/` com os contratos propostos; `docs/examples/screens/` com os quatro exemplos
-  (skeleton, spec, resposta, matriz de rastreabilidade); `docs/guia-criacao-telas-componentes.md`;
+  em `docs/adr/README.md`); `docs/contratos/` com os contratos propostos; `docs/examples/screens/` com os quatro
+  exemplos (skeleton, spec, resposta, matriz de rastreabilidade); `docs/guia-criacao-telas-componentes.md`;
   `docs/performance/medicoes-2026-09-23.md`; `docs/runbooks/persistencia-mongodb-redis.md`.
 - Pendente de terceiros: homologação móvel dos contratos novos e ensaio operacional da persistência.
 
@@ -228,7 +230,8 @@ Regras inegociáveis resultantes do ciclo de auditoria técnica (`code-review-an
 2. **Parsing SemVer Seguro:** Todo parsing de números em SemVer (`SemVer.kt`) deve utilizar
    `.toIntOrNull() ?: return null`.
    Proibido lançar `NumberFormatException` que possa vazar como HTTP 500 no `Negotiate`.
-3. **Serialização de Passo Único no Hot Path:** O `SurfaceController` deve retornar o `byte[]` pré-serializado diretamente
+3. **Serialização de Passo Único no Hot Path:** O `SurfaceController` deve retornar o `byte[]` pré-serializado
+   diretamente
    com `MediaType.APPLICATION_JSON`. Nunca repassar instâncias de objeto de resposta para o Spring re-serializar.
 4. **Constantes Pré-calculadas em Validações:** Em classes de guardas (`Guards.kt`), sets de chaves restritas
    (`LOWER_VISUAL_KEYS`, `LOWER_PII_KEYS`) devem ser `private val` pré-calculados, evitando alocações no loop recursivo.
@@ -372,7 +375,8 @@ Regras consolidadas no ciclo de observabilidade e instrumentação:
 7. **Ponto de Entrada Carimbado (`entryPoint` no MDC):** Requisições e processos carimbam `entryPoint` (`home`,
    `catalog`, `surface`, `admin`, `actuator`, `http`, `seed`, `demo`, `invalidation_relay`) no MDC, eliminando
    diagnósticos por eliminação em sinks de logs compartilhados.
-8. **Histogram Buckets no Prometheus:** Timers críticos (`compose.duration`, `section.hydrate.ms`, `mapping.ms` e `serialize.ms`) possuem
+8. **Histogram Buckets no Prometheus:** Timers críticos (`compose.duration`, `section.hydrate.ms`, `mapping.ms` e
+   `serialize.ms`) possuem
    `percentiles-histogram: true` configurado no `application.yaml`, viabilizando alertas e painéis de P95/P99
    sobre `compose_duration_seconds_bucket`.
 9. **Gauges de Recursos USE:** `rate_limiter.resident_keys` e `compose.bulkhead.available_permits` são expostos

@@ -28,7 +28,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.TransactionalUnitOfWork
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -55,7 +55,8 @@ class InMemoryGovernance {
         val outbox: Map<String, CacheInvalidation> = emptyMap(),
     )
 
-    @Volatile private var committed = State()
+    @Volatile
+    private var committed = State()
     private val pending = ThreadLocal<State>()
     private val writers = ReentrantLock()
 
@@ -103,7 +104,7 @@ class InMemorySpecStore(private val governance: InMemoryGovernance = InMemoryGov
             state.copy(
                 specs = state.specs + (key to spec),
                 byRevisionId = (state.byRevisionId - (current?.specRevisionId ?: spec.specRevisionId)) +
-                    (spec.specRevisionId to spec),
+                        (spec.specRevisionId to spec),
                 published = if (spec.status == SpecStatus.PUBLISHED) {
                     state.published + (group to (state.published[group].orEmpty() + spec))
                 } else state.published,
@@ -113,27 +114,34 @@ class InMemorySpecStore(private val governance: InMemoryGovernance = InMemoryGov
     }
 
     override fun findByRevisionId(specRevisionId: String): Spec? = governance.read { it.byRevisionId[specRevisionId] }
-    override fun findBySpecIdAndRevision(specId: String, revision: Int): Spec? = governance.read { it.specs["$specId#$revision"] }
+    override fun findBySpecIdAndRevision(specId: String, revision: Int): Spec? =
+        governance.read { it.specs["$specId#$revision"] }
+
     override fun listBySpecId(specId: String): List<Spec> = governance.read { state ->
         state.specs.values.filter { it.specId == specId }.sortedBy { it.revision }
     }
+
     override fun listPublished(surface: String, platform: ClientPlatform): List<Spec> =
         governance.read { it.published[group(surface, platform)].orEmpty() }
+
     override fun list(platform: ClientPlatform?, channel: Channel?): List<Spec> = governance.read { state ->
         state.specs.values.filter { (platform == null || it.platform == platform) && (channel == null || it.channel == channel) }
     }
+
     override fun nextRevision(specId: String): Int {
         val last = listBySpecId(specId).lastOrNull()?.revision ?: 0
         if (last == Int.MAX_VALUE) throw StoreConflict("limite de revisoes atingido")
         return last + 1
     }
+
     fun clear() = governance.update { it.copy(specs = emptyMap(), byRevisionId = emptyMap(), published = emptyMap()) }
     private fun group(surface: String, platform: ClientPlatform): String = "$surface|${platform.wire()}"
 }
 
 class InMemorySkeletonStore(private val governance: InMemoryGovernance = InMemoryGovernance()) : SkeletonStore {
     override fun save(skeleton: Skeleton): Skeleton = write(skeleton, null, conditional = false)
-    override fun compareAndSet(expected: Skeleton?, updated: Skeleton): Skeleton = write(updated, expected, conditional = true)
+    override fun compareAndSet(expected: Skeleton?, updated: Skeleton): Skeleton =
+        write(updated, expected, conditional = true)
 
     private fun write(skeleton: Skeleton, expected: Skeleton?, conditional: Boolean): Skeleton {
         val key = "${skeleton.skeletonId}#${skeleton.revision}"
@@ -145,8 +153,10 @@ class InMemorySkeletonStore(private val governance: InMemoryGovernance = InMemor
         }
         return skeleton
     }
+
     override fun find(skeletonId: String, revision: Int?): Skeleton? =
         if (revision == null) current(skeletonId) else governance.read { it.skeletons["$skeletonId#$revision"] }
+
     override fun current(skeletonId: String): Skeleton? = governance.read { state ->
         state.skeletons.values.filter { it.skeletonId == skeletonId }.maxByOrNull { it.revision }
     }
@@ -157,16 +167,27 @@ class InMemoryCatalogStore(private val governance: InMemoryGovernance = InMemory
         governance.update { it.copy(catalog = catalog) }
         return catalog
     }
+
     override fun current(): Catalog = governance.read { it.catalog }
 }
 
 class InMemoryPointerStore(private val governance: InMemoryGovernance = InMemoryGovernance()) : PointerStore {
     override fun find(surface: String, platform: ClientPlatform, channel: Channel): Pointer? =
         governance.read { it.pointers[key(surface, platform, channel)] }
+
     override fun save(pointer: Pointer): Pointer {
-        governance.update { it.copy(pointers = it.pointers + (key(pointer.surface, pointer.platform, pointer.channel) to pointer)) }
+        governance.update {
+            it.copy(
+                pointers = it.pointers + (key(
+                    pointer.surface,
+                    pointer.platform,
+                    pointer.channel
+                ) to pointer)
+            )
+        }
         return pointer
     }
+
     override fun compareAndSet(expectedVersion: Long?, updated: Pointer): Pointer {
         val key = key(updated.surface, updated.platform, updated.channel)
         governance.update {
@@ -175,16 +196,24 @@ class InMemoryPointerStore(private val governance: InMemoryGovernance = InMemory
         }
         return updated
     }
-    private fun key(surface: String, platform: ClientPlatform, channel: Channel): String = "$surface:${platform.wire()}:${channel.wire()}"
+
+    private fun key(surface: String, platform: ClientPlatform, channel: Channel): String =
+        "$surface:${platform.wire()}:${channel.wire()}"
 }
 
-class InMemoryPublishRequestStore(private val governance: InMemoryGovernance = InMemoryGovernance()) : PublishRequestStore {
+class InMemoryPublishRequestStore(private val governance: InMemoryGovernance = InMemoryGovernance()) :
+    PublishRequestStore {
     override fun save(request: PublishRequest): PublishRequest {
         governance.update { it.copy(requests = it.requests + (request.requestId to request)) }
         return request
     }
+
     override fun find(requestId: String): PublishRequest? = governance.read { it.requests[requestId] }
-    override fun compareAndSetStatus(requestId: String, expected: PublishRequestStatus, updated: PublishRequest): PublishRequest? {
+    override fun compareAndSetStatus(
+        requestId: String,
+        expected: PublishRequestStatus,
+        updated: PublishRequest
+    ): PublishRequest? {
         var result: PublishRequest? = null
         governance.update {
             if (it.requests[requestId]?.status != expected) it else {
@@ -201,6 +230,7 @@ class InMemoryDiffStore(private val governance: InMemoryGovernance = InMemoryGov
         governance.update { it.copy(diffs = it.diffs + ("${diff.specId}:${diff.fromRevision ?: 0}:${diff.toRevision}" to diff)) }
         return diff
     }
+
     override fun find(specId: String, from: Int, to: Int): SpecDiff? = governance.read { it.diffs["$specId:$from:$to"] }
 }
 
@@ -208,8 +238,13 @@ class InMemoryAuditLogStore(
     private val maxEvents: Int = 2_000,
     private val governance: InMemoryGovernance = InMemoryGovernance(),
 ) : AuditLogStore {
-    init { require(maxEvents > 0) }
-    override fun append(event: AuditEvent) = governance.update { it.copy(audit = it.audit.takeLast(maxEvents - 1) + event) }
+    init {
+        require(maxEvents > 0)
+    }
+
+    override fun append(event: AuditEvent) =
+        governance.update { it.copy(audit = it.audit.takeLast(maxEvents - 1) + event) }
+
     override fun list(): List<AuditEvent> = governance.read { it.audit.toList() }
     override fun recent(limit: Int): List<AuditEvent> = governance.read { it.audit.takeLast(limit).asReversed() }
 }
@@ -221,7 +256,9 @@ class InMemoryIdempotencyStore(
     private val reservationTimeout: Duration = Duration.ofMinutes(5),
     private val governance: InMemoryGovernance = InMemoryGovernance(),
 ) : IdempotencyStore {
-    init { require(maxEntries > 0 && !ttl.isNegative && !ttl.isZero && !reservationTimeout.isNegative && !reservationTimeout.isZero) }
+    init {
+        require(maxEntries > 0 && !ttl.isNegative && !ttl.isZero && !reservationTimeout.isNegative && !reservationTimeout.isZero)
+    }
 
     override fun find(key: String): IdempotencyRecord? = governance.read {
         it.reservations[key]?.takeIf { entry -> entry.expiresAt.isAfter(clock.instant()) }?.record
@@ -240,9 +277,11 @@ class InMemoryIdempotencyStore(
                 if (live.size >= maxEntries) state.copy(reservations = live) else {
                     val token = UUID.randomUUID().toString()
                     result = IdempotencyReservation.Reserved(token)
-                    state.copy(reservations = live + (key to InMemoryGovernance.Reservation(
-                        IdempotencyRecord(key, operation, null, fingerprint), token, now.plus(reservationTimeout),
-                    )))
+                    state.copy(
+                        reservations = live + (key to InMemoryGovernance.Reservation(
+                            IdempotencyRecord(key, operation, null, fingerprint), token, now.plus(reservationTimeout),
+                        ))
+                    )
                 }
             }
         }
@@ -256,13 +295,19 @@ class InMemoryIdempotencyStore(
             entry.record.resultRef != null || entry.record.operation != record.operation ||
             entry.record.fingerprint != record.fingerprint
         ) throw StoreConflict("reserva de idempotencia vencida ou substituida")
-        state.copy(reservations = state.reservations + (record.key to entry.copy(record = record, expiresAt = now.plus(ttl))))
+        state.copy(
+            reservations = state.reservations + (record.key to entry.copy(
+                record = record,
+                expiresAt = now.plus(ttl)
+            ))
+        )
     }
 
     override fun release(key: String, token: String) = governance.update { state ->
         val entry = state.reservations[key]
         if (entry?.token == token && entry.record.resultRef == null) state.copy(reservations = state.reservations - key) else state
     }
+
     fun residentEntries(): Int = governance.read { it.reservations.size }
     fun clear() = governance.update { it.copy(reservations = emptyMap()) }
 }
@@ -271,11 +316,15 @@ class InMemoryCacheInvalidationOutbox(
     private val maxPending: Int = 10_000,
     private val governance: InMemoryGovernance = InMemoryGovernance(),
 ) : CacheInvalidationOutbox {
-    init { require(maxPending > 0) }
+    init {
+        require(maxPending > 0)
+    }
+
     override fun record(invalidation: CacheInvalidation) = governance.update {
         if (it.outbox.size >= maxPending && invalidation.id !in it.outbox) throw StoreConflict("outbox sem capacidade")
         it.copy(outbox = it.outbox + (invalidation.id to invalidation))
     }
+
     override fun pending(limit: Int): List<CacheInvalidation> = governance.read { it.outbox.values.take(limit) }
     override fun markApplied(id: String) = governance.update { it.copy(outbox = it.outbox - id) }
 }

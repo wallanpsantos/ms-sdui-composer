@@ -21,15 +21,15 @@ Seguindo as diretrizes da disciplina de observabilidade:
 
 ## 2. Catálogo de Alertas Operacionais
 
-| Alerta                       | Severidade | Condição (PromQL)                               | Janela | Runbook Vinculado                                                                                               |
-|------------------------------|:----------:|-------------------------------------------------|:------:|-----------------------------------------------------------------------------------------------------------------|
-| `SDUIHomeHighLatencyP99`     |   `page`   | P99 de `compose.duration` (hit) > 400ms         |   5m   | [`ios-canary-rollback.md`](ios-canary-rollback.md)                                                              |
-| `SDUIHomeHighUnavailability` |   `page`   | Taxa de HTTP 503 (`compose.unavailable`) > 0.5% |   3m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
-| `SDUIReadBulkheadShedding`   |  `ticket`  | Rejeições no bulkhead de leitura > 0            |   2m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
-| `SDUIRollbackTriggered`      |   `page`   | Execução de rollback administrativo > 0         |   1m   | [`ios-canary-rollback.md`](ios-canary-rollback.md) / [`android-canary-rollback.md`](android-canary-rollback.md) |
-| `SDUIRateLimitSpike`         |  `ticket`  | Taxa de HTTP 429 (`compose.rate_limited`) > 5%  |   5m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
-| `SDUIStoreFailures`          |  `ticket`  | Falhas de dependência de dados (`store.failure`) > 0 | 5m | [`persistencia-mongodb-redis.md`](persistencia-mongodb-redis.md)                                             |
-| `SDUICacheInvalidationPending` | `ticket` | Invalidações pendentes no outbox (`cache.invalidation.pending`) > 0 | 10m | [`persistencia-mongodb-redis.md`](persistencia-mongodb-redis.md)                          |
+| Alerta                         | Severidade | Condição (PromQL)                                                   | Janela | Runbook Vinculado                                                                                               |
+|--------------------------------|:----------:|---------------------------------------------------------------------|:------:|-----------------------------------------------------------------------------------------------------------------|
+| `SDUIHomeHighLatencyP99`       |   `page`   | P99 de `compose.duration` (hit) > 400ms                             |   5m   | [`ios-canary-rollback.md`](ios-canary-rollback.md)                                                              |
+| `SDUIHomeHighUnavailability`   |   `page`   | Taxa de HTTP 503 (`compose.unavailable`) > 0.5%                     |   3m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
+| `SDUIReadBulkheadShedding`     |  `ticket`  | Rejeições no bulkhead de leitura > 0                                |   2m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
+| `SDUIRollbackTriggered`        |   `page`   | Execução de rollback administrativo > 0                             |   1m   | [`ios-canary-rollback.md`](ios-canary-rollback.md) / [`android-canary-rollback.md`](android-canary-rollback.md) |
+| `SDUIRateLimitSpike`           |  `ticket`  | Taxa de HTTP 429 (`compose.rate_limited`) > 5%                      |   5m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
+| `SDUIStoreFailures`            |  `ticket`  | Falhas de dependência de dados (`store.failure`) > 0                |   5m   | [`persistencia-mongodb-redis.md`](persistencia-mongodb-redis.md)                                                |
+| `SDUICacheInvalidationPending` |  `ticket`  | Invalidações pendentes no outbox (`cache.invalidation.pending`) > 0 |  10m   | [`persistencia-mongodb-redis.md`](persistencia-mongodb-redis.md)                                                |
 
 As regras de latência, indisponibilidade e 429 filtram `surface="home"`: todas as métricas do
 pipeline carregam a tag `surface` (valores `home` e `catalog`), e o SLO desta tabela é o da Home.

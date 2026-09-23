@@ -1,12 +1,12 @@
 package br.com.empresa.sdui.examples
 
-import br.com.empresa.sdui.adapters.memory.InMemoryGovernance
 import br.com.empresa.sdui.adapters.json.JsonPublicationFingerprint
 import br.com.empresa.sdui.adapters.memory.InMemoryAuditLogStore
 import br.com.empresa.sdui.adapters.memory.InMemoryCacheInvalidationOutbox
 import br.com.empresa.sdui.adapters.memory.InMemoryCatalogStore
 import br.com.empresa.sdui.adapters.memory.InMemoryComposeSingleflight
 import br.com.empresa.sdui.adapters.memory.InMemoryDiffStore
+import br.com.empresa.sdui.adapters.memory.InMemoryGovernance
 import br.com.empresa.sdui.adapters.memory.InMemoryHydratedScreenCache
 import br.com.empresa.sdui.adapters.memory.InMemoryIdempotencyStore
 import br.com.empresa.sdui.adapters.memory.InMemoryLastGoodScreenStore
@@ -90,10 +90,24 @@ class ScreenExamplesTest {
         private val audit = InMemoryAuditLogStore(governance = governance)
         private val drafts = DraftService(specStore, skeletonStore, catalogStore, matrix)
         private val publish = PublishService(
-            specStore, skeletonStore, catalogStore, pointerStore, InMemoryPublishRequestStore(governance), InMemoryDiffStore(governance),
-            audit, idempotency, specCache, outbox, invalidator, tx, matrix, clock, JsonPublicationFingerprint(),
+            specStore,
+            skeletonStore,
+            catalogStore,
+            pointerStore,
+            InMemoryPublishRequestStore(governance),
+            InMemoryDiffStore(governance),
+            audit,
+            idempotency,
+            specCache,
+            outbox,
+            invalidator,
+            tx,
+            matrix,
+            clock,
+            JsonPublicationFingerprint(),
         )
-        val rollback = RollbackService(pointerStore, specStore, audit, idempotency, specCache, outbox, invalidator, tx, clock)
+        val rollback =
+            RollbackService(pointerStore, specStore, audit, idempotency, specCache, outbox, invalidator, tx, clock)
         val loader = DemoScreensLoader(drafts, publish, specStore, skeletonStore, catalogStore)
         private val service = ComposeScreenService(
             specStore, skeletonStore, pointerStore, specCache, treeCache, lastGood, InMemoryComposeSingleflight(),
@@ -108,7 +122,11 @@ class ScreenExamplesTest {
             HomeSeed(catalogStore, skeletonStore, specStore, pointerStore, mapper).seedFromCanonicalFixture(seed)
         }
 
-        fun compose(platform: String, capabilities: String? = null, surface: SurfaceDefinition = Surfaces.HOME): ComposeResult =
+        fun compose(
+            platform: String,
+            capabilities: String? = null,
+            surface: SurfaceDefinition = Surfaces.HOME
+        ): ComposeResult =
             service.compose(
                 ComposeRequest(
                     headers = NegotiateHeaders("3", platform, "8.14.2", "81420", "pt-BR", "1", "18.1", capabilities),
@@ -142,12 +160,28 @@ class ScreenExamplesTest {
         assertMatches(cardsFirst, "banking.cards_first/response.json")
 
         // As duas montagens sao duas specs da mesma surface: o pointer decide qual vale.
-        val pointer = checkNotNull(demo.pointerStore.find(MvpCatalog.SURFACE_HOME, ClientPlatform.ANDROID, Channel.STABLE))
+        val pointer =
+            checkNotNull(demo.pointerStore.find(MvpCatalog.SURFACE_HOME, ClientPlatform.ANDROID, Channel.STABLE))
         assertThat(pointer.specRevisionId).isEqualTo("rev_demo_android_cards_first")
         assertThat(pointer.previousSpecRevisionId).isEqualTo("rev_demo_android_shortcuts_first")
 
-        assertThat(slotOrder(shortcutsFirst)).containsExactly("header", "accounts", "shortcuts", "cards", "offers", "coverage")
-        assertThat(slotOrder(cardsFirst)).containsExactly("header", "accounts", "cards", "shortcuts", "offers", "coverage", "foryou")
+        assertThat(slotOrder(shortcutsFirst)).containsExactly(
+            "header",
+            "accounts",
+            "shortcuts",
+            "cards",
+            "offers",
+            "coverage"
+        )
+        assertThat(slotOrder(cardsFirst)).containsExactly(
+            "header",
+            "accounts",
+            "cards",
+            "shortcuts",
+            "offers",
+            "coverage",
+            "foryou"
+        )
         assertThat(sectionSlots(shortcutsFirst)).containsSubsequence("shortcuts", "cards")
         assertThat(sectionSlots(cardsFirst)).containsSubsequence("cards", "shortcuts")
         assertThat(slotLayout(shortcutsFirst, "shortcuts")).isEqualTo("shelf")
@@ -157,7 +191,15 @@ class ScreenExamplesTest {
         assertThat(sectionTypes(cardsFirst)).allMatch { type -> MvpCatalog.TYPES.any { it.type == type } }
 
         demo.rollback.rollback(
-            RollbackCommand(Actor("checker", ActorRole.CHECKER), "home", ClientPlatform.ANDROID, Channel.STABLE, null, "rb-demo", "teste"),
+            RollbackCommand(
+                Actor("checker", ActorRole.CHECKER),
+                "home",
+                ClientPlatform.ANDROID,
+                Channel.STABLE,
+                null,
+                "rb-demo",
+                "teste"
+            ),
         )
         assertMatches(demo.json(demo.compose("android")), "banking.shortcuts_first/response.json")
     }
@@ -197,7 +239,9 @@ class ScreenExamplesTest {
 
         val semNavegacao = demo.json(demo.compose("ios", "product_collection@1", Surfaces.CATALOG))
         assertThat(sectionTypes(semNavegacao)).doesNotContain("catalog_navigation")
-        assertThat(semNavegacao.get("envelope").get("omitted").get(0).get("type").asString()).isEqualTo("catalog_navigation")
+        assertThat(
+            semNavegacao.get("envelope").get("omitted").get(0).get("type").asString()
+        ).isEqualTo("catalog_navigation")
 
         // Sem product_collection o spec nao serve (capability exigida no targeting): 503 sem
         // arvore de fallback — a surface nova nunca recebe a Home.
@@ -247,7 +291,8 @@ class ScreenExamplesTest {
         elements(response.get("skeleton").get("slots")).map { it.get("id").asString() }
 
     private fun slotLayout(response: JsonNode, slot: String): String =
-        elements(response.get("skeleton").get("slots")).first { it.get("id").asString() == slot }.get("layout").asString()
+        elements(response.get("skeleton").get("slots")).first { it.get("id").asString() == slot }.get("layout")
+            .asString()
 
     private fun sectionSlots(response: JsonNode): List<String> =
         elements(response.get("sections")).map { it.get("slot").asString() }

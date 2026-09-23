@@ -136,10 +136,34 @@ class RedisCachesIT {
         fallback = false,
         fallbackReason = FallbackReason.NONE,
         omitted = emptyList(),
-        client = ClientContext(platform, SemVer(8, 14, 2), "1", null, schemaVersion = "3", locale = "pt-BR", apiVersion = "1", headerCapabilities = emptyList()),
-        targeting = Targeting(platform, VersionRange(SemVer(8, 0, 0), null), null, VersionRange(SemVer(3, 0, 0), null), emptyList(), 1, "t"),
+        client = ClientContext(
+            platform,
+            SemVer(8, 14, 2),
+            "1",
+            null,
+            schemaVersion = "3",
+            locale = "pt-BR",
+            apiVersion = "1",
+            headerCapabilities = emptyList()
+        ),
+        targeting = Targeting(
+            platform,
+            VersionRange(SemVer(8, 0, 0), null),
+            null,
+            VersionRange(SemVer(3, 0, 0), null),
+            emptyList(),
+            1,
+            "t"
+        ),
         experience = "e",
-        skeleton = Skeleton(MvpCatalog.SKELETON_HOME_DEFAULT, 1, surface, MvpCatalog.SKELETON_LAYOUT, emptyList(), SpecStatus.PUBLISHED),
+        skeleton = Skeleton(
+            MvpCatalog.SKELETON_HOME_DEFAULT,
+            1,
+            surface,
+            MvpCatalog.SKELETON_LAYOUT,
+            emptyList(),
+            SpecStatus.PUBLISHED
+        ),
         sections = emptyList(),
         pointerVersion = pointerVersion,
     )
@@ -149,7 +173,13 @@ class RedisCachesIT {
         val cache = RedisHydratedScreenCache(template, 262_144, metrics, maxEntries = 2)
         val keys = (1..3).map { RedisKeys.tree(surface, ClientPlatform.IOS, "3", "rev_$it", "caps", Channel.STABLE) }
         val index = "sdui:treeidx:v2:$surface:ios:stable"
-        keys.forEachIndexed { i, key -> cache.put(key, screen(1, ClientPlatform.IOS, "rev_${i + 1}"), Duration.ofSeconds(60)) }
+        keys.forEachIndexed { i, key ->
+            cache.put(
+                key,
+                screen(1, ClientPlatform.IOS, "rev_${i + 1}"),
+                Duration.ofSeconds(60)
+            )
+        }
         assertThat(template.opsForZSet().zCard(index)).isEqualTo(2L)
         assertThat(cache.get(keys[2])).isNull()
         // Simula o TTL da primeira arvore, sem depender de sleep ou do relogio do teste.

@@ -176,7 +176,9 @@ class RedisSpecCache(
             timer.skipped(CACHE)
             return
         }
-        timer.time(CACHE, "put") { redis.opsForValue().set(RedisKeys.spec(spec.specRevisionId, spec.platform), bytes, ttl) }
+        timer.time(CACHE, "put") {
+            redis.opsForValue().set(RedisKeys.spec(spec.specRevisionId, spec.platform), bytes, ttl)
+        }
     }
 
     override fun invalidate(specRevisionId: String, platform: ClientPlatform) {

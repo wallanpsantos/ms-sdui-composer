@@ -19,10 +19,10 @@ carrossel, o gradiente e o chip são do renderer.
 
 ## Comportamento por capability
 
-| Cliente                                        | Resultado                                                                 |
-|------------------------------------------------|---------------------------------------------------------------------------|
-| Declara `Component-Capabilities: transaction_summary@1` | 6 sections, com o resumo — [`response.json`](response.json)      |
-| Não declara                                    | 5 sections, `omitted: [sec_transactions, unsupported_type]`, 200 — [`response-without-capability.json`](response-without-capability.json) |
+| Cliente                                                 | Resultado                                                                                                                                 |
+|---------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| Declara `Component-Capabilities: transaction_summary@1` | 6 sections, com o resumo — [`response.json`](response.json)                                                                               |
+| Não declara                                             | 5 sections, `omitted: [sec_transactions, unsupported_type]`, 200 — [`response-without-capability.json`](response-without-capability.json) |
 
 O slot `transactions` não é portante: a ausência do componente nunca derruba a Home.
 

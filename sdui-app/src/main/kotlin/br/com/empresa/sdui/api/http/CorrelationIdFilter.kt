@@ -1,9 +1,9 @@
 package br.com.empresa.sdui.api.http
 
+import br.com.empresa.sdui.core.model.Surfaces
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import br.com.empresa.sdui.core.model.Surfaces
 import org.slf4j.MDC
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order

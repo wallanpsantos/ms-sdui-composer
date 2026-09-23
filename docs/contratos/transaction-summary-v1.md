@@ -11,27 +11,27 @@ Resumo das transações mais recentes da conta, com entrada para o extrato e par
 nativos. O nome segue o conceito de produto (ADR-010), não a forma (`transaction_list` foi
 recusado).
 
-| Campo                | Valor                                                               |
-|----------------------|---------------------------------------------------------------------|
-| Surface              | `home`                                                              |
-| Slot                 | `transactions` (opcional, layout `list`)                             |
-| Capability           | `transaction_summary@1` — só com `Component-Capabilities`            |
-| Portante             | Não. Sem a capability, a section é omitida com `unsupported_type`.  |
+| Campo      | Valor                                                              |
+|------------|--------------------------------------------------------------------|
+| Surface    | `home`                                                             |
+| Slot       | `transactions` (opcional, layout `list`)                           |
+| Capability | `transaction_summary@1` — só com `Component-Capabilities`          |
+| Portante   | Não. Sem a capability, a section é omitida com `unsupported_type`. |
 
 ## Props
 
-| Prop               | Obrigatória | Tipo    | Regra                                                          |
-|--------------------|-------------|---------|----------------------------------------------------------------|
-| `title`            | sim         | texto   | não vazio                                                      |
-| `items`            | sim         | lista   | 1 a 5 objetos, `id` único                                       |
-| `items[].id`       | sim         | texto   | identificador da linha, sem dado pessoal                        |
-| `items[].description` | sim      | texto   | descrição exibível                                              |
-| `items[].amountDisplay` | sim    | texto   | valor já formatado (`- R$ 10,99`)                                |
-| `items[].direction` | sim        | texto   | `credit` ou `debit` — semântica; a cor é do renderer            |
-| `items[].detail`   | não         | texto   | contraparte e data já formatadas                                |
-| `items[].icon`     | não         | texto   | token de ícone do Design System                                  |
-| `viewAllLabel` + `viewAllActionId` | juntos | texto | rótulo e action para o extrato nativo              |
-| `filterLabel` + `filterActionId`   | juntos | texto | rótulo e action do filtro nativo                   |
+| Prop                               | Obrigatória | Tipo  | Regra                                                |
+|------------------------------------|-------------|-------|------------------------------------------------------|
+| `title`                            | sim         | texto | não vazio                                            |
+| `items`                            | sim         | lista | 1 a 5 objetos, `id` único                            |
+| `items[].id`                       | sim         | texto | identificador da linha, sem dado pessoal             |
+| `items[].description`              | sim         | texto | descrição exibível                                   |
+| `items[].amountDisplay`            | sim         | texto | valor já formatado (`- R$ 10,99`)                    |
+| `items[].direction`                | sim         | texto | `credit` ou `debit` — semântica; a cor é do renderer |
+| `items[].detail`                   | não         | texto | contraparte e data já formatadas                     |
+| `items[].icon`                     | não         | texto | token de ícone do Design System                      |
+| `viewAllLabel` + `viewAllActionId` | juntos      | texto | rótulo e action para o extrato nativo                |
+| `filterLabel` + `filterActionId`   | juntos      | texto | rótulo e action do filtro nativo                     |
 
 ## Actions
 
@@ -50,10 +50,10 @@ recusado).
 
 ## Erros e omissão
 
-| Situação                                 | Resultado                                                   |
-|------------------------------------------|-------------------------------------------------------------|
-| Cliente sem `transaction_summary@1`       | Section omitida (`unsupported_type`), Home entregue com 200 |
-| Props inválidas                          | Publicação recusada com 400 e a lista de erros              |
-| Falha de hidratação (futuro hidratador)  | Omitida com `hydration_failed`/`hydration_timeout`          |
+| Situação                                | Resultado                                                   |
+|-----------------------------------------|-------------------------------------------------------------|
+| Cliente sem `transaction_summary@1`     | Section omitida (`unsupported_type`), Home entregue com 200 |
+| Props inválidas                         | Publicação recusada com 400 e a lista de erros              |
+| Falha de hidratação (futuro hidratador) | Omitida com `hydration_failed`/`hydration_timeout`          |
 
 Exemplo completo: [`banking.transactions`](../examples/screens/banking.transactions/README.md).

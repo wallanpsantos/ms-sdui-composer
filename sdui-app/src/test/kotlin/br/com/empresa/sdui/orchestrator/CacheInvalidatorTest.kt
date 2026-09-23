@@ -37,8 +37,10 @@ class CacheInvalidatorTest {
         val outbox = InMemoryCacheInvalidationOutbox()
         val metrics = RecordingMetrics()
         val lastGood = FlakyLastGood(InMemoryLastGoodScreenStore())
-        val invalidator = CacheInvalidator(InMemorySpecCache(), InMemoryHydratedScreenCache(), lastGood, outbox, metrics)
-        val invalidation = CacheInvalidation("inv-1", "home", ClientPlatform.IOS, Channel.STABLE, 3, "rev_old", Instant.EPOCH)
+        val invalidator =
+            CacheInvalidator(InMemorySpecCache(), InMemoryHydratedScreenCache(), lastGood, outbox, metrics)
+        val invalidation =
+            CacheInvalidation("inv-1", "home", ClientPlatform.IOS, Channel.STABLE, 3, "rev_old", Instant.EPOCH)
         outbox.record(invalidation)
 
         assertThat(invalidator.apply(invalidation)).isFalse()

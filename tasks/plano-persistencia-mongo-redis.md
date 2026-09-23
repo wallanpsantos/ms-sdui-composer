@@ -1,7 +1,8 @@
 # Plano separado — persistência MongoDB e cache Redis
 
 Status: **P01–P12 implementados em 2026-09-23; P13 (ensaio operacional) pendente.** Decisão em
-[ADR-021](../docs/memoria-operacional-e-arquitetural.md#adr-021--persistência-mongodb-83-e-cache-redis) (`PROPOSTO`, não homologado). O modo padrão
+[ADR-021](../docs/memoria-operacional-e-arquitetural.md#adr-021--persistência-mongodb-83-e-cache-redis) (`PROPOSTO`, não
+homologado). O modo padrão
 continua em memória e a restrição de instância única do AGENTS.md §17 continua valendo até o roteiro de homologação de
 [`persistencia-mongodb-redis.md`](../docs/runbooks/persistencia-mongodb-redis.md) ser executado e registrado. Testes com
 infraestrutura real só rodam com `SDUI_IT_MONGO_URI`/`SDUI_IT_REDIS_URL`; na execução desta entrega não havia Docker
@@ -51,39 +52,39 @@ Decisões propostas, a formalizar em ADR próprio com próximo número livre na 
 Todas pendentes. Cada lote abaixo deve ficar em até cerca de cinco arquivos; dividir antes
 da implementação se necessário. Testes são escritos com o código, sem execução intermediária.
 
-| ID | Trabalho / arquivos prováveis | Dependência | Aceite e verificação planejada |
-|---|---|---|---|
-| P01 | ADR de persistência, modelo de documentos, matriz de portas e índices, índice ADR | Nenhuma | Definir autoridade de cada porta, atomicidade, TTL, limites, invalidação e topologia; revisão contra regras do projeto |
-| P02 | Configuração Mongo, propriedades, application.yaml, compose local, teste de conectividade | P01 | Ambiente transacional explícito, timeouts/pools reais, segredo fora do repositório; health diferencia configuração e conexão |
-| P03 | Adapters Mongo SpecStore/SkeletonStore, mapeamento de documentos, testes | P02 | Specs publicadas imutáveis, índices revisionId e surface/platform/status, consultas direcionadas; round-trip e conflitos |
-| P04 | Adapters CatalogStore/DiffStore/PublishRequestStore, mapeamento, teste | P03 | Catálogo e pedidos persistem, CAS de status atômico, diff recuperável; teste concorrente de decisão |
-| P05 | PointerStore, AuditLogStore, documentos/índices, teste | P04 | Versão do pointer protege updates concorrentes; auditoria correlacionada e paginada; teste de conflito |
-| P06 | IdempotencyStore, documento/índices, ajustes de serviço e teste | P05 | Uma reserva por operação/chave, payload incompatível rejeitado, replay estável após restart; não perder reserva ativa por poda |
-| P07 | Unidade transacional e integração Publish/Rollback, teste | P06 | Efeito, auditoria e idempotência commitam juntos; falha injetada não deixa estado parcial |
-| P08 | Configuração Redis, codec de cache, propriedades, teste | P01, P02 | Timeout, limite de payload, versionamento de formato, TTL e ausência de conteúdo regulado; round-trip e expiração |
-| P09 | SpecCache/HydratedScreenCache/LastGoodScreenStore e teste | P07, P08 | Chaves isoladas por surface/platform/channel/revisão/capabilities e locale se aplicável; fallback respeita idade e contexto |
-| P10 | Protocolo pós-commit e prevenção de refill antigo, teste de recuperação | P09 | Publicação/rollback não ressuscitam revisão retirada; simular queda entre commit e invalidação e escritor atrasado |
-| P11 | Wiring final, seed idempotente, health, teste de restart | P10 | Segundo boot não sobrescreve publicações; modo persistente sem substituição silenciosa por in-memory; falhas explícitas |
-| P12 | Métricas de adapters/pools, testes de falha, runbook | P11 | Instrumentação finita, sem PII; observar latência, saturação, falhas, cache e invalidação pendente |
-| P13 | Migração/backup/rollback operacional, ensaio multi-instância, índice docs | P12 | Publicar em A e ler em B, reiniciar, limpar Redis e recuperar autoridade Mongo; restauração e retorno de versão documentados |
+| ID  | Trabalho / arquivos prováveis                                                             | Dependência | Aceite e verificação planejada                                                                                                 |
+|-----|-------------------------------------------------------------------------------------------|-------------|--------------------------------------------------------------------------------------------------------------------------------|
+| P01 | ADR de persistência, modelo de documentos, matriz de portas e índices, índice ADR         | Nenhuma     | Definir autoridade de cada porta, atomicidade, TTL, limites, invalidação e topologia; revisão contra regras do projeto         |
+| P02 | Configuração Mongo, propriedades, application.yaml, compose local, teste de conectividade | P01         | Ambiente transacional explícito, timeouts/pools reais, segredo fora do repositório; health diferencia configuração e conexão   |
+| P03 | Adapters Mongo SpecStore/SkeletonStore, mapeamento de documentos, testes                  | P02         | Specs publicadas imutáveis, índices revisionId e surface/platform/status, consultas direcionadas; round-trip e conflitos       |
+| P04 | Adapters CatalogStore/DiffStore/PublishRequestStore, mapeamento, teste                    | P03         | Catálogo e pedidos persistem, CAS de status atômico, diff recuperável; teste concorrente de decisão                            |
+| P05 | PointerStore, AuditLogStore, documentos/índices, teste                                    | P04         | Versão do pointer protege updates concorrentes; auditoria correlacionada e paginada; teste de conflito                         |
+| P06 | IdempotencyStore, documento/índices, ajustes de serviço e teste                           | P05         | Uma reserva por operação/chave, payload incompatível rejeitado, replay estável após restart; não perder reserva ativa por poda |
+| P07 | Unidade transacional e integração Publish/Rollback, teste                                 | P06         | Efeito, auditoria e idempotência commitam juntos; falha injetada não deixa estado parcial                                      |
+| P08 | Configuração Redis, codec de cache, propriedades, teste                                   | P01, P02    | Timeout, limite de payload, versionamento de formato, TTL e ausência de conteúdo regulado; round-trip e expiração              |
+| P09 | SpecCache/HydratedScreenCache/LastGoodScreenStore e teste                                 | P07, P08    | Chaves isoladas por surface/platform/channel/revisão/capabilities e locale se aplicável; fallback respeita idade e contexto    |
+| P10 | Protocolo pós-commit e prevenção de refill antigo, teste de recuperação                   | P09         | Publicação/rollback não ressuscitam revisão retirada; simular queda entre commit e invalidação e escritor atrasado             |
+| P11 | Wiring final, seed idempotente, health, teste de restart                                  | P10         | Segundo boot não sobrescreve publicações; modo persistente sem substituição silenciosa por in-memory; falhas explícitas        |
+| P12 | Métricas de adapters/pools, testes de falha, runbook                                      | P11         | Instrumentação finita, sem PII; observar latência, saturação, falhas, cache e invalidação pendente                             |
+| P13 | Migração/backup/rollback operacional, ensaio multi-instância, índice docs                 | P12         | Publicar em A e ler em B, reiniciar, limpar Redis e recuperar autoridade Mongo; restauração e retorno de versão documentados   |
 
 ### Evidências (2026-09-23)
 
-| ID  | Situação | Evidência |
-|-----|----------|-----------|
-| P01 | Feito | ADR-021 (autoridade por porta, documentos, índices, TTL, tetos, invalidação, topologia); índice em `docs/adr/README.md` |
-| P02 | Feito, sem ensaio | `SduiProperties.persistence`, `MongoStoreConfiguration` (CSOT, pool, `retryWrites/Reads=false`), `application.yaml`, `compose.yaml` com replica set `rs0`, health `sduiStore` que distingue inalcançável × standalone |
-| P03 | Feito, IT não executado | `MongoSpecStore`, `MongoSkeletonStore` (PUBLISHED imutável, índice único de revisão); `DomainJsonRoundTripTest`; `MongoPersistenceIT` |
-| P04 | Feito, IT não executado | `MongoCatalogStore`, `MongoDiffStore`, `MongoPublishRequestStore` (`findOneAndReplace` condicionado); teste concorrente em `MongoPersistenceIT` |
-| P05 | Feito | `PointerStore.compareAndSet` (memória e Mongo), `MongoAuditLogStore.recent`; `InMemoryStoresBehaviorTest`, `MongoPersistenceIT` |
-| P06 | Feito | Reserva por `insertOne`/`putIfAbsent` sob lock, fingerprint (422 em reuso), prazo de reserva, sem expulsão por pressão; `AdminIdempotencyTest`, medição M2, `MongoPersistenceIT` |
-| P07 | Feito, IT não executado | `MongoTransactionalUnitOfWork` sem `withTransaction`; falha injetada em `MongoPersistenceIT` |
-| P08 | Feito, IT não executado | `RedisCacheConfiguration` (prazo, `REJECT_COMMANDS`), `RedisCacheCodec` versionado, teto de bytes; `DomainJsonRoundTripTest`, `RedisCachesIT` |
-| P09 | Feito, IT não executado | `RedisSpecCache`, `RedisHydratedScreenCache` (índice por escopo), `RedisLastGoodScreenStore` (Lua); `RedisCachesIT` |
-| P10 | Feito | Outbox + lápide versionada + relay; `CacheInvalidatorTest`, `InMemoryStoresBehaviorTest`, `RedisCachesIT` |
-| P11 | Feito, IT não executado | Wiring condicional sem fallback silencioso, seed e demo idempotentes, health; `DurableModeBootIT` (restart) |
-| P12 | Feito | Métricas `cache.operation.ms`, `cache.write.skipped`, `cache.invalidation.*`, listeners Micrometer do driver; runbook |
-| P13 | **Pendente** | Roteiro escrito (runbook §6); ensaio multi-instância, restauração e `explain` em base representativa não realizados. Entram junto os itens deferidos da revisão (`todo.md`, Verificação final): falha do Mongo no admin como 503/409 e custo da leitura de pointer por requisição |
+| ID  | Situação                | Evidência                                                                                                                                                                                                                                                                         |
+|-----|-------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| P01 | Feito                   | ADR-021 (autoridade por porta, documentos, índices, TTL, tetos, invalidação, topologia); índice em `docs/adr/README.md`                                                                                                                                                           |
+| P02 | Feito, sem ensaio       | `SduiProperties.persistence`, `MongoStoreConfiguration` (CSOT, pool, `retryWrites/Reads=false`), `application.yaml`, `compose.yaml` com replica set `rs0`, health `sduiStore` que distingue inalcançável × standalone                                                             |
+| P03 | Feito, IT não executado | `MongoSpecStore`, `MongoSkeletonStore` (PUBLISHED imutável, índice único de revisão); `DomainJsonRoundTripTest`; `MongoPersistenceIT`                                                                                                                                             |
+| P04 | Feito, IT não executado | `MongoCatalogStore`, `MongoDiffStore`, `MongoPublishRequestStore` (`findOneAndReplace` condicionado); teste concorrente em `MongoPersistenceIT`                                                                                                                                   |
+| P05 | Feito                   | `PointerStore.compareAndSet` (memória e Mongo), `MongoAuditLogStore.recent`; `InMemoryStoresBehaviorTest`, `MongoPersistenceIT`                                                                                                                                                   |
+| P06 | Feito                   | Reserva por `insertOne`/`putIfAbsent` sob lock, fingerprint (422 em reuso), prazo de reserva, sem expulsão por pressão; `AdminIdempotencyTest`, medição M2, `MongoPersistenceIT`                                                                                                  |
+| P07 | Feito, IT não executado | `MongoTransactionalUnitOfWork` sem `withTransaction`; falha injetada em `MongoPersistenceIT`                                                                                                                                                                                      |
+| P08 | Feito, IT não executado | `RedisCacheConfiguration` (prazo, `REJECT_COMMANDS`), `RedisCacheCodec` versionado, teto de bytes; `DomainJsonRoundTripTest`, `RedisCachesIT`                                                                                                                                     |
+| P09 | Feito, IT não executado | `RedisSpecCache`, `RedisHydratedScreenCache` (índice por escopo), `RedisLastGoodScreenStore` (Lua); `RedisCachesIT`                                                                                                                                                               |
+| P10 | Feito                   | Outbox + lápide versionada + relay; `CacheInvalidatorTest`, `InMemoryStoresBehaviorTest`, `RedisCachesIT`                                                                                                                                                                         |
+| P11 | Feito, IT não executado | Wiring condicional sem fallback silencioso, seed e demo idempotentes, health; `DurableModeBootIT` (restart)                                                                                                                                                                       |
+| P12 | Feito                   | Métricas `cache.operation.ms`, `cache.write.skipped`, `cache.invalidation.*`, listeners Micrometer do driver; runbook                                                                                                                                                             |
+| P13 | **Pendente**            | Roteiro escrito (runbook §6); ensaio multi-instância, restauração e `explain` em base representativa não realizados. Entram junto os itens deferidos da revisão (`todo.md`, Verificação final): falha do Mongo no admin como 503/409 e custo da leitura de pointer por requisição |
 
 ProjectionStore só será conectado se houver consumidor definido; não criar adapter morto como
 preparação. Retenção de audit/diffs/revisões precisa preservar seleção e rollback, não copiar

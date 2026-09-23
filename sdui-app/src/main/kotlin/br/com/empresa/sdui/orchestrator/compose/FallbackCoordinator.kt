@@ -7,9 +7,9 @@ import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.ComposedScreen
 import br.com.empresa.sdui.core.model.FallbackReason
-import br.com.empresa.sdui.core.model.SurfaceDefinition
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.RevisionIds
+import br.com.empresa.sdui.core.model.SurfaceDefinition
 import br.com.empresa.sdui.orchestrator.port.inbound.ComposeResult
 import br.com.empresa.sdui.orchestrator.port.outbound.LastGoodScreenStore
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricNames

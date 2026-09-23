@@ -110,7 +110,11 @@ class MongoStoreConfiguration {
         MongoSpecStore(database, sessions, properties.persistence.mongo.maxDocumentBytes)
 
     @Bean
-    fun skeletonStore(database: MongoDatabase, sessions: MongoSessionContext, properties: SduiProperties): SkeletonStore =
+    fun skeletonStore(
+        database: MongoDatabase,
+        sessions: MongoSessionContext,
+        properties: SduiProperties
+    ): SkeletonStore =
         MongoSkeletonStore(database, sessions, properties.persistence.mongo.maxDocumentBytes)
 
     @Bean
@@ -185,7 +189,7 @@ class RedisCacheConfiguration {
         } catch (_: URISyntaxException) {
             throw IllegalArgumentException(
                 "sdui.persistence.redis.url malformada (valor omitido por conter credencial); " +
-                    "codifique caracteres especiais da senha em percent-encoding",
+                        "codifique caracteres especiais da senha em percent-encoding",
             )
         }
         val standalone = RedisStandaloneConfiguration(uri.host, if (uri.port > 0) uri.port else DEFAULT_REDIS_PORT)
@@ -226,7 +230,12 @@ class RedisCacheConfiguration {
         redis: RedisTemplate<String, ByteArray>,
         properties: SduiProperties,
         metrics: MetricsRecorder,
-    ): HydratedScreenCache = RedisHydratedScreenCache(redis, properties.persistence.redis.maxEntryBytes, metrics, properties.treeCacheMaxEntries)
+    ): HydratedScreenCache = RedisHydratedScreenCache(
+        redis,
+        properties.persistence.redis.maxEntryBytes,
+        metrics,
+        properties.treeCacheMaxEntries
+    )
 
     @Bean
     fun specCache(

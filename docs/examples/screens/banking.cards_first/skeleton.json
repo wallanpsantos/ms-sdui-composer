@@ -10,63 +10,97 @@
       "layout": "FIXED",
       "title": null,
       "maxInstances": 1,
-      "allowedTypes": ["top_bar"],
+      "allowedTypes": [
+        "top_bar"
+      ],
       "required": true,
-      "allowedLayouts": ["FIXED"]
+      "allowedLayouts": [
+        "FIXED"
+      ]
     },
     {
       "id": "accounts",
       "layout": "LIST",
       "title": "Conta",
       "maxInstances": 1,
-      "allowedTypes": ["account_card"],
+      "allowedTypes": [
+        "account_card"
+      ],
       "required": true,
-      "allowedLayouts": ["LIST", "FIXED"]
+      "allowedLayouts": [
+        "LIST",
+        "FIXED"
+      ]
     },
     {
       "id": "cards",
       "layout": "LIST",
       "title": "Cartão de crédito",
       "maxInstances": 3,
-      "allowedTypes": ["card_product"],
+      "allowedTypes": [
+        "card_product"
+      ],
       "required": false,
-      "allowedLayouts": ["LIST", "PAGER"]
+      "allowedLayouts": [
+        "LIST",
+        "PAGER"
+      ]
     },
     {
       "id": "shortcuts",
       "layout": "GRID",
       "title": null,
       "maxInstances": 1,
-      "allowedTypes": ["shortcut_shelf"],
+      "allowedTypes": [
+        "shortcut_shelf"
+      ],
       "required": false,
-      "allowedLayouts": ["SHELF", "GRID"]
+      "allowedLayouts": [
+        "SHELF",
+        "GRID"
+      ]
     },
     {
       "id": "offers",
       "layout": "LIST",
       "title": "Crédito",
       "maxInstances": 4,
-      "allowedTypes": ["credit_offer"],
+      "allowedTypes": [
+        "credit_offer"
+      ],
       "required": false,
-      "allowedLayouts": ["LIST", "PAGER"]
+      "allowedLayouts": [
+        "LIST",
+        "PAGER"
+      ]
     },
     {
       "id": "coverage",
       "layout": "LIST",
       "title": "Seguros",
       "maxInstances": 3,
-      "allowedTypes": ["coverage_card"],
+      "allowedTypes": [
+        "coverage_card"
+      ],
       "required": false,
-      "allowedLayouts": ["LIST", "SHELF"]
+      "allowedLayouts": [
+        "LIST",
+        "SHELF"
+      ]
     },
     {
       "id": "foryou",
       "layout": "PAGER",
       "title": "Para você",
       "maxInstances": 2,
-      "allowedTypes": ["decision_card"],
+      "allowedTypes": [
+        "decision_card"
+      ],
       "required": false,
-      "allowedLayouts": ["PAGER", "LIST"]
+      "allowedLayouts": [
+        "PAGER",
+        "LIST"
+      ]
     }
   ]
 }

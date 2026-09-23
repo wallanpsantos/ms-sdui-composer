@@ -12,11 +12,11 @@ Do contrato à publicação, ao rollback e à depreciação. Usa os exemplos de
 
 ## 1. Três artefatos, três formatos
 
-| Artefato   | O que descreve                                        | Onde entra                              | Quem valida            |
-|------------|-------------------------------------------------------|-----------------------------------------|------------------------|
-| Skeleton   | Estrutura: slots, ordem, layouts permitidos, portantes | `PUT /admin/v1/skeletons/{id}`          | `SkeletonValidator`    |
-| Spec       | Conteúdo: sections, props, actions, targeting         | `POST /admin/v1/specs`                  | `SpecValidator`        |
-| Envelope   | A resposta composta para um cliente                    | `GET /v1/surfaces/{home\|catalog}`      | Contrato v3 (`sdui-contract`) |
+| Artefato | O que descreve                                         | Onde entra                         | Quem valida                   |
+|----------|--------------------------------------------------------|------------------------------------|-------------------------------|
+| Skeleton | Estrutura: slots, ordem, layouts permitidos, portantes | `PUT /admin/v1/skeletons/{id}`     | `SkeletonValidator`           |
+| Spec     | Conteúdo: sections, props, actions, targeting          | `POST /admin/v1/specs`             | `SpecValidator`               |
+| Envelope | A resposta composta para um cliente                    | `GET /v1/surfaces/{home\|catalog}` | Contrato v3 (`sdui-contract`) |
 
 Nunca publique um envelope como spec: o envelope é **saída** (já filtrada por capabilities, com
 analytics e eco do cliente); a spec é **entrada** administrativa. Os exemplos mantêm os três em
@@ -27,8 +27,8 @@ arquivos separados.
 - Home, hubs, vitrines e banners de campanha: sim (ADR-015).
 - Autenticação, PIN, onboarding regulado, checkout, chat, mapas: **não**. Viram destino nativo
   alcançado por `navigate`.
-- Nada de aparência no JSON: cor, fonte, margem, tamanho, tema e colunas são do renderer
-  (`VisualGuard`). Nada de dado regulado (`PiiGuard`).
+- Nada de aparência no JSON: cor, fonte, margem, tamanho, tema e colunas são do renderer (`VisualGuard`). Nada de dado
+  regulado (`PiiGuard`).
 - Nada de primitiva genérica (`row`, `card`, `container`): cada type é um conceito de produto.
 
 ## 3. Nova tela numa surface existente (exemplo: `banking.shortcuts_first`)
@@ -53,7 +53,8 @@ arquivos separados.
    compare-and-set, audita e registra a invalidação de cache — tudo na mesma unidade de trabalho.
 6. **Consulte.** `GET /v1/surfaces/home` com os headers do exemplo. Compare com o `response.json`.
 
-A sequência completa em `curl` está no [README dos exemplos](examples/screens/README.md#opção-b--passo-a-passo-pela-api).
+A sequência completa em `curl` está
+no [README dos exemplos](examples/screens/README.md#opção-b--passo-a-passo-pela-api).
 
 ## 4. Montagem diferente da mesma tela (exemplo: `banking.cards_first`)
 
@@ -99,15 +100,15 @@ evento de analytics, locale do conteúdo) e um mapeamento literal em `SurfaceCon
 - **Depois da publicação ou rollback**, a árvore antiga não é mais servida (chave por revisão) e o
   last good ganha lápide na versão nova do pointer — o fallback não reintroduz o que saiu.
 
-| Sintoma                                   | Onde olhar                                                              |
-|-------------------------------------------|-------------------------------------------------------------------------|
-| Section some com `unsupported_type`        | Cliente sem a capability; `section.omitted{type,reason}`                |
-| `503 no_compatible_spec`                  | Targeting não atende o cliente; `select.no_candidate`                   |
-| `503 required_slot_empty`                 | Slot portante esvaziado por hidratação ou por capability                |
-| `200` com `fallback: true`                | Dependência falhou; `store.failure{stage}`, `compose.fallback`          |
-| `409 CONFLICT` na aprovação ou rollback    | Outra escrita moveu o pointer ou o pedido; releia e decida              |
-| `422 IDEMPOTENCY_KEY_REUSED`               | Mesma `Idempotency-Key` com outra operação ou outro alvo                |
-| `503 ADMIN_UNAVAILABLE`                    | Registro de idempotência em memória no teto só com chaves vivas        |
+| Sintoma                                 | Onde olhar                                                      |
+|-----------------------------------------|-----------------------------------------------------------------|
+| Section some com `unsupported_type`     | Cliente sem a capability; `section.omitted{type,reason}`        |
+| `503 no_compatible_spec`                | Targeting não atende o cliente; `select.no_candidate`           |
+| `503 required_slot_empty`               | Slot portante esvaziado por hidratação ou por capability        |
+| `200` com `fallback: true`              | Dependência falhou; `store.failure{stage}`, `compose.fallback`  |
+| `409 CONFLICT` na aprovação ou rollback | Outra escrita moveu o pointer ou o pedido; releia e decida      |
+| `422 IDEMPOTENCY_KEY_REUSED`            | Mesma `Idempotency-Key` com outra operação ou outro alvo        |
+| `503 ADMIN_UNAVAILABLE`                 | Registro de idempotência em memória no teto só com chaves vivas |
 
 ## 8. Locale
 

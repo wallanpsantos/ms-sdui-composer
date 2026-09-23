@@ -13,12 +13,12 @@
 
 ## Mapeamento
 
-| Section          | Type                     | Slot         | Conteúdo fictício                                       |
-|------------------|--------------------------|--------------|---------------------------------------------------------|
-| `sec_header`     | `top_bar@1`              | `header`     | "Olá, Cliente"; ação "Sacola" → carrinho nativo         |
-| `sec_navigation` | `catalog_navigation@1`   | `navigation` | Busca, filtro e 4 categorias ("Em alta" selecionada)    |
-| `sec_featured`   | `product_collection@1`   | `featured`   | 1 produto em destaque                                    |
-| `sec_products`   | `product_collection@1`   | `products`   | 4 produtos e "Ver todos"                                 |
+| Section          | Type                   | Slot         | Conteúdo fictício                                    |
+|------------------|------------------------|--------------|------------------------------------------------------|
+| `sec_header`     | `top_bar@1`            | `header`     | "Olá, Cliente"; ação "Sacola" → carrinho nativo      |
+| `sec_navigation` | `catalog_navigation@1` | `navigation` | Busca, filtro e 4 categorias ("Em alta" selecionada) |
+| `sec_featured`   | `product_collection@1` | `featured`   | 1 produto em destaque                                |
+| `sec_products`   | `product_collection@1` | `products`   | 4 produtos e "Ver todos"                             |
 
 Favorito, tamanho, cor, quantidade, "Add to Cart", "Buy Now", carrinho e checkout não existem no
 contrato — o validador recusa essas chaves. Ver a
@@ -26,11 +26,11 @@ contrato — o validador recusa essas chaves. Ver a
 
 ## Comportamento por capability
 
-| Cliente declara                                    | Resultado                                                      |
-|----------------------------------------------------|----------------------------------------------------------------|
-| `catalog_navigation@1,product_collection@1`         | 4 sections — [`response.json`](response.json)                 |
-| Só `product_collection@1`                           | 3 sections, navegação omitida (`unsupported_type`)             |
-| Nenhuma                                             | 503 `no_compatible_spec`: o spec exige a vitrine; a Home nunca é servida no lugar |
+| Cliente declara                             | Resultado                                                                         |
+|---------------------------------------------|-----------------------------------------------------------------------------------|
+| `catalog_navigation@1,product_collection@1` | 4 sections — [`response.json`](response.json)                                     |
+| Só `product_collection@1`                   | 3 sections, navegação omitida (`unsupported_type`)                                |
+| Nenhuma                                     | 503 `no_compatible_spec`: o spec exige a vitrine; a Home nunca é servida no lugar |
 
 ## Actions e destinos nativos (ilustrativos)
 

@@ -1,8 +1,7 @@
 package br.com.empresa.sdui.adapters.configuration
 
-import br.com.empresa.sdui.adapters.json.JsonPublicationFingerprint
-import br.com.empresa.sdui.orchestrator.port.outbound.PublicationFingerprint
 import br.com.empresa.sdui.adapters.invalidation.CacheInvalidationRelay
+import br.com.empresa.sdui.adapters.json.JsonPublicationFingerprint
 import br.com.empresa.sdui.adapters.memory.InMemoryComposeSingleflight
 import br.com.empresa.sdui.adapters.memory.InMemoryHydratedScreenCache
 import br.com.empresa.sdui.adapters.memory.InMemoryProjectionStore
@@ -48,6 +47,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.MetricNames
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import br.com.empresa.sdui.orchestrator.port.outbound.PointerStore
 import br.com.empresa.sdui.orchestrator.port.outbound.ProjectionStore
+import br.com.empresa.sdui.orchestrator.port.outbound.PublicationFingerprint
 import br.com.empresa.sdui.orchestrator.port.outbound.PublishRequestStore
 import br.com.empresa.sdui.orchestrator.port.outbound.SkeletonStore
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecCache

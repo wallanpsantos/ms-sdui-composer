@@ -13,12 +13,12 @@
 
 ## O que muda em relação a `banking.shortcuts_first`
 
-| Aspecto                    | shortcuts-first         | cards-first                          |
-|----------------------------|-------------------------|--------------------------------------|
-| Ordem                      | atalhos antes de cartões | cartões antes de atalhos             |
-| Layout de `shortcuts`      | `shelf`, 4 itens         | `grid`, 8 itens                      |
-| Types exigidos             | os mesmos                | os mesmos                            |
-| Títulos de slot            | do skeleton novo ("Empréstimo", "Descubra mais") | do skeleton do seed ("Crédito", "Seguros") |
+| Aspecto               | shortcuts-first                                  | cards-first                                |
+|-----------------------|--------------------------------------------------|--------------------------------------------|
+| Ordem                 | atalhos antes de cartões                         | cartões antes de atalhos                   |
+| Layout de `shortcuts` | `shelf`, 4 itens                                 | `grid`, 8 itens                            |
+| Types exigidos        | os mesmos                                        | os mesmos                                  |
+| Títulos de slot       | do skeleton novo ("Empréstimo", "Descubra mais") | do skeleton do seed ("Crédito", "Seguros") |
 
 Não há campo visual novo, nem header de template, nem roteamento experimental: a troca é de
 revisão pelo pointer. Um app que já renderiza `shortcut_shelf@1` em `grid` e respeita a ordem de

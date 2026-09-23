@@ -47,16 +47,25 @@ class MongoIdempotencyStore(
     override fun reserve(key: String, operation: String, fingerprint: String): IdempotencyReservation {
         val now = clock.instant()
         val token = UUID.randomUUID().toString()
-        val reservation = document(IdempotencyRecord(key, operation, null, fingerprint), STATE_IN_FLIGHT, now.plus(reservationTimeout), token)
+        val reservation = document(
+            IdempotencyRecord(key, operation, null, fingerprint),
+            STATE_IN_FLIGHT,
+            now.plus(reservationTimeout),
+            token
+        )
         if (tryInsert(reservation)) return IdempotencyReservation.Reserved(token)
         val existing = records.find(Filters.eq(MongoFields.ID, key)).first()
-            // Removido pelo TTL entre a insercao recusada e a leitura: a chave esta livre.
+        // Removido pelo TTL entre a insercao recusada e a leitura: a chave esta livre.
             ?: return if (tryInsert(reservation)) IdempotencyReservation.Reserved(token) else readExisting(key)
         if (existing.expiresAt().isAfter(now)) return IdempotencyReservation.Existing(existing.toRecord())
         // Vencido e ainda nao coletado pelo TTL: troca condicionada ao documento lido, para nao
         // atropelar quem retomou a chave no meio.
         val replaced = records.replaceOne(
-            Filters.and(Filters.eq(MongoFields.ID, key), Filters.eq(FIELD_EXPIRES_AT, existing[FIELD_EXPIRES_AT]), Filters.eq(FIELD_OWNER, existing[FIELD_OWNER])),
+            Filters.and(
+                Filters.eq(MongoFields.ID, key),
+                Filters.eq(FIELD_EXPIRES_AT, existing[FIELD_EXPIRES_AT]),
+                Filters.eq(FIELD_OWNER, existing[FIELD_OWNER])
+            ),
             reservation,
         )
         return if (replaced.matchedCount == 1L) IdempotencyReservation.Reserved(token) else readExisting(key)
@@ -81,11 +90,13 @@ class MongoIdempotencyStore(
     }
 
     override fun release(key: String, token: String) {
-        records.deleteOne(Filters.and(
-            Filters.eq(MongoFields.ID, key),
-            Filters.eq(FIELD_OWNER, token),
-            Filters.eq(FIELD_STATE, STATE_IN_FLIGHT),
-        ))
+        records.deleteOne(
+            Filters.and(
+                Filters.eq(MongoFields.ID, key),
+                Filters.eq(FIELD_OWNER, token),
+                Filters.eq(FIELD_STATE, STATE_IN_FLIGHT),
+            )
+        )
     }
 
     private fun tryInsert(document: Document): Boolean = try {

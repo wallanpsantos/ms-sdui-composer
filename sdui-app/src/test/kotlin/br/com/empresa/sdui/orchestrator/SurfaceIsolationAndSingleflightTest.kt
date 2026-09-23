@@ -52,7 +52,8 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 class SurfaceIsolationAndSingleflightTest {
 
-    private class CountingHydrator(private val delayMs: Long = 0, private val started: CountDownLatch? = null) : SectionHydrator {
+    private class CountingHydrator(private val delayMs: Long = 0, private val started: CountDownLatch? = null) :
+        SectionHydrator {
         val calls = AtomicInteger()
         override fun supports(type: String, typeVersion: Int) = true
         override fun hydrate(context: HydrationContext, section: Section): HydrationResult {
@@ -97,7 +98,9 @@ class SurfaceIsolationAndSingleflightTest {
             val mapper = JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
             val seed = checkNotNull(javaClass.getResourceAsStream("/seed/contrato-sdui-home-definitivo.json"))
                 .use { it.readBytes().decodeToString() }
-            HomeSeed(InMemoryCatalogStore(), skeletonStore, specStore, pointerStore, mapper).seedFromCanonicalFixture(seed)
+            HomeSeed(InMemoryCatalogStore(), skeletonStore, specStore, pointerStore, mapper).seedFromCanonicalFixture(
+                seed
+            )
             service = ComposeScreenService(
                 specStore = specStore,
                 skeletonStore = skeletonStore,
@@ -194,7 +197,9 @@ class SurfaceIsolationAndSingleflightTest {
 
         val tagKeys = registry.meters.flatMap { meter -> meter.id.tags.map { it.key } }.toSet()
         assertThat(tagKeys).doesNotContain("appVersion")
-        val schemas = registry.meters.flatMap { meter -> meter.id.tags.filter { it.key == "schemaVersion" }.map { it.value } }.toSet()
+        val schemas =
+            registry.meters.flatMap { meter -> meter.id.tags.filter { it.key == "schemaVersion" }.map { it.value } }
+                .toSet()
         assertThat(schemas).containsExactlyInAnyOrder("3", "other")
         assertThat(registry.meters.size).isLessThan(20)
     }

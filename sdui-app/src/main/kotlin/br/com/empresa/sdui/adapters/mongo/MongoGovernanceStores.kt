@@ -81,7 +81,10 @@ class MongoSpecStore(
             } else {
                 val changed = specs.replace(
                     sessions,
-                    Filters.and(Filters.eq(MongoFields.ID, key), Filters.eq(MongoFields.JSON, DomainJson.write(expected))),
+                    Filters.and(
+                        Filters.eq(MongoFields.ID, key),
+                        Filters.eq(MongoFields.JSON, DomainJson.write(expected))
+                    ),
                     document,
                     upsert = false,
                 )
@@ -203,7 +206,10 @@ class MongoSkeletonStore(
             } else {
                 val changed = skeletons.replace(
                     sessions,
-                    Filters.and(Filters.eq(MongoFields.ID, key), Filters.eq(MongoFields.JSON, DomainJson.write(expected))),
+                    Filters.and(
+                        Filters.eq(MongoFields.ID, key),
+                        Filters.eq(MongoFields.JSON, DomainJson.write(expected))
+                    ),
                     document,
                     upsert = false,
                 )

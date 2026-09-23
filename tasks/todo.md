@@ -7,10 +7,12 @@ suíte está na seção [Verificação final](#verificação-final).
 ## T01 — Matriz de contrato e ADR de múltiplas surfaces
 
 - [x] Mapear todos os blocos das três imagens para as quatro specs, classificando os que ficam nativos.
-  Evidência: matriz em [`docs/examples/screens/README.md`](../docs/examples/screens/README.md#matriz-de-rastreabilidade-t01)
+  Evidência: matriz em [
+  `docs/examples/screens/README.md`](../docs/examples/screens/README.md#matriz-de-rastreabilidade-t01)
   (reutilizável / contrato novo / nativo / não mapeado).
 - [x] Definir tipos, props, limites, capabilities e destinos; registrar propostas de ADR sem considerá-las aprovadas.
-  Evidência: [ADR-020](../docs/memoria-operacional-e-arquitetural.md#adr-020--múltiplas-surfaces-e-contratos-de-componente) (`PROPOSTO`),
+  Evidência: [ADR-020](../docs/memoria-operacional-e-arquitetural.md#adr-020--múltiplas-surfaces-e-contratos-de-componente)
+  (`PROPOSTO`),
   [`transaction-summary-v1.md`](../docs/contratos/transaction-summary-v1.md),
   [`componentes-comercio-v1.md`](../docs/contratos/componentes-comercio-v1.md), índice em `docs/adr/README.md`.
 - [x] Distinguir referências Android de contrato mobile formal. Evidência: avisos em todos os READMEs de exemplo;
@@ -29,7 +31,8 @@ suíte está na seção [Verificação final](#verificação-final).
 
 - [x] Criar skeleton/spec/response de `banking.cards_first`, aproveitando o skeleton `home.cards_first` do seed.
 - [x] Demonstrar alteração de ordem e grid sem campos visuais. Evidência: tabela comparativa no README do exemplo.
-- [x] Documentar troca de revisão por pointer, sem roteamento experimental novo. Evidência: README e roteiro de rollback.
+- [x] Documentar troca de revisão por pointer, sem roteamento experimental novo. Evidência: README e roteiro de
+  rollback.
 - [x] Teste comparativo: `ScreenExamplesTest` compara ordem de slots, layout de `shortcuts`, types exigidos e rollback.
 
 ## Checkpoint A — Composições financeiras
@@ -103,7 +106,8 @@ suíte está na seção [Verificação final](#verificação-final).
 
 ## T11 — Tutorial e sincronização documental
 
-- [x] Guia de nova tela e novo componente: [`docs/guia-criacao-telas-componentes.md`](../docs/guia-criacao-telas-componentes.md).
+- [x] Guia de nova tela e novo componente: [
+  `docs/guia-criacao-telas-componentes.md`](../docs/guia-criacao-telas-componentes.md).
 - [x] Corrigir status e capacidade de ordenação em `docs/images/README.md` (versão 3.1).
 - [x] Indexar exemplos e planos, distinguindo proposto, implementado e homologado (`docs/README.md`, `README.md`).
 
@@ -130,20 +134,20 @@ Execução única, em 2026-09-23: `gradlew clean build --warning-mode=fail --con
 `verifyForbiddenDependencies`, `verifyPureClasspath`, `bootJar` e a suíte ArchUnit. Nenhum warning de compilação
 (`allWarningsAsErrors`) nem de depreciação do Gradle (`--warning-mode=fail`).
 
-| Módulo | Testes | Falhas | Ignorados |
-|--------|-------:|-------:|----------:|
-| `sdui-core` | 63 | 0 | 0 |
-| `sdui-contract` | 26 | 0 | 0 |
-| `sdui-app` | 112 | **1** | 12 |
-| `sdui-bootstrap` | 1 | 0 | 0 |
-| `sdui-integration-test` (ArchUnit) | 14 | 0 | 0 |
+| Módulo                             | Testes | Falhas | Ignorados |
+|------------------------------------|-------:|-------:|----------:|
+| `sdui-core`                        |     63 |      0 |         0 |
+| `sdui-contract`                    |     26 |      0 |         0 |
+| `sdui-app`                         |    112 |  **1** |        12 |
+| `sdui-bootstrap`                   |      1 |      0 |         0 |
+| `sdui-integration-test` (ArchUnit) |     14 |      0 |         0 |
 
 - **Falha:** `InMemoryStoresBehaviorTest > cache de arvore mantem o teto sob escritores concorrentes` —
   `maxResident` = 1.093 num teto de 1.000 (folga aceita no teste: 8). Causa: o teto era decidido e medido com
   `ConcurrentHashMap.size()`, que sob inserção e poda concorrentes é estimativa; a checagem seguida de `put`
   também não era atômica. **Corrigido depois da execução:** vaga reservada por compare-and-set num contador antes
-  da inserção e devolvida após a remoção (`InMemoryHydratedScreenCache.occupiedSlots`), teste com asserção estrita
-  (≤ 1.000, sem folga) e consistência em repouso, mais um caso de regravação no teto. Registro em
+  da inserção e devolvida após a remoção (`InMemoryHydratedScreenCache.occupiedSlots`), teste com asserção estrita (≤
+  1.000, sem folga) e consistência em repouso, mais um caso de regravação no teto. Registro em
   [`medicoes-2026-09-23.md`](../docs/performance/medicoes-2026-09-23.md) (achado 6, nota 4).
 - **Verificação da correção sem Gradle** (a regra do AGENTS.md é uma execução só): todas as fontes de produção e
   de teste dos cinco módulos recompiladas com o `kotlinc` 2.4.20 do cache do Gradle e `-Werror`, sem erro nem
@@ -151,8 +155,8 @@ Execução única, em 2026-09-23: `gradlew clean build --warning-mode=fail --con
   Platform Launcher (550 execuções, 0 falhas); harness `m6` com vagas máx = 10.000 nas três rodadas. **A suíte
   Gradle completa não foi reexecutada com a correção** — fica para a próxima execução autorizada.
 - **Ignorados (12):** `MongoPersistenceIT` (7), `RedisCachesIT` (4) e `DurableModeBootIT` (1) exigem
-  `SDUI_IT_MONGO_URI`/`SDUI_IT_REDIS_URL`; não havia Docker nem banco nesta máquina. Os adapters persistentes
-  **não foram exercitados contra infraestrutura real**.
+  `SDUI_IT_MONGO_URI`/`SDUI_IT_REDIS_URL`; não havia Docker nem banco nesta máquina. Os adapters persistentes **não
+  foram exercitados contra infraestrutura real**.
 - **Carga HTTP:** executada com o `bootJar` desta execução em notebook de desenvolvimento (não dedicado):
   12,9–13,4 mil req/s, p99 no cliente 10,6–11,5 ms, p99 do hit no servidor ≤ 2,4 ms; detalhes, 429 do limitador
   por coorte e limitações em [`medicoes-2026-09-23.md`](../docs/performance/medicoes-2026-09-23.md#carga-http).
@@ -195,20 +199,20 @@ Deferido com justificativa (entra no ensaio P13, porque o modo Mongo não está 
 
 1. Reexecutar a suíte Gradle completa uma vez, quando autorizado, para confirmar no build as correções feitas
    depois da execução única (teto do cache, URL do Redis, MDC).
-2. Rodar `MongoPersistenceIT`, `RedisCachesIT` e `DurableModeBootIT` com infraestrutura real
-   (`docker compose up -d` + variáveis `SDUI_IT_*`) e executar o ensaio P13 do
+2. Rodar `MongoPersistenceIT`, `RedisCachesIT` e `DurableModeBootIT` com infraestrutura real (`docker compose up -d` +
+   variáveis `SDUI_IT_*`) e executar o ensaio P13 do
    [runbook](../docs/runbooks/persistencia-mongodb-redis.md). Até lá o AGENTS.md §17 (instância única) vale.
 3. Baseline HTTP do `compose-hit-p99` em ambiente dedicado, com gerador em outra máquina.
 4. Homologação com os apps: `transaction_summary@1`, `catalog_navigation@1` e `product_collection@1` são
    propostas (ADR-020 `PROPOSTO`); fixture Android canônica continua ausente.
-
 
 ## Correções da auditoria de bugs e segurança — 2026-09-23
 
 - [x] Implementar R01–R12 da [análise](../docs/analise-bugs-seguranca-2026-09-23.md).
 - [x] Escrever regressões de entrada, schema, IDs, skeleton exato, revisão humana, CAS, rollback,
   dono de idempotência, overflow e índice Redis; adaptar os testes/harness às assinaturas.
-- [x] Registrar [ADR-022](../docs/memoria-operacional-e-arquitetural.md#adr-022--integridade-da-governança-e-limites-de-entrada),
+- [x] 
+  Registrar [ADR-022](../docs/memoria-operacional-e-arquitetural.md#adr-022--integridade-da-governança-e-limites-de-entrada),
   incluindo reabertura de pedidos antigos e drenagem de escritores na atualização.
 - [x] Revisar estaticamente o diff, dependências entre camadas e chamadores das portas alteradas.
 - [ ] Compilar e executar a suíte uma única vez ao final, quando o operador autorizar.

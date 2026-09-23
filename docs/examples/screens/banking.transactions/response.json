@@ -1,320 +1,364 @@
 {
-  "envelope" : {
-    "surface" : "home",
-    "platform" : "ios",
-    "schemaVersion" : "3",
-    "specRevisionId" : "rev_demo_ios_transactions",
-    "skeletonId" : "home.transactions",
-    "skeletonHash" : "sha256:5cb6653308e510c696bfc952a5d0ee067371d5e2fe0974144751c83123b73f49",
-    "etag" : "W/\"rev_demo_ios_transactions-ios-3-8fe43179c015\"",
-    "generatedAt" : "2026-09-23T09:00:00-03:00",
-    "locale" : "pt-BR",
-    "channel" : "stable",
-    "fallback" : false,
-    "fallbackReason" : "none",
-    "omitted" : [ ],
-    "client" : {
-      "platform" : "ios",
-      "appVersion" : "8.14.2",
-      "build" : "81420",
-      "osVersion" : "18.1",
-      "schemaVersionRequested" : "3"
+  "envelope": {
+    "surface": "home",
+    "platform": "ios",
+    "schemaVersion": "3",
+    "specRevisionId": "rev_demo_ios_transactions",
+    "skeletonId": "home.transactions",
+    "skeletonHash": "sha256:5cb6653308e510c696bfc952a5d0ee067371d5e2fe0974144751c83123b73f49",
+    "etag": "W/\"rev_demo_ios_transactions-ios-3-8fe43179c015\"",
+    "generatedAt": "2026-09-23T09:00:00-03:00",
+    "locale": "pt-BR",
+    "channel": "stable",
+    "fallback": false,
+    "fallbackReason": "none",
+    "omitted": [],
+    "client": {
+      "platform": "ios",
+      "appVersion": "8.14.2",
+      "build": "81420",
+      "osVersion": "18.1",
+      "schemaVersionRequested": "3"
     },
-    "targeting" : {
-      "platform" : "ios",
-      "appVersionMin" : "8.10.0",
-      "appVersionMax" : "8.19.99",
-      "osVersionMin" : "16.0",
-      "schemaVersion" : "3",
-      "band" : "demo"
+    "targeting": {
+      "platform": "ios",
+      "appVersionMin": "8.10.0",
+      "appVersionMax": "8.19.99",
+      "osVersionMin": "16.0",
+      "schemaVersion": "3",
+      "band": "demo"
     },
-    "analytics" : {
-      "event" : "sdui_home_composed",
-      "surface" : "home",
-      "platform" : "ios",
-      "experience" : "demo_banking_transactions",
-      "schemaVersion" : "3",
-      "specRevisionId" : "rev_demo_ios_transactions",
-      "sectionCount" : 6,
-      "fallback" : false
+    "analytics": {
+      "event": "sdui_home_composed",
+      "surface": "home",
+      "platform": "ios",
+      "experience": "demo_banking_transactions",
+      "schemaVersion": "3",
+      "specRevisionId": "rev_demo_ios_transactions",
+      "sectionCount": 6,
+      "fallback": false
     }
   },
-  "skeleton" : {
-    "id" : "home.transactions",
-    "layout" : "vertical_scroll",
-    "slots" : [ {
-      "id" : "header",
-      "layout" : "fixed"
-    }, {
-      "id" : "accounts",
-      "layout" : "fixed"
-    }, {
-      "id" : "cards",
-      "layout" : "pager",
-      "title" : "Cartões"
-    }, {
-      "id" : "shortcuts",
-      "layout" : "grid"
-    }, {
-      "id" : "transactions",
-      "layout" : "list",
-      "title" : "Últimas transações"
-    } ]
+  "skeleton": {
+    "id": "home.transactions",
+    "layout": "vertical_scroll",
+    "slots": [
+      {
+        "id": "header",
+        "layout": "fixed"
+      },
+      {
+        "id": "accounts",
+        "layout": "fixed"
+      },
+      {
+        "id": "cards",
+        "layout": "pager",
+        "title": "Cartões"
+      },
+      {
+        "id": "shortcuts",
+        "layout": "grid"
+      },
+      {
+        "id": "transactions",
+        "layout": "list",
+        "title": "Últimas transações"
+      }
+    ]
   },
-  "sections" : [ {
-    "id" : "sec_header",
-    "slot" : "header",
-    "type" : "top_bar",
-    "typeVersion" : 1,
-    "layout" : "fixed",
-    "props" : {
-      "greetingPrefix" : "Bom dia",
-      "greetingName" : "Cliente",
-      "primaryActionLabel" : "Perfil"
+  "sections": [
+    {
+      "id": "sec_header",
+      "slot": "header",
+      "type": "top_bar",
+      "typeVersion": 1,
+      "layout": "fixed",
+      "props": {
+        "greetingPrefix": "Bom dia",
+        "greetingName": "Cliente",
+        "primaryActionLabel": "Perfil"
+      },
+      "actions": [
+        {
+          "id": "act_profile",
+          "type": "navigate",
+          "label": "Perfil",
+          "payload": {
+            "route": "app://profile"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "top_bar",
+        "componentVersion": 1,
+        "slot": "header",
+        "sectionId": "sec_header",
+        "specRevisionId": "rev_demo_ios_transactions"
+      }
     },
-    "actions" : [ {
-      "id" : "act_profile",
-      "type" : "navigate",
-      "label" : "Perfil",
-      "payload" : {
-        "route" : "app://profile"
+    {
+      "id": "sec_balance",
+      "slot": "accounts",
+      "type": "account_card",
+      "typeVersion": 1,
+      "layout": "fixed",
+      "props": {
+        "title": "Saldo",
+        "concealable": true,
+        "concealed": false,
+        "rows": [
+          {
+            "id": "row_balance",
+            "label": "Saldo disponível",
+            "valueDisplay": "R$ 2.450,00",
+            "valueDisplayRevealed": "R$ 2.450,00",
+            "concealable": true
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_statement",
+          "type": "navigate",
+          "label": "Ver extrato",
+          "payload": {
+            "route": "app://account/statement"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "account_card",
+        "componentVersion": 1,
+        "slot": "accounts",
+        "sectionId": "sec_balance",
+        "specRevisionId": "rev_demo_ios_transactions"
       }
-    } ],
-    "analytics" : {
-      "event" : "sdui_section_shown",
-      "component" : "top_bar",
-      "componentVersion" : 1,
-      "slot" : "header",
-      "sectionId" : "sec_header",
-      "specRevisionId" : "rev_demo_ios_transactions"
-    }
-  }, {
-    "id" : "sec_balance",
-    "slot" : "accounts",
-    "type" : "account_card",
-    "typeVersion" : 1,
-    "layout" : "fixed",
-    "props" : {
-      "title" : "Saldo",
-      "concealable" : true,
-      "concealed" : false,
-      "rows" : [ {
-        "id" : "row_balance",
-        "label" : "Saldo disponível",
-        "valueDisplay" : "R$ 2.450,00",
-        "valueDisplayRevealed" : "R$ 2.450,00",
-        "concealable" : true
-      } ]
     },
-    "actions" : [ {
-      "id" : "act_statement",
-      "type" : "navigate",
-      "label" : "Ver extrato",
-      "payload" : {
-        "route" : "app://account/statement"
+    {
+      "id": "sec_card_visa",
+      "slot": "cards",
+      "type": "card_product",
+      "typeVersion": 1,
+      "layout": "pager",
+      "props": {
+        "brandLabel": "Visa",
+        "last4": "4321",
+        "rows": [
+          {
+            "id": "row_invoice_visa",
+            "label": "Fatura atual",
+            "valueDisplay": "R$ 780,00",
+            "valueDisplayRevealed": "R$ 780,00",
+            "concealable": false
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_card_visa",
+          "type": "navigate",
+          "label": "Ver cartão",
+          "payload": {
+            "route": "app://cards/visa"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "card_product",
+        "componentVersion": 1,
+        "slot": "cards",
+        "sectionId": "sec_card_visa",
+        "specRevisionId": "rev_demo_ios_transactions"
       }
-    } ],
-    "analytics" : {
-      "event" : "sdui_section_shown",
-      "component" : "account_card",
-      "componentVersion" : 1,
-      "slot" : "accounts",
-      "sectionId" : "sec_balance",
-      "specRevisionId" : "rev_demo_ios_transactions"
-    }
-  }, {
-    "id" : "sec_card_visa",
-    "slot" : "cards",
-    "type" : "card_product",
-    "typeVersion" : 1,
-    "layout" : "pager",
-    "props" : {
-      "brandLabel" : "Visa",
-      "last4" : "4321",
-      "rows" : [ {
-        "id" : "row_invoice_visa",
-        "label" : "Fatura atual",
-        "valueDisplay" : "R$ 780,00",
-        "valueDisplayRevealed" : "R$ 780,00",
-        "concealable" : false
-      } ]
     },
-    "actions" : [ {
-      "id" : "act_card_visa",
-      "type" : "navigate",
-      "label" : "Ver cartão",
-      "payload" : {
-        "route" : "app://cards/visa"
+    {
+      "id": "sec_card_master",
+      "slot": "cards",
+      "type": "card_product",
+      "typeVersion": 1,
+      "layout": "pager",
+      "props": {
+        "brandLabel": "Mastercard",
+        "last4": "8765",
+        "rows": [
+          {
+            "id": "row_invoice_master",
+            "label": "Fatura atual",
+            "valueDisplay": "R$ 120,00",
+            "valueDisplayRevealed": "R$ 120,00",
+            "concealable": false
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_card_master",
+          "type": "navigate",
+          "label": "Ver cartão",
+          "payload": {
+            "route": "app://cards/mastercard"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "card_product",
+        "componentVersion": 1,
+        "slot": "cards",
+        "sectionId": "sec_card_master",
+        "specRevisionId": "rev_demo_ios_transactions"
       }
-    } ],
-    "analytics" : {
-      "event" : "sdui_section_shown",
-      "component" : "card_product",
-      "componentVersion" : 1,
-      "slot" : "cards",
-      "sectionId" : "sec_card_visa",
-      "specRevisionId" : "rev_demo_ios_transactions"
-    }
-  }, {
-    "id" : "sec_card_master",
-    "slot" : "cards",
-    "type" : "card_product",
-    "typeVersion" : 1,
-    "layout" : "pager",
-    "props" : {
-      "brandLabel" : "Mastercard",
-      "last4" : "8765",
-      "rows" : [ {
-        "id" : "row_invoice_master",
-        "label" : "Fatura atual",
-        "valueDisplay" : "R$ 120,00",
-        "valueDisplayRevealed" : "R$ 120,00",
-        "concealable" : false
-      } ]
     },
-    "actions" : [ {
-      "id" : "act_card_master",
-      "type" : "navigate",
-      "label" : "Ver cartão",
-      "payload" : {
-        "route" : "app://cards/mastercard"
+    {
+      "id": "sec_shortcuts",
+      "slot": "shortcuts",
+      "type": "shortcut_shelf",
+      "typeVersion": 1,
+      "layout": "grid",
+      "props": {
+        "items": [
+          {
+            "id": "sc_send",
+            "label": "Enviar",
+            "icon": "icon.send",
+            "selected": false,
+            "actionId": "act_send"
+          },
+          {
+            "id": "sc_request",
+            "label": "Cobrar",
+            "icon": "icon.request",
+            "selected": false,
+            "actionId": "act_request"
+          },
+          {
+            "id": "sc_bills",
+            "label": "Pagar contas",
+            "icon": "icon.bills",
+            "selected": false,
+            "actionId": "act_bills"
+          },
+          {
+            "id": "sc_exchange",
+            "label": "Câmbio",
+            "icon": "icon.exchange",
+            "selected": false,
+            "actionId": "act_exchange"
+          }
+        ]
+      },
+      "actions": [
+        {
+          "id": "act_send",
+          "type": "navigate",
+          "label": "Enviar",
+          "payload": {
+            "route": "app://transfer/send"
+          }
+        },
+        {
+          "id": "act_request",
+          "type": "navigate",
+          "label": "Cobrar",
+          "payload": {
+            "route": "app://transfer/request"
+          }
+        },
+        {
+          "id": "act_bills",
+          "type": "navigate",
+          "label": "Pagar contas",
+          "payload": {
+            "route": "app://payments/bills"
+          }
+        },
+        {
+          "id": "act_exchange",
+          "type": "navigate",
+          "label": "Câmbio",
+          "payload": {
+            "route": "app://exchange"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "shortcut_shelf",
+        "componentVersion": 1,
+        "slot": "shortcuts",
+        "sectionId": "sec_shortcuts",
+        "specRevisionId": "rev_demo_ios_transactions"
       }
-    } ],
-    "analytics" : {
-      "event" : "sdui_section_shown",
-      "component" : "card_product",
-      "componentVersion" : 1,
-      "slot" : "cards",
-      "sectionId" : "sec_card_master",
-      "specRevisionId" : "rev_demo_ios_transactions"
-    }
-  }, {
-    "id" : "sec_shortcuts",
-    "slot" : "shortcuts",
-    "type" : "shortcut_shelf",
-    "typeVersion" : 1,
-    "layout" : "grid",
-    "props" : {
-      "items" : [ {
-        "id" : "sc_send",
-        "label" : "Enviar",
-        "icon" : "icon.send",
-        "selected" : false,
-        "actionId" : "act_send"
-      }, {
-        "id" : "sc_request",
-        "label" : "Cobrar",
-        "icon" : "icon.request",
-        "selected" : false,
-        "actionId" : "act_request"
-      }, {
-        "id" : "sc_bills",
-        "label" : "Pagar contas",
-        "icon" : "icon.bills",
-        "selected" : false,
-        "actionId" : "act_bills"
-      }, {
-        "id" : "sc_exchange",
-        "label" : "Câmbio",
-        "icon" : "icon.exchange",
-        "selected" : false,
-        "actionId" : "act_exchange"
-      } ]
     },
-    "actions" : [ {
-      "id" : "act_send",
-      "type" : "navigate",
-      "label" : "Enviar",
-      "payload" : {
-        "route" : "app://transfer/send"
+    {
+      "id": "sec_transactions",
+      "slot": "transactions",
+      "type": "transaction_summary",
+      "typeVersion": 1,
+      "layout": "list",
+      "props": {
+        "title": "Últimas transações",
+        "items": [
+          {
+            "id": "tx_1",
+            "description": "Supermercado",
+            "detail": "Mercado Exemplo · 14 nov",
+            "amountDisplay": "- R$ 75,68",
+            "direction": "debit",
+            "icon": "icon.cart"
+          },
+          {
+            "id": "tx_2",
+            "description": "Assinatura",
+            "detail": "Serviço Exemplo · 13 nov",
+            "amountDisplay": "- R$ 10,99",
+            "direction": "debit",
+            "icon": "icon.subscription"
+          },
+          {
+            "id": "tx_3",
+            "description": "Pix recebido",
+            "detail": "Transferência · 12 nov",
+            "amountDisplay": "+ R$ 65,34",
+            "direction": "credit",
+            "icon": "icon.pix"
+          }
+        ],
+        "viewAllLabel": "Ver extrato",
+        "viewAllActionId": "act_tx_statement",
+        "filterLabel": "Filtrar",
+        "filterActionId": "act_tx_filter"
+      },
+      "actions": [
+        {
+          "id": "act_tx_statement",
+          "type": "navigate",
+          "label": "Ver extrato",
+          "payload": {
+            "route": "app://account/statement"
+          }
+        },
+        {
+          "id": "act_tx_filter",
+          "type": "open_bottom_sheet",
+          "label": "Filtrar",
+          "payload": {
+            "sheet": "sheet_statement_filters"
+          }
+        }
+      ],
+      "analytics": {
+        "event": "sdui_section_shown",
+        "component": "transaction_summary",
+        "componentVersion": 1,
+        "slot": "transactions",
+        "sectionId": "sec_transactions",
+        "specRevisionId": "rev_demo_ios_transactions"
       }
-    }, {
-      "id" : "act_request",
-      "type" : "navigate",
-      "label" : "Cobrar",
-      "payload" : {
-        "route" : "app://transfer/request"
-      }
-    }, {
-      "id" : "act_bills",
-      "type" : "navigate",
-      "label" : "Pagar contas",
-      "payload" : {
-        "route" : "app://payments/bills"
-      }
-    }, {
-      "id" : "act_exchange",
-      "type" : "navigate",
-      "label" : "Câmbio",
-      "payload" : {
-        "route" : "app://exchange"
-      }
-    } ],
-    "analytics" : {
-      "event" : "sdui_section_shown",
-      "component" : "shortcut_shelf",
-      "componentVersion" : 1,
-      "slot" : "shortcuts",
-      "sectionId" : "sec_shortcuts",
-      "specRevisionId" : "rev_demo_ios_transactions"
     }
-  }, {
-    "id" : "sec_transactions",
-    "slot" : "transactions",
-    "type" : "transaction_summary",
-    "typeVersion" : 1,
-    "layout" : "list",
-    "props" : {
-      "title" : "Últimas transações",
-      "items" : [ {
-        "id" : "tx_1",
-        "description" : "Supermercado",
-        "detail" : "Mercado Exemplo · 14 nov",
-        "amountDisplay" : "- R$ 75,68",
-        "direction" : "debit",
-        "icon" : "icon.cart"
-      }, {
-        "id" : "tx_2",
-        "description" : "Assinatura",
-        "detail" : "Serviço Exemplo · 13 nov",
-        "amountDisplay" : "- R$ 10,99",
-        "direction" : "debit",
-        "icon" : "icon.subscription"
-      }, {
-        "id" : "tx_3",
-        "description" : "Pix recebido",
-        "detail" : "Transferência · 12 nov",
-        "amountDisplay" : "+ R$ 65,34",
-        "direction" : "credit",
-        "icon" : "icon.pix"
-      } ],
-      "viewAllLabel" : "Ver extrato",
-      "viewAllActionId" : "act_tx_statement",
-      "filterLabel" : "Filtrar",
-      "filterActionId" : "act_tx_filter"
-    },
-    "actions" : [ {
-      "id" : "act_tx_statement",
-      "type" : "navigate",
-      "label" : "Ver extrato",
-      "payload" : {
-        "route" : "app://account/statement"
-      }
-    }, {
-      "id" : "act_tx_filter",
-      "type" : "open_bottom_sheet",
-      "label" : "Filtrar",
-      "payload" : {
-        "sheet" : "sheet_statement_filters"
-      }
-    } ],
-    "analytics" : {
-      "event" : "sdui_section_shown",
-      "component" : "transaction_summary",
-      "componentVersion" : 1,
-      "slot" : "transactions",
-      "sectionId" : "sec_transactions",
-      "specRevisionId" : "rev_demo_ios_transactions"
-    }
-  } ]
+  ]
 }

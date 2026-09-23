@@ -26,7 +26,8 @@ class SurfaceWebTest(
     @Autowired private val mockMvc: MockMvc,
     @Autowired private val jsonMapper: JsonMapper,
 ) {
-    private val catalogHeaders = CanonicalHeaders.ios() + ("Component-Capabilities" to "catalog_navigation@1,product_collection@1")
+    private val catalogHeaders =
+        CanonicalHeaders.ios() + ("Component-Capabilities" to "catalog_navigation@1,product_collection@1")
 
     @Test
     fun `catalogo responde com envelope proprio, ETag, Vary e revalidacao 304`() {

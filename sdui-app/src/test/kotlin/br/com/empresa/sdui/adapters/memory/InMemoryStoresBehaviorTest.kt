@@ -45,7 +45,8 @@ class InMemoryStoresBehaviorTest {
         store.save(spec("rev_catalog", SpecStatus.PUBLISHED, surface = "catalog"))
 
         assertThat(store.listPublished("home", ClientPlatform.IOS).map { it.specRevisionId }).containsExactly("rev_pub")
-        assertThat(store.listPublished("catalog", ClientPlatform.IOS).map { it.specRevisionId }).containsExactly("rev_catalog")
+        assertThat(
+            store.listPublished("catalog", ClientPlatform.IOS).map { it.specRevisionId }).containsExactly("rev_catalog")
         assertThat(store.findByRevisionId("rev_draft")?.status).isEqualTo(SpecStatus.DRAFT)
 
         // Rascunho regravado com outro specRevisionId sai do indice antigo.
@@ -139,7 +140,11 @@ class InMemoryStoresBehaviorTest {
         val cache = InMemoryHydratedScreenCache(maxEntries = 2)
         val key = "sdui:tree:home:ios:3:rev_a:caps:stable"
         cache.put(key, screen(pointerVersion = 1, revision = "rev_a"), Duration.ofSeconds(60))
-        cache.put("sdui:tree:home:ios:3:rev_b:caps:stable", screen(pointerVersion = 1, revision = "rev_b"), Duration.ofSeconds(60))
+        cache.put(
+            "sdui:tree:home:ios:3:rev_b:caps:stable",
+            screen(pointerVersion = 1, revision = "rev_b"),
+            Duration.ofSeconds(60)
+        )
 
         cache.put(key, screen(pointerVersion = 2, revision = "rev_a"), Duration.ofSeconds(60))
 
@@ -248,7 +253,14 @@ class InMemoryStoresBehaviorTest {
         ),
         targeting = targeting(ClientPlatform.IOS),
         experience = "e",
-        skeleton = Skeleton(MvpCatalog.SKELETON_HOME_DEFAULT, 1, "home", MvpCatalog.SKELETON_LAYOUT, emptyList(), SpecStatus.PUBLISHED),
+        skeleton = Skeleton(
+            MvpCatalog.SKELETON_HOME_DEFAULT,
+            1,
+            "home",
+            MvpCatalog.SKELETON_LAYOUT,
+            emptyList(),
+            SpecStatus.PUBLISHED
+        ),
         sections = emptyList(),
         pointerVersion = pointerVersion,
     )

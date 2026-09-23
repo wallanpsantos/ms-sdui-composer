@@ -27,10 +27,28 @@ class SelectSurfaceAndPropWalkTest {
         val catalog = spec("rev_catalog", Surfaces.CATALOG_ID, priority = 100)
         val homePointer = pointer("rev_home", Surfaces.HOME_ID)
 
-        assertThat(Select.select(homePointer, listOf(home, catalog), context(), caps, Channel.STABLE, Surfaces.CATALOG_ID)?.specRevisionId)
+        assertThat(
+            Select.select(
+                homePointer,
+                listOf(home, catalog),
+                context(),
+                caps,
+                Channel.STABLE,
+                Surfaces.CATALOG_ID
+            )?.specRevisionId
+        )
             .isEqualTo("rev_catalog")
         assertThat(Select.select(null, listOf(catalog), context(), caps, Channel.STABLE, Surfaces.HOME_ID)).isNull()
-        assertThat(Select.pointedIfServes(homePointer, home, context(), caps, Channel.STABLE, Surfaces.CATALOG_ID)).isNull()
+        assertThat(
+            Select.pointedIfServes(
+                homePointer,
+                home,
+                context(),
+                caps,
+                Channel.STABLE,
+                Surfaces.CATALOG_ID
+            )
+        ).isNull()
     }
 
     @Test
@@ -44,13 +62,38 @@ class SelectSurfaceAndPropWalkTest {
         assertThat(shortcut).isNotNull().isEqualTo(full)
 
         // Revisao apontada fora da faixa: o atalho recusa e a selecao completa decide.
-        val outOfRange = pointed.copy(targeting = pointed.targeting.copy(appVersion = VersionRange(SemVer(1, 0, 0), SemVer(1, 0, 1))))
+        val outOfRange = pointed.copy(
+            targeting = pointed.targeting.copy(
+                appVersion = VersionRange(
+                    SemVer(1, 0, 0),
+                    SemVer(1, 0, 1)
+                )
+            )
+        )
         assertThat(Select.pointedIfServes(ptr, outOfRange, context(), caps, Channel.STABLE, Surfaces.HOME_ID)).isNull()
-        assertThat(Select.select(ptr, listOf(outOfRange, better), context(), caps, Channel.STABLE, Surfaces.HOME_ID)?.specRevisionId)
+        assertThat(
+            Select.select(
+                ptr,
+                listOf(outOfRange, better),
+                context(),
+                caps,
+                Channel.STABLE,
+                Surfaces.HOME_ID
+            )?.specRevisionId
+        )
             .isEqualTo("rev_better")
 
         // Rascunho apontado nunca serve.
-        assertThat(Select.pointedIfServes(ptr, pointed.copy(status = SpecStatus.DRAFT), context(), caps, Channel.STABLE, Surfaces.HOME_ID))
+        assertThat(
+            Select.pointedIfServes(
+                ptr,
+                pointed.copy(status = SpecStatus.DRAFT),
+                context(),
+                caps,
+                Channel.STABLE,
+                Surfaces.HOME_ID
+            )
+        )
             .isNull()
     }
 
@@ -63,14 +106,25 @@ class SelectSurfaceAndPropWalkTest {
         assertThat(visited).isEqualTo(1)
 
         var keys = 0
-        assertThat(PropWalk.anyKey(mapOf("sectionId" to "x", "resto" to List(1_000) { mapOf("k$it" to it) })) { keys++; it == "sectionId" })
+        assertThat(
+            PropWalk.anyKey(
+                mapOf(
+                    "sectionId" to "x",
+                    "resto" to List(1_000) { mapOf("k$it" to it) })
+            ) { keys++; it == "sectionId" })
             .isTrue()
         assertThat(keys).isEqualTo(1)
     }
 
     @Test
     fun `referencia a outra section e detectada por texto ou por chave`() {
-        assertThat(PropWalk.referencesForeignSection(mapOf("t" to "ver sec_b"), "sec_a", setOf("sec_a", "sec_b"))).isTrue()
+        assertThat(
+            PropWalk.referencesForeignSection(
+                mapOf("t" to "ver sec_b"),
+                "sec_a",
+                setOf("sec_a", "sec_b")
+            )
+        ).isTrue()
         assertThat(PropWalk.referencesForeignSection(mapOf("position" to 1), "sec_a", setOf("sec_a"))).isTrue()
         assertThat(PropWalk.referencesForeignSection(mapOf("t" to "sec_a"), "sec_a", setOf("sec_a", "sec_b"))).isFalse()
     }

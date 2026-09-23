@@ -1,11 +1,11 @@
 package br.com.empresa.sdui.orchestrator
 
-import br.com.empresa.sdui.adapters.memory.InMemoryGovernance
 import br.com.empresa.sdui.adapters.json.JsonPublicationFingerprint
 import br.com.empresa.sdui.adapters.memory.InMemoryAuditLogStore
 import br.com.empresa.sdui.adapters.memory.InMemoryCacheInvalidationOutbox
 import br.com.empresa.sdui.adapters.memory.InMemoryCatalogStore
 import br.com.empresa.sdui.adapters.memory.InMemoryDiffStore
+import br.com.empresa.sdui.adapters.memory.InMemoryGovernance
 import br.com.empresa.sdui.adapters.memory.InMemoryHydratedScreenCache
 import br.com.empresa.sdui.adapters.memory.InMemoryIdempotencyStore
 import br.com.empresa.sdui.adapters.memory.InMemoryLastGoodScreenStore
@@ -19,15 +19,15 @@ import br.com.empresa.sdui.adapters.memory.RecordingMetrics
 import br.com.empresa.sdui.adapters.seed.HomeSeed
 import br.com.empresa.sdui.core.compat.CapabilityMatrix
 import br.com.empresa.sdui.core.model.Actor
-import br.com.empresa.sdui.core.model.AuditEvent
-import br.com.empresa.sdui.core.model.PublishRequestStatus
 import br.com.empresa.sdui.core.model.ActorRole
+import br.com.empresa.sdui.core.model.AuditEvent
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.ComposedScreen
 import br.com.empresa.sdui.core.model.IdempotencyRecord
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.PublishRequest
+import br.com.empresa.sdui.core.model.PublishRequestStatus
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecStatus
 import br.com.empresa.sdui.orchestrator.admin.CacheInvalidator
@@ -35,20 +35,20 @@ import br.com.empresa.sdui.orchestrator.admin.DraftService
 import br.com.empresa.sdui.orchestrator.admin.PublishService
 import br.com.empresa.sdui.orchestrator.admin.RollbackService
 import br.com.empresa.sdui.orchestrator.port.inbound.AdminConflict
-import br.com.empresa.sdui.orchestrator.port.inbound.AdminNotFound
-import br.com.empresa.sdui.orchestrator.port.inbound.DraftSkeletonCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.AdminIdempotencyMismatch
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminNotFound
 import br.com.empresa.sdui.orchestrator.port.inbound.AdminUnavailable
 import br.com.empresa.sdui.orchestrator.port.inbound.DecidePublishCommand
+import br.com.empresa.sdui.orchestrator.port.inbound.DraftSkeletonCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftSpecCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.OpenPublishCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.RollbackCommand
 import br.com.empresa.sdui.orchestrator.port.outbound.AuditLogStore
-import br.com.empresa.sdui.orchestrator.port.outbound.StoreConflict
-import br.com.empresa.sdui.orchestrator.port.outbound.findFor
 import br.com.empresa.sdui.orchestrator.port.outbound.IdempotencyReservation
 import br.com.empresa.sdui.orchestrator.port.outbound.LastGoodScreenStore
+import br.com.empresa.sdui.orchestrator.port.outbound.StoreConflict
 import br.com.empresa.sdui.orchestrator.port.outbound.StoredScreen
+import br.com.empresa.sdui.orchestrator.port.outbound.findFor
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -308,11 +308,29 @@ class AdminIdempotencyTest {
         val clock = MutableClock(Instant.parse("2026-09-20T12:00:00Z"))
         val store = InMemoryIdempotencyStore(clock, reservationTimeout = Duration.ofMinutes(5))
 
-        assertThat(store.reserve("k", "pointer.rollback", "fp")).isInstanceOf(IdempotencyReservation.Reserved::class.java)
+        assertThat(
+            store.reserve(
+                "k",
+                "pointer.rollback",
+                "fp"
+            )
+        ).isInstanceOf(IdempotencyReservation.Reserved::class.java)
         clock.now = clock.now.plus(Duration.ofMinutes(4))
-        assertThat(store.reserve("k", "pointer.rollback", "fp")).isInstanceOf(IdempotencyReservation.Existing::class.java)
+        assertThat(
+            store.reserve(
+                "k",
+                "pointer.rollback",
+                "fp"
+            )
+        ).isInstanceOf(IdempotencyReservation.Existing::class.java)
         clock.now = clock.now.plus(Duration.ofMinutes(2))
-        assertThat(store.reserve("k", "pointer.rollback", "fp")).isInstanceOf(IdempotencyReservation.Reserved::class.java)
+        assertThat(
+            store.reserve(
+                "k",
+                "pointer.rollback",
+                "fp"
+            )
+        ).isInstanceOf(IdempotencyReservation.Reserved::class.java)
     }
 
     @Test
@@ -327,7 +345,8 @@ class AdminIdempotencyTest {
             gov.publish.open(OpenPublishCommand(maker, segundo.specId, segundo.revision, Channel.STABLE, "open-fp"))
         }.isInstanceOf(AdminIdempotencyMismatch::class.java)
         // A mesma operacao com os mesmos parametros continua sendo replay.
-        val replay = gov.publish.open(OpenPublishCommand(maker, primeiro.specId, primeiro.revision, Channel.STABLE, "open-fp"))
+        val replay =
+            gov.publish.open(OpenPublishCommand(maker, primeiro.specId, primeiro.revision, Channel.STABLE, "open-fp"))
         assertThat(replay.specId).isEqualTo(primeiro.specId)
     }
 
@@ -350,12 +369,30 @@ class AdminIdempotencyTest {
         val gov = Governance()
         val draft = gov.draft("spec_home_ios_outbox")
         val aberto = gov.publish.open(
-            OpenPublishCommand(Actor("maker-1", ActorRole.MAKER), draft.specId, draft.revision, Channel.STABLE, "open-outbox"),
+            OpenPublishCommand(
+                Actor("maker-1", ActorRole.MAKER),
+                draft.specId,
+                draft.revision,
+                Channel.STABLE,
+                "open-outbox"
+            ),
         )
-        gov.publish.approve(DecidePublishCommand(Actor("checker-1", ActorRole.CHECKER), aberto.requestId, "approve-outbox"))
+        gov.publish.approve(
+            DecidePublishCommand(
+                Actor("checker-1", ActorRole.CHECKER),
+                aberto.requestId,
+                "approve-outbox"
+            )
+        )
 
         assertThat(gov.outbox.pending(10)).isEmpty()
-        assertThat(gov.pointerStore.find(MvpCatalog.SURFACE_HOME, ClientPlatform.IOS, Channel.STABLE)?.version).isEqualTo(2)
+        assertThat(
+            gov.pointerStore.find(
+                MvpCatalog.SURFACE_HOME,
+                ClientPlatform.IOS,
+                Channel.STABLE
+            )?.version
+        ).isEqualTo(2)
     }
 
     @Test
@@ -382,18 +419,34 @@ class AdminIdempotencyTest {
         val gov = Governance()
         val draft = gov.draft("spec_review")
         val maker = Actor("maker-1", ActorRole.MAKER)
-        val open = gov.publish.open(OpenPublishCommand(maker, draft.specId, draft.revision, Channel.STABLE, "open-review"))
+        val open =
+            gov.publish.open(OpenPublishCommand(maker, draft.specId, draft.revision, Channel.STABLE, "open-review"))
         gov.drafts.createSpecDraft(DraftSpecCommand(maker, draft.copy(experience = "alterada")))
 
         assertThatThrownBy {
-            gov.publish.approve(DecidePublishCommand(Actor("checker-1", ActorRole.CHECKER), open.requestId, "approve-review"))
+            gov.publish.approve(
+                DecidePublishCommand(
+                    Actor("checker-1", ActorRole.CHECKER),
+                    open.requestId,
+                    "approve-review"
+                )
+            )
         }.isInstanceOf(AdminConflict::class.java).hasMessageContaining("conteudo alterado")
         assertThat(gov.publishStore.find(open.requestId)?.status).isEqualTo(PublishRequestStatus.OPEN)
         assertThat(gov.specStore.findByRevisionId(draft.specRevisionId)?.status).isEqualTo(SpecStatus.DRAFT)
         assertThat(gov.idempotency.find("approve-review")).isNull()
 
-        val reopened = gov.publish.open(OpenPublishCommand(maker, draft.specId, draft.revision, Channel.STABLE, "reopen-review"))
-        assertThat(gov.publish.approve(DecidePublishCommand(Actor("checker-1", ActorRole.CHECKER), reopened.requestId, "approve-new")).status)
+        val reopened =
+            gov.publish.open(OpenPublishCommand(maker, draft.specId, draft.revision, Channel.STABLE, "reopen-review"))
+        assertThat(
+            gov.publish.approve(
+                DecidePublishCommand(
+                    Actor("checker-1", ActorRole.CHECKER),
+                    reopened.requestId,
+                    "approve-new"
+                )
+            ).status
+        )
             .isEqualTo(PublishRequestStatus.APPROVED)
     }
 
@@ -403,16 +456,34 @@ class AdminIdempotencyTest {
         val maker = Actor("maker-1", ActorRole.MAKER)
         val draft = gov.draft("spec_skeleton_review")
         val original = checkNotNull(gov.skeletonStore.findFor(draft))
-        val skeleton = gov.drafts.createSkeletonDraft(DraftSkeletonCommand(maker, original.copy(skeletonId = "home.review", status = SpecStatus.DRAFT)))
+        val skeleton = gov.drafts.createSkeletonDraft(
+            DraftSkeletonCommand(
+                maker,
+                original.copy(skeletonId = "home.review", status = SpecStatus.DRAFT)
+            )
+        )
         val linked = gov.drafts.createSpecDraft(DraftSpecCommand(maker, draft.copy(skeletonId = skeleton.skeletonId)))
-        val open = gov.publish.open(OpenPublishCommand(maker, linked.specId, linked.revision, Channel.STABLE, "open-skeleton"))
+        val open =
+            gov.publish.open(OpenPublishCommand(maker, linked.specId, linked.revision, Channel.STABLE, "open-skeleton"))
         gov.drafts.createSkeletonDraft(DraftSkeletonCommand(maker, skeleton.copy(slots = skeleton.slots.reversed())))
         assertThatThrownBy {
-            gov.publish.approve(DecidePublishCommand(Actor("checker-1", ActorRole.CHECKER), open.requestId, "approve-skeleton"))
+            gov.publish.approve(
+                DecidePublishCommand(
+                    Actor("checker-1", ActorRole.CHECKER),
+                    open.requestId,
+                    "approve-skeleton"
+                )
+            )
         }.isInstanceOf(AdminConflict::class.java)
         gov.publishStore.save(open.copy(reviewedContentHash = null))
         assertThatThrownBy {
-            gov.publish.approve(DecidePublishCommand(Actor("checker-1", ActorRole.CHECKER), open.requestId, "approve-legacy"))
+            gov.publish.approve(
+                DecidePublishCommand(
+                    Actor("checker-1", ActorRole.CHECKER),
+                    open.requestId,
+                    "approve-legacy"
+                )
+            )
         }.isInstanceOf(AdminConflict::class.java)
     }
 
@@ -436,10 +507,24 @@ class AdminIdempotencyTest {
     fun `falha depois das escritas desfaz pedido spec pointer e auditoria em memoria`() {
         val gov = Governance(failAudit = true)
         val draft = gov.draft("spec_tx_failure")
-        val open = gov.publish.open(OpenPublishCommand(Actor("maker-1", ActorRole.MAKER), draft.specId, draft.revision, Channel.STABLE, "open-tx"))
+        val open = gov.publish.open(
+            OpenPublishCommand(
+                Actor("maker-1", ActorRole.MAKER),
+                draft.specId,
+                draft.revision,
+                Channel.STABLE,
+                "open-tx"
+            )
+        )
         val pointer = gov.pointerStore.find("home", ClientPlatform.IOS, Channel.STABLE)
         assertThatThrownBy {
-            gov.publish.approve(DecidePublishCommand(Actor("checker-1", ActorRole.CHECKER), open.requestId, "approve-tx"))
+            gov.publish.approve(
+                DecidePublishCommand(
+                    Actor("checker-1", ActorRole.CHECKER),
+                    open.requestId,
+                    "approve-tx"
+                )
+            )
         }.hasMessage("falha de auditoria injetada")
         assertThat(gov.publishStore.find(open.requestId)?.status).isEqualTo(PublishRequestStatus.OPEN)
         assertThat(gov.specStore.findByRevisionId(draft.specRevisionId)?.status).isEqualTo(SpecStatus.DRAFT)
@@ -464,9 +549,13 @@ class AdminIdempotencyTest {
         assertThat(store.find("lease")).isNotNull()
         assertThatThrownBy {
             InMemoryTransactionalUnitOfWork(state).execute {
-                catalog.save(br.com.empresa.sdui.core.model.Catalog(listOf(
-                    br.com.empresa.sdui.core.model.ComponentType("top_bar", 1, "ACTIVE", "3", emptyList()),
-                )))
+                catalog.save(
+                    br.com.empresa.sdui.core.model.Catalog(
+                        listOf(
+                            br.com.empresa.sdui.core.model.ComponentType("top_bar", 1, "ACTIVE", "3", emptyList()),
+                        )
+                    )
+                )
                 store.complete(IdempotencyRecord("lease", "publish.open", "old", "fp"), old.token)
             }
         }.isInstanceOf(StoreConflict::class.java)
@@ -497,10 +586,12 @@ class AdminIdempotencyTest {
         val start = CountDownLatch(1)
         val candidates = (1..2).map { base.copy(specId = "race", revision = 1, specRevisionId = "race_$it") }
         val results = Executors.newVirtualThreadPerTaskExecutor().use { pool ->
-            val futures = candidates.map { candidate -> pool.submit(Callable {
-                check(start.await(5, TimeUnit.SECONDS))
-                runCatching { gov.specStore.compareAndSet(null, candidate) }
-            }) }
+            val futures = candidates.map { candidate ->
+                pool.submit(Callable {
+                    check(start.await(5, TimeUnit.SECONDS))
+                    runCatching { gov.specStore.compareAndSet(null, candidate) }
+                })
+            }
             start.countDown()
             futures.map { it.get(5, TimeUnit.SECONDS) }
         }

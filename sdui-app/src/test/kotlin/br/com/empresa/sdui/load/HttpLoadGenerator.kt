@@ -1,5 +1,8 @@
 package br.com.empresa.sdui.load
 
+import br.com.empresa.sdui.load.HttpLoadGenerator.CONCURRENCY
+import br.com.empresa.sdui.load.HttpLoadGenerator.DURATION
+import br.com.empresa.sdui.load.HttpLoadGenerator.WARMUP
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -40,8 +43,10 @@ object HttpLoadGenerator {
     )
 
     private val CONCURRENCY: Int = System.getProperty("load.concurrency")?.toIntOrNull() ?: CONCURRENCY_DEFAULT
-    private val WARMUP: Duration = Duration.ofSeconds(System.getProperty("load.warmupSeconds")?.toLongOrNull() ?: WARMUP_DEFAULT)
-    private val DURATION: Duration = Duration.ofSeconds(System.getProperty("load.durationSeconds")?.toLongOrNull() ?: DURATION_DEFAULT)
+    private val WARMUP: Duration =
+        Duration.ofSeconds(System.getProperty("load.warmupSeconds")?.toLongOrNull() ?: WARMUP_DEFAULT)
+    private val DURATION: Duration =
+        Duration.ofSeconds(System.getProperty("load.durationSeconds")?.toLongOrNull() ?: DURATION_DEFAULT)
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -67,8 +72,21 @@ object HttpLoadGenerator {
         fun pct(p: Double) = if (latencies.isEmpty()) 0.0 else latencies[((latencies.size - 1) * p).toInt()]
         println("requisicoes=${latencies.size} throughput=%.0f req/s".format(latencies.size / DURATION.seconds.toDouble()))
         println("status=${sample.statuses}")
-        println("latencia cliente ms: p50=%.2f p95=%.2f p99=%.2f max=%.2f".format(pct(0.50), pct(0.95), pct(0.99), latencies.lastOrNull() ?: 0.0))
-        if (hits + misses > 0) println("hit ratio servidor=%.3f (hits=%.0f misses=%.0f)".format(hits / (hits + misses), hits, misses))
+        println(
+            "latencia cliente ms: p50=%.2f p95=%.2f p99=%.2f max=%.2f".format(
+                pct(0.50),
+                pct(0.95),
+                pct(0.99),
+                latencies.lastOrNull() ?: 0.0
+            )
+        )
+        if (hits + misses > 0) println(
+            "hit ratio servidor=%.3f (hits=%.0f misses=%.0f)".format(
+                hits / (hits + misses),
+                hits,
+                misses
+            )
+        )
     }
 
     private class Sample {

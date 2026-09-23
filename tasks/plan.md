@@ -1,7 +1,8 @@
 # Plano — quatro specs SDUI a partir das referências visuais
 
 Status: **implementado no servidor em 2026-09-23** (branch `feature/melhorias`). Decisões em
-[ADR-020](../docs/memoria-operacional-e-arquitetural.md#adr-020--múltiplas-surfaces-e-contratos-de-componente) (`PROPOSTO`); exemplos em
+[ADR-020](../docs/memoria-operacional-e-arquitetural.md#adr-020--múltiplas-surfaces-e-contratos-de-componente)
+(`PROPOSTO`); exemplos em
 [`docs/examples/screens`](../docs/examples/screens/README.md); checklist com evidências em [todo.md](todo.md).
 Pendente de terceiros: homologação dos contratos novos pelos apps iOS/Android e fixture Android canônica.
 O texto abaixo é o planejamento original, mantido como registro.
@@ -29,12 +30,12 @@ ainda trata partes do ADR-018 como propostas. A entrega inclui corrigir essa div
 Os identificadores abaixo são nomes de trabalho. “Template” significa um conjunto de skeleton,
 spec versionada e exemplo de resposta; não uma nova entidade, CMS por nós ou motor de templates.
 
-| ID de exemplo | Referência | Composição | Evolução necessária |
-|---|---|---|---|
-| `fashion.catalog` | [Moda, tela esquerda](../docs/images/ecommerce-fashion-catalog-detail-cart.jpg) | Saudação, entrada para busca/filtro, categorias e vitrine de produtos | Surface `catalog` e catálogo semântico de comércio |
-| `banking.shortcuts_first` | [Nubank, montagem esquerda](../docs/images/nubank-home-sections-comparison.jpg) | Header, conta, atalhos, cartões, ofertas e seguros | Reutilizar tipos financeiros; mapear blocos sem equivalente explicitamente |
-| `banking.cards_first` | [Nubank, montagem direita](../docs/images/nubank-home-sections-comparison.jpg) | Header, conta, cartões, atalhos em grid, ofertas e seguros | Reutilizar skeleton cards-first e capacidades existentes |
-| `banking.transactions` | [Home bancária](../docs/images/banking-app-home-cards-transactions.jpg) | Header, conta, cartões em pager, atalhos e transações recentes | Novo slot e type semântico de resumo de transações |
+| ID de exemplo             | Referência                                                                      | Composição                                                            | Evolução necessária                                                        |
+|---------------------------|---------------------------------------------------------------------------------|-----------------------------------------------------------------------|----------------------------------------------------------------------------|
+| `fashion.catalog`         | [Moda, tela esquerda](../docs/images/ecommerce-fashion-catalog-detail-cart.jpg) | Saudação, entrada para busca/filtro, categorias e vitrine de produtos | Surface `catalog` e catálogo semântico de comércio                         |
+| `banking.shortcuts_first` | [Nubank, montagem esquerda](../docs/images/nubank-home-sections-comparison.jpg) | Header, conta, atalhos, cartões, ofertas e seguros                    | Reutilizar tipos financeiros; mapear blocos sem equivalente explicitamente |
+| `banking.cards_first`     | [Nubank, montagem direita](../docs/images/nubank-home-sections-comparison.jpg)  | Header, conta, cartões, atalhos em grid, ofertas e seguros            | Reutilizar skeleton cards-first e capacidades existentes                   |
+| `banking.transactions`    | [Home bancária](../docs/images/banking-app-home-cards-transactions.jpg)         | Header, conta, cartões em pager, atalhos e transações recentes        | Novo slot e type semântico de resumo de transações                         |
 
 As duas montagens Nubank são duas specs da mesma surface `home`, não dois endpoints.
 A Home com transações também usa `home`; não fundir saldo e cartão num type genérico para
@@ -46,8 +47,8 @@ sem inventar header `template`, usar canal como tenant ou implementar experiment
 
 - A imagem de moda contém três telas. Nesta entrega, apenas o catálogo vira spec. Detalhe,
   carrinho e checkout permanecem destinos nativos. Busca, filtro, favorito, quantidade, tamanho
-  e compra não ganham execução de negócio no composer. Mapear somente intenções aprovadas
-  (`navigate` ou `open_bottom_sheet`); não introduzir `callApi` nem campos de formulário.
+  e compra não ganham execução de negócio no composer. Mapear somente intenções aprovadas (`navigate` ou
+  `open_bottom_sheet`); não introduzir `callApi` nem campos de formulário.
 - Cor, fonte, espaçamento, dimensões, tema, desenho de cartão e barra de navegação nativa
   não entram no JSON. Layout usa apenas tokens semânticos já aceitos.
 - Produtos não serão representados por `card_product` (cartão financeiro), nem categorias
@@ -82,7 +83,7 @@ sem inventar header `template`, usar canal como tenant ou implementar experiment
    o inclui. Nesta entrega, conteúdo sintético de locale fixo deve ser explícito; se houver
    localização de props, incluir a dimensão no desenho de cache antes de ativá-la.
 
-Registrar ADR(s) novos com o próximo número livre conferido na execução (hoje após ADR-019).
+Registrar ADR (s) novos com o próximo número livre conferido na execução (hoje após ADR-019).
 Não alterar o estado de ADRs antigos para simular aprovação dessas propostas.
 
 ## Entregáveis
@@ -129,14 +130,14 @@ depende dos apps, fora desta entrega de backend.
 
 ## Riscos e decisões pendentes da implementação
 
-| Risco | Tratamento |
-|---|---|
-| Modelo atual muito acoplado a Home | Generalizar por surface com regressões dirigidas, sem catálogo irrestrito |
-| Contrato Android ainda ausente | Manter exemplos como propostas e solicitar validação mobile antes de produção |
+| Risco                                               | Tratamento                                                                                              |
+|-----------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| Modelo atual muito acoplado a Home                  | Generalizar por surface com regressões dirigidas, sem catálogo irrestrito                               |
+| Contrato Android ainda ausente                      | Manter exemplos como propostas e solicitar validação mobile antes de produção                           |
 | Reutilização de cache serve dados de outro contexto | Preservar seleção anterior ao cache e reidratar requisitante também no waiter; fixar política de locale |
-| Transações interpretadas como integração real | Fixtures sintéticas e ação para fluxo nativo; nenhuma consulta a domínio regulado |
-| Novos tipos entregues a versões antigas | Capability explícita e testes negativos de compatibilidade |
-| Imagens confundidas com especificação de negócio | Matriz por bloco, limites de conteúdo e destinos aprovados antes de implementação |
+| Transações interpretadas como integração real       | Fixtures sintéticas e ação para fluxo nativo; nenhuma consulta a domínio regulado                       |
+| Novos tipos entregues a versões antigas             | Capability explícita e testes negativos de compatibilidade                                              |
+| Imagens confundidas com especificação de negócio    | Matriz por bloco, limites de conteúdo e destinos aprovados antes de implementação                       |
 
 Nomes finais de types, routes/sheets nativos e matriz móvel são decisões de contrato a registrar
 na tarefa T01. Não impedem este planejamento, mas não devem ser inferidos como já aprovados.

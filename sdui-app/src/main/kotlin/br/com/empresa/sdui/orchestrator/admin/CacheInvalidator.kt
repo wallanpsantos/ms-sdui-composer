@@ -56,7 +56,7 @@ class CacheInvalidator(
             LOG.log(
                 System.Logger.Level.WARNING,
                 "invalidacao de cache pendente para ${invalidation.surface}:${invalidation.platform.wire()}:" +
-                    "${invalidation.channel.wire()} v${invalidation.pointerVersion}",
+                        "${invalidation.channel.wire()} v${invalidation.pointerVersion}",
                 error,
             )
             false

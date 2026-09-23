@@ -6,7 +6,7 @@ import br.com.empresa.sdui.core.model.SpecStatus
 import br.com.empresa.sdui.orchestrator.port.outbound.PublicationFingerprint
 import tools.jackson.databind.SerializationFeature
 import java.security.MessageDigest
-import java.util.HexFormat
+import java.util.*
 
 /** Canonicaliza mapas; o hash cobre identidade, targeting, props, actions e estrutura revisada. */
 class JsonPublicationFingerprint : PublicationFingerprint {

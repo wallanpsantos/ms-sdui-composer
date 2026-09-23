@@ -33,7 +33,12 @@ class ExampleResponsesContractTest {
     @Test
     fun `ha resposta de exemplo para as quatro composicoes`() {
         assertThat(responses().map { it.parent.name }.toSet())
-            .containsExactlyInAnyOrder("banking.shortcuts_first", "banking.cards_first", "banking.transactions", "fashion.catalog")
+            .containsExactlyInAnyOrder(
+                "banking.shortcuts_first",
+                "banking.cards_first",
+                "banking.transactions",
+                "fashion.catalog"
+            )
     }
 
     @Test

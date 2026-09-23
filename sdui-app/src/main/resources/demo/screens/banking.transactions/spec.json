@@ -12,20 +12,46 @@
   "targeting": {
     "platform": "IOS",
     "appVersion": {
-      "min": {"major": 8, "minor": 10, "patch": 0},
-      "max": {"major": 8, "minor": 19, "patch": 99}
+      "min": {
+        "major": 8,
+        "minor": 10,
+        "patch": 0
+      },
+      "max": {
+        "major": 8,
+        "minor": 19,
+        "patch": 99
+      }
     },
     "osVersion": {
-      "min": {"major": 16, "minor": 0, "patch": 0},
+      "min": {
+        "major": 16,
+        "minor": 0,
+        "patch": 0
+      },
       "max": null
     },
     "schemaVersion": {
-      "min": {"major": 3, "minor": 0, "patch": 0},
-      "max": {"major": 3, "minor": 0, "patch": 0}
+      "min": {
+        "major": 3,
+        "minor": 0,
+        "patch": 0
+      },
+      "max": {
+        "major": 3,
+        "minor": 0,
+        "patch": 0
+      }
     },
     "requiredCapabilities": [
-      {"type": "top_bar", "typeVersion": 1},
-      {"type": "account_card", "typeVersion": 1}
+      {
+        "type": "top_bar",
+        "typeVersion": 1
+      },
+      {
+        "type": "account_card",
+        "typeVersion": 1
+      }
     ],
     "priority": 100,
     "band": "demo"
@@ -43,7 +69,14 @@
         "primaryActionLabel": "Perfil"
       },
       "actions": [
-        {"id": "act_profile", "type": "navigate", "label": "Perfil", "payload": {"route": "app://profile"}}
+        {
+          "id": "act_profile",
+          "type": "navigate",
+          "label": "Perfil",
+          "payload": {
+            "route": "app://profile"
+          }
+        }
       ]
     },
     {
@@ -67,7 +100,14 @@
         ]
       },
       "actions": [
-        {"id": "act_statement", "type": "navigate", "label": "Ver extrato", "payload": {"route": "app://account/statement"}}
+        {
+          "id": "act_statement",
+          "type": "navigate",
+          "label": "Ver extrato",
+          "payload": {
+            "route": "app://account/statement"
+          }
+        }
       ]
     },
     {
@@ -80,11 +120,24 @@
         "brandLabel": "Visa",
         "last4": "4321",
         "rows": [
-          {"id": "row_invoice_visa", "label": "Fatura atual", "valueDisplay": "R$ 780,00", "valueDisplayRevealed": "R$ 780,00", "concealable": false}
+          {
+            "id": "row_invoice_visa",
+            "label": "Fatura atual",
+            "valueDisplay": "R$ 780,00",
+            "valueDisplayRevealed": "R$ 780,00",
+            "concealable": false
+          }
         ]
       },
       "actions": [
-        {"id": "act_card_visa", "type": "navigate", "label": "Ver cartão", "payload": {"route": "app://cards/visa"}}
+        {
+          "id": "act_card_visa",
+          "type": "navigate",
+          "label": "Ver cartão",
+          "payload": {
+            "route": "app://cards/visa"
+          }
+        }
       ]
     },
     {
@@ -97,11 +150,24 @@
         "brandLabel": "Mastercard",
         "last4": "8765",
         "rows": [
-          {"id": "row_invoice_master", "label": "Fatura atual", "valueDisplay": "R$ 120,00", "valueDisplayRevealed": "R$ 120,00", "concealable": false}
+          {
+            "id": "row_invoice_master",
+            "label": "Fatura atual",
+            "valueDisplay": "R$ 120,00",
+            "valueDisplayRevealed": "R$ 120,00",
+            "concealable": false
+          }
         ]
       },
       "actions": [
-        {"id": "act_card_master", "type": "navigate", "label": "Ver cartão", "payload": {"route": "app://cards/mastercard"}}
+        {
+          "id": "act_card_master",
+          "type": "navigate",
+          "label": "Ver cartão",
+          "payload": {
+            "route": "app://cards/mastercard"
+          }
+        }
       ]
     },
     {
@@ -112,17 +178,69 @@
       "layout": "grid",
       "props": {
         "items": [
-          {"id": "sc_send", "label": "Enviar", "icon": "icon.send", "selected": false, "actionId": "act_send"},
-          {"id": "sc_request", "label": "Cobrar", "icon": "icon.request", "selected": false, "actionId": "act_request"},
-          {"id": "sc_bills", "label": "Pagar contas", "icon": "icon.bills", "selected": false, "actionId": "act_bills"},
-          {"id": "sc_exchange", "label": "Câmbio", "icon": "icon.exchange", "selected": false, "actionId": "act_exchange"}
+          {
+            "id": "sc_send",
+            "label": "Enviar",
+            "icon": "icon.send",
+            "selected": false,
+            "actionId": "act_send"
+          },
+          {
+            "id": "sc_request",
+            "label": "Cobrar",
+            "icon": "icon.request",
+            "selected": false,
+            "actionId": "act_request"
+          },
+          {
+            "id": "sc_bills",
+            "label": "Pagar contas",
+            "icon": "icon.bills",
+            "selected": false,
+            "actionId": "act_bills"
+          },
+          {
+            "id": "sc_exchange",
+            "label": "Câmbio",
+            "icon": "icon.exchange",
+            "selected": false,
+            "actionId": "act_exchange"
+          }
         ]
       },
       "actions": [
-        {"id": "act_send", "type": "navigate", "label": "Enviar", "payload": {"route": "app://transfer/send"}},
-        {"id": "act_request", "type": "navigate", "label": "Cobrar", "payload": {"route": "app://transfer/request"}},
-        {"id": "act_bills", "type": "navigate", "label": "Pagar contas", "payload": {"route": "app://payments/bills"}},
-        {"id": "act_exchange", "type": "navigate", "label": "Câmbio", "payload": {"route": "app://exchange"}}
+        {
+          "id": "act_send",
+          "type": "navigate",
+          "label": "Enviar",
+          "payload": {
+            "route": "app://transfer/send"
+          }
+        },
+        {
+          "id": "act_request",
+          "type": "navigate",
+          "label": "Cobrar",
+          "payload": {
+            "route": "app://transfer/request"
+          }
+        },
+        {
+          "id": "act_bills",
+          "type": "navigate",
+          "label": "Pagar contas",
+          "payload": {
+            "route": "app://payments/bills"
+          }
+        },
+        {
+          "id": "act_exchange",
+          "type": "navigate",
+          "label": "Câmbio",
+          "payload": {
+            "route": "app://exchange"
+          }
+        }
       ]
     },
     {
@@ -134,9 +252,30 @@
       "props": {
         "title": "Últimas transações",
         "items": [
-          {"id": "tx_1", "description": "Supermercado", "detail": "Mercado Exemplo · 14 nov", "amountDisplay": "- R$ 75,68", "direction": "debit", "icon": "icon.cart"},
-          {"id": "tx_2", "description": "Assinatura", "detail": "Serviço Exemplo · 13 nov", "amountDisplay": "- R$ 10,99", "direction": "debit", "icon": "icon.subscription"},
-          {"id": "tx_3", "description": "Pix recebido", "detail": "Transferência · 12 nov", "amountDisplay": "+ R$ 65,34", "direction": "credit", "icon": "icon.pix"}
+          {
+            "id": "tx_1",
+            "description": "Supermercado",
+            "detail": "Mercado Exemplo · 14 nov",
+            "amountDisplay": "- R$ 75,68",
+            "direction": "debit",
+            "icon": "icon.cart"
+          },
+          {
+            "id": "tx_2",
+            "description": "Assinatura",
+            "detail": "Serviço Exemplo · 13 nov",
+            "amountDisplay": "- R$ 10,99",
+            "direction": "debit",
+            "icon": "icon.subscription"
+          },
+          {
+            "id": "tx_3",
+            "description": "Pix recebido",
+            "detail": "Transferência · 12 nov",
+            "amountDisplay": "+ R$ 65,34",
+            "direction": "credit",
+            "icon": "icon.pix"
+          }
         ],
         "viewAllLabel": "Ver extrato",
         "viewAllActionId": "act_tx_statement",
@@ -144,8 +283,22 @@
         "filterActionId": "act_tx_filter"
       },
       "actions": [
-        {"id": "act_tx_statement", "type": "navigate", "label": "Ver extrato", "payload": {"route": "app://account/statement"}},
-        {"id": "act_tx_filter", "type": "open_bottom_sheet", "label": "Filtrar", "payload": {"sheet": "sheet_statement_filters"}}
+        {
+          "id": "act_tx_statement",
+          "type": "navigate",
+          "label": "Ver extrato",
+          "payload": {
+            "route": "app://account/statement"
+          }
+        },
+        {
+          "id": "act_tx_filter",
+          "type": "open_bottom_sheet",
+          "label": "Filtrar",
+          "payload": {
+            "sheet": "sheet_statement_filters"
+          }
+        }
       ]
     }
   ],
