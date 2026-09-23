@@ -31,6 +31,9 @@ logging:
       console: ecs
 
 sdui:
+  # Teto antes da desserializacao, inclusive para chunked (ADR-022).
+  admin-max-body-bytes: 1048576
+  admin-max-concurrent-requests: 8
   seed-ios: true
   rate-limit-capacity: 10000
   rate-limit-refill-per-second: 10000

@@ -168,10 +168,12 @@ class InMemoryStoresBehaviorTest {
         assertThat(audit.list().map { it.id }).containsExactly("e3", "e4", "e5")
 
         val outbox = InMemoryCacheInvalidationOutbox(maxPending = 2)
-        (1..3).forEach { outbox.record(invalidation("i$it")) }
+        (1..2).forEach { outbox.record(invalidation("i$it")) }
+        assertThatThrownBy { outbox.record(invalidation("i3")) }.isInstanceOf(StoreConflict::class.java)
+        assertThat(outbox.pending(10).map { it.id }).containsExactly("i1", "i2")
+        outbox.markApplied("i1")
+        outbox.record(invalidation("i3"))
         assertThat(outbox.pending(10).map { it.id }).containsExactly("i2", "i3")
-        outbox.markApplied("i2")
-        assertThat(outbox.pending(10).map { it.id }).containsExactly("i3")
     }
 
     private fun spec(

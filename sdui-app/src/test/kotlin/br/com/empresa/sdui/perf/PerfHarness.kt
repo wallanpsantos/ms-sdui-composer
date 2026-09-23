@@ -264,7 +264,10 @@ private fun m2Idempotency() {
     val clock = MutableClock(Instant.parse("2026-09-23T12:00:00Z"))
     val store = InMemoryIdempotencyStore(clock, ttl = Duration.ofHours(1), maxEntries = 4)
     val first = store.reserve("em-voo", "publish.open", "fp")
-    repeat(3) { store.complete(IdempotencyRecord("fechada-$it", "publish.open", "pr_$it", "fp-$it")) }
+    repeat(3) {
+        val reserved = store.reserve("fechada-$it", "publish.open", "fp-$it") as IdempotencyReservation.Reserved
+        store.complete(IdempotencyRecord("fechada-$it", "publish.open", "pr_$it", "fp-$it"), reserved.token)
+    }
     val newcomer = store.reserve("nova", "publish.open", "fp")
     val preserved = store.find("em-voo") != null
     val retake = store.reserve("em-voo", "publish.open", "fp")

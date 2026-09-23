@@ -4,10 +4,36 @@ Escopo: composição HTTP, negociação, validação, governança, concorrência
 MongoDB e Redis, confrontados com os testes existentes e as restrições do AGENTS.md.
 
 Não foram executados Gradle, builds, testes, cargas, ataques ou chamadas à aplicação. Os cenários
-abaixo são deduzidos dos fluxos do código; não são reproduções executadas. Nenhum código produtivo
-foi alterado. P1 significa correção prioritária por indisponibilidade, segurança ou integridade;
+abaixo são deduzidos dos fluxos do código; não são reproduções executadas. Na etapa de diagnóstico, nenhum código produtivo
+foi alterado. As correções autorizadas posteriormente estão registradas a seguir. P1 significa correção prioritária por indisponibilidade, segurança ou integridade;
 P2 significa erro relevante com condição mais restrita. Não há evidência de uma JVM efetivamente
 encerrada: há caminhos para HTTP 500 e riscos de esgotamento de recursos.
+
+## Aplicação das correções — 2026-09-23
+
+Os 12 achados receberam implementação e fontes de regressão. **Ainda não compilados nem testados
+neste ciclo**; os cenários abaixo preservam o diagnóstico original e suas linhas são referências
+históricas. Decisões e atualização operacional no
+[ADR-022](adr/ADR-022-integridade-da-governanca-e-limites-de-entrada.md).
+
+| Achado | Correção aplicada | Regressão escrita |
+|--------|-------------------|-------------------|
+| R01 | Filtro anterior ao binding: 1 MiB, 8 requisições, ator validado; parser com 50 mil tokens e profundidade 64 | `AdminRequestLimitFilterTest`, `HttpJsonLimitsTest` |
+| R02 | Schema canônico da allowlist, sem fallback de parsing | `SemVerAndNegotiateTest` |
+| R03 | Índice Redis v2 limitado, poda por vencimento e scripts atômicos | `RedisCachesIT` |
+| R04 | Validação de ID na governança e degradação de dado legado inválido | `SpecValidatorTest`, `ComposeResilienceTest` |
+| R05 | Referência exata de skeleton, sem substituição por current | `AdminIdempotencyTest`, `SpecValidatorTest` |
+| R06 | Hash do spec/skeleton revisados, conferido na transação de aprovação | `AdminIdempotencyTest` |
+| R07 | CAS de criação/edição em memória e Mongo; colisão retorna conflito | `AdminIdempotencyTest`, `MongoPersistenceIT` |
+| R08 | Unicidade global de specRevisionId também em memória | `AdminIdempotencyTest` |
+| R09 | Checagem de DRAFT e snapshot transacional em memória com rollback integral | `AdminIdempotencyTest` |
+| R10 | Token exclusivo da reserva exigido por complete/release nos dois adapters | `AdminIdempotencyTest`, `MongoPersistenceIT` |
+| R11 | Amostras nas transições reais da matriz, sem soma vulnerável a overflow | `SpecValidatorTest` |
+| R12 | Last good confere schema e escopo antes de servir | `DefaultFallbackCoordinatorTest` |
+
+A suíte existente foi adaptada às novas assinaturas. Nenhuma dependência foi acrescentada e o
+contrato móvel válido permanece o mesmo. Pendentes: execução autorizada da compilação/suíte,
+regressões com Mongo/Redis reais e homologação operacional; não atribuir o PASS histórico a estas mudanças.
 
 ## R01 — P1: corpo JSON administrativo sem limite antes da desserialização
 

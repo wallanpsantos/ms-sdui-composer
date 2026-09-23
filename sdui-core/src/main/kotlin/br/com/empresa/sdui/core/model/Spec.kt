@@ -117,6 +117,8 @@ data class PublishRequest(
     val status: PublishRequestStatus,
     val checkerId: String? = null,
     val reason: String? = null,
+    /** Ausente em pedidos anteriores ao ADR-022: precisam ser reabertos antes da aprovacao. */
+    val reviewedContentHash: String? = null,
 )
 
 /** Uma diferenca entre duas revisoes, identificada por caminho. */

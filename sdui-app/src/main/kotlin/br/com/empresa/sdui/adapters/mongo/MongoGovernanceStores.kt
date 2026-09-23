@@ -50,16 +50,7 @@ class MongoSpecStore(
 
     override fun save(spec: Spec): Spec {
         val key = "${spec.specId}#${spec.revision}"
-        val document = Document(MongoFields.ID, key)
-            .append("specId", spec.specId)
-            .append("revision", spec.revision)
-            .append("specRevisionId", spec.specRevisionId)
-            .append("surface", spec.surface)
-            .append("platform", spec.platform.name)
-            .append("channel", spec.channel.name)
-            .append("status", spec.status.name)
-            .append(MongoFields.FORMAT, MongoFields.FORMAT_VERSION)
-            .append(MongoFields.JSON, boundedPayload(DomainJson.write(spec), maxDocumentBytes, "spec $key"))
+        val document = documentFor(spec, key)
         try {
             // Upsert condicionado a nao estar publicada: sobre uma PUBLISHED o filtro nao casa, o
             // upsert tenta inserir o mesmo _id e o indice primario recusa.
@@ -71,11 +62,49 @@ class MongoSpecStore(
             )
         } catch (error: MongoWriteException) {
             if (error.isDuplicateKey()) {
-                error("spec PUBLISHED e imutavel ou specRevisionId ja usado: $key")
+                throw StoreConflict("spec PUBLISHED e imutavel ou specRevisionId ja usado: $key")
             }
             throw error
         }
         return spec
+    }
+
+    override fun compareAndSet(expected: Spec?, updated: Spec): Spec {
+        val key = "${updated.specId}#${updated.revision}"
+        if (expected != null && (expected.specId != updated.specId || expected.revision != updated.revision || expected.status == SpecStatus.PUBLISHED)) {
+            throw StoreConflict("revisao PUBLISHED e imutavel ou identidade divergente")
+        }
+        val document = documentFor(updated, key)
+        try {
+            if (expected == null) {
+                specs.insert(sessions, document)
+            } else {
+                val changed = specs.replace(
+                    sessions,
+                    Filters.and(Filters.eq(MongoFields.ID, key), Filters.eq(MongoFields.JSON, DomainJson.write(expected))),
+                    document,
+                    upsert = false,
+                )
+                if (changed.matchedCount == 0L) throw StoreConflict("rascunho mudou desde a leitura")
+            }
+        } catch (error: MongoWriteException) {
+            if (error.isDuplicateKey()) throw StoreConflict("identidade de revisao ja usada")
+            throw error
+        }
+        return updated
+    }
+
+    private fun documentFor(updated: Spec, key: String): Document {
+        return Document(MongoFields.ID, key)
+            .append("specId", updated.specId)
+            .append("revision", updated.revision)
+            .append("specRevisionId", updated.specRevisionId)
+            .append("surface", updated.surface)
+            .append("platform", updated.platform.name)
+            .append("channel", updated.channel.name)
+            .append("status", updated.status.name)
+            .append(MongoFields.FORMAT, MongoFields.FORMAT_VERSION)
+            .append(MongoFields.JSON, boundedPayload(DomainJson.write(updated), maxDocumentBytes, "spec $key"))
     }
 
     override fun findByRevisionId(specRevisionId: String): Spec? =
@@ -119,9 +148,12 @@ class MongoSpecStore(
             limit = page.limit,
         ).map { it.toSpec() }
 
-    override fun nextRevision(specId: String): Int =
-        (specs.firstMatch(sessions, Filters.eq("specId", specId), Sorts.descending("revision"))
-            ?.getInteger("revision") ?: 0) + 1
+    override fun nextRevision(specId: String): Int {
+        val last = specs.firstMatch(sessions, Filters.eq("specId", specId), Sorts.descending("revision"))
+            ?.getInteger("revision") ?: 0
+        if (last == Int.MAX_VALUE) throw StoreConflict("limite de revisoes atingido")
+        return last + 1
+    }
 
     private fun filterOf(platform: ClientPlatform?, channel: Channel?): Bson {
         val filters = listOfNotNull(
@@ -144,13 +176,7 @@ class MongoSkeletonStore(
 
     override fun save(skeleton: Skeleton): Skeleton {
         val key = "${skeleton.skeletonId}#${skeleton.revision}"
-        val document = Document(MongoFields.ID, key)
-            .append("skeletonId", skeleton.skeletonId)
-            .append("revision", skeleton.revision)
-            .append("surface", skeleton.surface)
-            .append("status", skeleton.status.name)
-            .append(MongoFields.FORMAT, MongoFields.FORMAT_VERSION)
-            .append(MongoFields.JSON, boundedPayload(DomainJson.write(skeleton), maxDocumentBytes, "skeleton $key"))
+        val document = documentFor(skeleton, key)
         try {
             skeletons.replace(
                 sessions,
@@ -159,10 +185,45 @@ class MongoSkeletonStore(
                 upsert = true,
             )
         } catch (error: MongoWriteException) {
-            if (error.isDuplicateKey()) error("skeleton PUBLISHED e imutavel: $key")
+            if (error.isDuplicateKey()) throw StoreConflict("skeleton PUBLISHED e imutavel: $key")
             throw error
         }
         return skeleton
+    }
+
+    override fun compareAndSet(expected: Skeleton?, updated: Skeleton): Skeleton {
+        val key = "${updated.skeletonId}#${updated.revision}"
+        if (expected != null && (expected.skeletonId != updated.skeletonId || expected.revision != updated.revision || expected.status == SpecStatus.PUBLISHED)) {
+            throw StoreConflict("revisao PUBLISHED e imutavel ou identidade divergente")
+        }
+        val document = documentFor(updated, key)
+        try {
+            if (expected == null) {
+                skeletons.insert(sessions, document)
+            } else {
+                val changed = skeletons.replace(
+                    sessions,
+                    Filters.and(Filters.eq(MongoFields.ID, key), Filters.eq(MongoFields.JSON, DomainJson.write(expected))),
+                    document,
+                    upsert = false,
+                )
+                if (changed.matchedCount == 0L) throw StoreConflict("rascunho mudou desde a leitura")
+            }
+        } catch (error: MongoWriteException) {
+            if (error.isDuplicateKey()) throw StoreConflict("identidade de revisao ja usada")
+            throw error
+        }
+        return updated
+    }
+
+    private fun documentFor(updated: Skeleton, key: String): Document {
+        return Document(MongoFields.ID, key)
+            .append("skeletonId", updated.skeletonId)
+            .append("revision", updated.revision)
+            .append("surface", updated.surface)
+            .append("status", updated.status.name)
+            .append(MongoFields.FORMAT, MongoFields.FORMAT_VERSION)
+            .append(MongoFields.JSON, boundedPayload(DomainJson.write(updated), maxDocumentBytes, "skeleton $key"))
     }
 
     override fun find(skeletonId: String, revision: Int?): Skeleton? {

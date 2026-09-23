@@ -17,7 +17,7 @@ data class SduiProperties(
     /** Teto de buckets residentes no limitador; acima dele os ociosos e os cheios sao descartados. */
     val rateLimitMaxKeys: Int = 100_000,
     val treeTtlSeconds: Long = 60,
-    /** Teto de arvores no cache de composicao em memoria. */
+    /** Teto global em memoria; no Redis, teto por surface, plataforma e canal. */
     val treeCacheMaxEntries: Int = 10_000,
     val hydrationTimeoutMs: Long = 80,
     val hydrationFanout: Int = 8,

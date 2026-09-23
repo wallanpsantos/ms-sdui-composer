@@ -76,4 +76,17 @@ class SemVerAndNegotiateTest {
         )
         assertThat(Negotiate.negotiate(headers)).isInstanceOf(ContextValidation.Invalid::class.java)
     }
+
+    @Test
+    fun `somente schema canonico suportado chega ao contexto e cache`() {
+        val base = NegotiateHeaders("3", "ios", "8.14.2", "81420", "pt-BR", "1", "18.1", null)
+        for (schema in listOf("2", "4", "03", "2147483648", "9999999999")) {
+            assertThat(Negotiate.negotiate(base.copy(uiSchemaVersion = schema)))
+                .isInstanceOf(ContextValidation.Invalid::class.java)
+        }
+        val valid = Negotiate.negotiate(base) as ContextValidation.Valid
+        assertThat(valid.context.parsedSchemaVersion).isEqualTo(SemVer(3, 0, 0))
+        assertThat(valid.context.copy(schemaVersion = "4").parsedSchemaVersion).isEqualTo(SemVer(4, 0, 0))
+    }
+
 }

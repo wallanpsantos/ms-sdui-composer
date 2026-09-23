@@ -48,6 +48,8 @@ fun <T> List<T>.page(page: PageRequest): List<T> =
 /** Persistencia de specs. Uma revisao PUBLISHED e imutavel — a implementacao deve recusar sobrescrita. */
 interface SpecStore {
     fun save(spec: Spec): Spec
+    /** Cria se expected for null; caso contrario substitui somente o conteudo observado. */
+    fun compareAndSet(expected: Spec?, updated: Spec): Spec
     fun findByRevisionId(specRevisionId: String): Spec?
     fun findBySpecIdAndRevision(specId: String, revision: Int): Spec?
     fun listBySpecId(specId: String): List<Spec>
@@ -74,13 +76,19 @@ interface SpecStore {
 /** Persistencia de skeletons, versionados independentemente dos specs. */
 interface SkeletonStore {
     fun save(skeleton: Skeleton): Skeleton
+    fun compareAndSet(expected: Skeleton?, updated: Skeleton): Skeleton
     fun find(skeletonId: String, revision: Int? = null): Skeleton?
     fun current(skeletonId: String): Skeleton?
 }
 
-/** O skeleton na revisao que o spec referencia, ou o vigente quando aquela revisao nao existe. */
+/** Referencia versionada exige a revisao exata; rascunho corrente nunca e substituto. */
 fun SkeletonStore.findFor(spec: Spec): Skeleton? =
-    find(spec.skeletonId, spec.skeletonRevision) ?: current(spec.skeletonId)
+    find(spec.skeletonId, spec.skeletonRevision)
+
+/** Digest calculado pelo servidor do spec e skeleton apresentados ao checker. */
+fun interface PublicationFingerprint {
+    fun of(spec: Spec, skeleton: Skeleton): String
+}
 
 /** O catalogo de componentes vigente. Guardado inteiro, porque so faz sentido validado como conjunto. */
 interface CatalogStore {
@@ -135,7 +143,7 @@ interface AuditLogStore {
 /** Resultado de tentar tomar uma chave de idempotencia. */
 sealed interface IdempotencyReservation {
     /** Esta chamada tomou a chave e deve executar a operacao. */
-    data object Reserved : IdempotencyReservation
+    data class Reserved(val token: String) : IdempotencyReservation
 
     /** Ja ha registro vivo: em voo ([IdempotencyRecord.resultRef] nulo) ou com resultado. */
     data class Existing(val record: IdempotencyRecord) : IdempotencyReservation
@@ -169,11 +177,11 @@ interface IdempotencyStore {
     /** Tenta tomar a chave para [operation] com os parametros resumidos em [fingerprint]. */
     fun reserve(key: String, operation: String, fingerprint: String): IdempotencyReservation
 
-    /** Fecha a reserva com o resultado. Vai no mesmo commit do efeito que ela protege. */
-    fun complete(record: IdempotencyRecord)
+    /** Fecha somente a reserva vigente deste token. Vai no mesmo commit do efeito que ela protege. */
+    fun complete(record: IdempotencyRecord, token: String)
 
-    /** Devolve a chave ao pool. So tem efeito sobre reserva em voo, nunca sobre resultado ja fechado. */
-    fun release(key: String)
+    /** Devolve somente a reserva em voo deste token; nunca remove resultado ou reserva de outro dono. */
+    fun release(key: String, token: String)
 }
 
 /**

@@ -7,6 +7,7 @@ import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.ContextValidation
 import br.com.empresa.sdui.core.model.ContextViolation
 import br.com.empresa.sdui.core.model.NegotiateHeaders
+import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.SemVer
 
 /**
@@ -35,6 +36,8 @@ object Negotiate {
         val schema = requireHeader("UI-Schema-Version", headers.uiSchemaVersion)
         if (schema != null && !SCHEMA.matches(schema)) {
             violations += ContextViolation("UI-Schema-Version", "invalid")
+        } else if (schema != null && schema !in MvpCatalog.SUPPORTED_SCHEMA_VERSIONS) {
+            violations += ContextViolation("UI-Schema-Version", "unsupported")
         }
 
         val platformRaw = requireHeader("Client-Platform", headers.clientPlatform)

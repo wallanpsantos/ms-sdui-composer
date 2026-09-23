@@ -6,6 +6,7 @@ import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.ComponentContracts
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.SemVer
+import br.com.empresa.sdui.core.model.VersionRange
 
 /**
  * O que o servidor assume que cada faixa de app sabe renderizar, mais o que o cliente declara.
@@ -49,6 +50,22 @@ class CapabilityMatrix(
         return platformMap[appVersion.majorMinor]
             ?: platformMap["*"]
             ?: fallbackAll
+    }
+
+    /** Pontas e transicoes reais da matriz, sem fabricar minor + 50 e arriscar overflow. */
+    fun versionSamples(platform: ClientPlatform, range: VersionRange): Set<SemVer> = buildSet {
+        add(range.min)
+        range.max?.let { add(it) }
+        for (key in indexed[platform].orEmpty().keys) {
+            val start = SemVer.parse(key) ?: continue
+            if (range.contains(start)) add(start)
+            val next = when {
+                start.minor < Int.MAX_VALUE -> SemVer(start.major, start.minor + 1, 0)
+                start.major < Int.MAX_VALUE -> SemVer(start.major + 1, 0, 0)
+                else -> null
+            }
+            if (next != null && range.contains(next)) add(next)
+        }
     }
 
     companion object {

@@ -17,6 +17,7 @@ import br.com.empresa.sdui.core.model.ContextValidation
 import br.com.empresa.sdui.core.model.ETagFactory
 import br.com.empresa.sdui.core.model.FallbackReason
 import br.com.empresa.sdui.core.model.RedisKeys
+import br.com.empresa.sdui.core.model.RevisionIds
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecStatus
 import br.com.empresa.sdui.core.model.SurfaceDefinition
@@ -148,7 +149,7 @@ class ComposeScreenService(
             return fallbackCoordinator.fallbackOrUnavailable(surface, context, channel, FallbackReason.REDIS_UNAVAILABLE, tags)
         }
         val selected = selection.spec
-        if (selected == null) {
+        if (selected == null || !RevisionIds.isValid(selected.specRevisionId)) {
             metrics.increment(MetricNames.SELECT_NO_CANDIDATE, tags)
             return fallbackCoordinator.fallbackOrUnavailable(surface, context, channel, FallbackReason.NO_COMPATIBLE_SPEC, tags)
         }

@@ -1,6 +1,7 @@
 package br.com.empresa.sdui.adapters.json
 
 import br.com.empresa.sdui.core.model.Capability
+import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.Section
 import br.com.empresa.sdui.core.model.SemVer
 import br.com.empresa.sdui.core.model.Skeleton
@@ -35,6 +36,7 @@ object DomainJson {
         .addMixIn(Section::class.java, SectionMixin::class.java)
         .addMixIn(Skeleton::class.java, SkeletonMixin::class.java)
         .addMixIn(SemVer::class.java, SemVerMixin::class.java)
+        .addMixIn(ClientContext::class.java, ClientContextMixin::class.java)
         .build()
 
     fun <T : Any> write(value: T): String = mapper.writeValueAsString(value)
@@ -64,5 +66,10 @@ object DomainJson {
 
         @get:JsonIgnore
         abstract val majorMinor: String
+    }
+
+    private abstract class ClientContextMixin {
+        @get:JsonIgnore
+        abstract val parsedSchemaVersion: SemVer
     }
 }

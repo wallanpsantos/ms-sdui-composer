@@ -70,19 +70,20 @@ internal class CacheOperationTimer(private val metrics: MetricsRecorder) {
 }
 
 /**
- * Cache de arvore no Redis.
- *
- * A chave inclui a revisao do spec, entao uma entrada antiga nunca e lida por quem selecionou
- * outra revisao; a invalidacao por surface, plataforma e canal e higiene de memoria. Para ela nao
- * depender de SCAN, cada gravacao registra a chave num conjunto do escopo, com validade maior que
- * a das arvores; invalidar e apagar as chaves do conjunto e o proprio conjunto.
+ * Cache de arvore com indice limitado por escopo. O score do ZSET e o vencimento da arvore.
+ * Insercao, poda de membros vencidos e invalidacao sao atomicas no Redis (ADR-022).
  */
 class RedisHydratedScreenCache(
     private val redis: RedisTemplate<String, ByteArray>,
     private val maxEntryBytes: Int,
     metrics: MetricsRecorder,
+    private val maxEntries: Int = 10_000,
 ) : HydratedScreenCache {
     private val timer = CacheOperationTimer(metrics)
+
+    init {
+        require(maxEntries > 0)
+    }
 
     override fun get(treeKey: String): ComposedScreen? {
         check(!RedisKeys.containsUserId(treeKey))
@@ -92,35 +93,65 @@ class RedisHydratedScreenCache(
 
     override fun put(treeKey: String, screen: ComposedScreen, ttl: Duration) {
         check(!RedisKeys.containsUserId(treeKey))
+        require(ttl.toMillis() > 0)
         val bytes = RedisCacheCodec.encodeScreen(screen)
         if (bytes.size > maxEntryBytes) {
             timer.skipped(CACHE)
             return
         }
-        val index = indexKey(screen.surface, screen.platform, screen.channel)
-        timer.time(CACHE, "put") {
-            redis.opsForValue().set(treeKey, bytes, ttl)
-            redis.opsForSet().add(index, treeKey.toByteArray(Charsets.UTF_8))
-            redis.expire(index, ttl.multipliedBy(INDEX_TTL_FACTOR))
+        val admitted = timer.time(CACHE, "put") {
+            redis.execute(
+                PUT_SCRIPT,
+                listOf(treeKey, indexKey(screen.surface, screen.platform, screen.channel)),
+                bytes,
+                ttl.toMillis().toString().toByteArray(),
+                maxEntries.toString().toByteArray(),
+            )
         }
+        if (admitted != 1L) timer.skipped(CACHE)
     }
 
     override fun invalidate(surface: String, platform: ClientPlatform, channel: Channel) {
-        val index = indexKey(surface, platform, channel)
         timer.time(CACHE, "invalidate") {
-            val members = redis.opsForSet().members(index).orEmpty()
-            val keys = members.map { String(it, Charsets.UTF_8) }
-            if (keys.isNotEmpty()) redis.delete(keys)
-            redis.delete(index)
+            redis.execute(INVALIDATE_SCRIPT, listOf(indexKey(surface, platform, channel)))
         }
     }
 
     private fun indexKey(surface: String, platform: ClientPlatform, channel: Channel): String =
-        "sdui:treeidx:$surface:${platform.wire()}:${channel.wire()}"
+        "sdui:treeidx:v2:$surface:${platform.wire()}:${channel.wire()}"
 
     private companion object {
         const val CACHE: String = "tree"
-        const val INDEX_TTL_FACTOR: Long = 2
+
+        /** ARGV: payload, ttl em ms, teto. TIME evita divergencia de relogio entre instancias. */
+        val PUT_SCRIPT: DefaultRedisScript<Long> = DefaultRedisScript(
+            """
+            local time = redis.call('TIME')
+            local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+            local ttl = tonumber(ARGV[2])
+            redis.call('ZREMRANGEBYSCORE', KEYS[2], '-inf', now)
+            if not redis.call('ZSCORE', KEYS[2], KEYS[1]) and redis.call('ZCARD', KEYS[2]) >= tonumber(ARGV[3]) then
+                return 0
+            end
+            redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2])
+            redis.call('ZADD', KEYS[2], now + ttl, KEYS[1])
+            local last = redis.call('ZREVRANGE', KEYS[2], 0, 0, 'WITHSCORES')
+            redis.call('PEXPIRE', KEYS[2], math.ceil(tonumber(last[2]) - now + ttl))
+            return 1
+            """.trimIndent(),
+            Long::class.javaObjectType,
+        )
+
+        /** O indice tem teto: nenhuma lista de chaves e transferida para o heap da aplicacao. */
+        val INVALIDATE_SCRIPT: DefaultRedisScript<Long> = DefaultRedisScript(
+            """
+            local keys = redis.call('ZRANGE', KEYS[1], 0, -1)
+            for _, key in ipairs(keys) do redis.call('DEL', key) end
+            redis.call('DEL', KEYS[1])
+            return #keys
+            """.trimIndent(),
+            Long::class.javaObjectType,
+        )
     }
 }
 

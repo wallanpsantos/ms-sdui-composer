@@ -1,5 +1,7 @@
 package br.com.empresa.sdui.examples
 
+import br.com.empresa.sdui.adapters.memory.InMemoryGovernance
+import br.com.empresa.sdui.adapters.json.JsonPublicationFingerprint
 import br.com.empresa.sdui.adapters.memory.InMemoryAuditLogStore
 import br.com.empresa.sdui.adapters.memory.InMemoryCacheInvalidationOutbox
 import br.com.empresa.sdui.adapters.memory.InMemoryCatalogStore
@@ -71,24 +73,25 @@ class ScreenExamplesTest {
 
     private inner class Demo {
         val clock: Clock = Clock.fixed(Instant.parse("2026-09-23T12:00:00Z"), ZoneOffset.UTC)
-        val specStore = InMemorySpecStore()
-        val skeletonStore = InMemorySkeletonStore()
-        val catalogStore = InMemoryCatalogStore()
-        val pointerStore = InMemoryPointerStore()
+        private val governance = InMemoryGovernance()
+        val specStore = InMemorySpecStore(governance)
+        val skeletonStore = InMemorySkeletonStore(governance)
+        val catalogStore = InMemoryCatalogStore(governance)
+        val pointerStore = InMemoryPointerStore(governance)
         val metrics = RecordingMetrics()
         private val specCache = InMemorySpecCache()
         private val treeCache = InMemoryHydratedScreenCache()
         private val lastGood = InMemoryLastGoodScreenStore(clock)
-        private val outbox = InMemoryCacheInvalidationOutbox()
+        private val outbox = InMemoryCacheInvalidationOutbox(governance = governance)
         private val invalidator = CacheInvalidator(specCache, treeCache, lastGood, outbox, metrics)
-        private val tx = InMemoryTransactionalUnitOfWork()
-        private val idempotency = InMemoryIdempotencyStore(clock)
+        private val tx = InMemoryTransactionalUnitOfWork(governance)
+        private val idempotency = InMemoryIdempotencyStore(clock, governance = governance)
         private val matrix = CapabilityMatrix()
-        private val audit = InMemoryAuditLogStore()
+        private val audit = InMemoryAuditLogStore(governance = governance)
         private val drafts = DraftService(specStore, skeletonStore, catalogStore, matrix)
         private val publish = PublishService(
-            specStore, skeletonStore, catalogStore, pointerStore, InMemoryPublishRequestStore(), InMemoryDiffStore(),
-            audit, idempotency, specCache, outbox, invalidator, tx, matrix, clock,
+            specStore, skeletonStore, catalogStore, pointerStore, InMemoryPublishRequestStore(governance), InMemoryDiffStore(governance),
+            audit, idempotency, specCache, outbox, invalidator, tx, matrix, clock, JsonPublicationFingerprint(),
         )
         val rollback = RollbackService(pointerStore, specStore, audit, idempotency, specCache, outbox, invalidator, tx, clock)
         val loader = DemoScreensLoader(drafts, publish, specStore, skeletonStore, catalogStore)
