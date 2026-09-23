@@ -8,6 +8,7 @@ import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.ComposedScreen
 import br.com.empresa.sdui.core.model.FallbackReason
 import br.com.empresa.sdui.core.model.SurfaceDefinition
+import br.com.empresa.sdui.orchestrator.port.inbound.ComposeResult
 import br.com.empresa.sdui.orchestrator.port.outbound.LastGoodScreenStore
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricNames
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder

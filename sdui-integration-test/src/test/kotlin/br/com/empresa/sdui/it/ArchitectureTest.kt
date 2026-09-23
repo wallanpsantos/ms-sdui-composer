@@ -1,37 +1,49 @@
 package br.com.empresa.sdui.it
 
+import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
-import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods
+import com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.SpringBootApplication
 
 class ArchitectureTest {
 
-    private val importedClasses = ClassFileImporter()
-        .withImportOption(ImportOption.DoNotIncludeTests())
-        .importPackages("br.com.empresa.sdui")
+    companion object {
+        /** Importado uma vez: o JUnit cria uma instancia por metodo, e o import varre o classpath. */
+        private val importedClasses: JavaClasses = ClassFileImporter()
+            .withImportOption(ImportOption.DoNotIncludeTests())
+            .importPackages("br.com.empresa.sdui")
+
+        /** O que o bytecode Kotlin referencia por conta propria: JDK, stdlib e as anotacoes de nulidade. */
+        private val JDK_E_STDLIB = arrayOf("java..", "kotlin..", "org.jetbrains.annotations..")
+
+        private const val HYDRATOR = "br.com.empresa.sdui.orchestrator.hydration.SectionHydrator"
+    }
 
     @Test
-    fun `core nao depende de frameworks, jackson nem de outras camadas`() {
-        noClasses().that().resideInAPackage("..sdui.core..")
-            .should().dependOnClassesThat().resideInAnyPackage(
-                "org.springframework..", "org.mongodb..", "com.mongodb..", "io.lettuce..",
-                "jakarta.servlet..", "tools.jackson..", "com.fasterxml.jackson..",
-                "..sdui.contract..", "..sdui.orchestrator..", "..sdui.adapters..", "..sdui.api..",
-            )
+    fun `core depende apenas de JDK e stdlib Kotlin`() {
+        classes().that().resideInAPackage("..sdui.core..")
+            .should().onlyDependOnClassesThat().resideInAnyPackage(*JDK_E_STDLIB, "..sdui.core..")
             .check(importedClasses)
     }
 
     @Test
-    fun `orchestrator nao depende de spring, jackson, contrato nem bordas`() {
-        noClasses().that().resideInAPackage("..sdui.orchestrator..")
+    fun `orchestrator depende apenas de JDK, stdlib Kotlin e core`() {
+        classes().that().resideInAPackage("..sdui.orchestrator..")
+            .should().onlyDependOnClassesThat()
+            .resideInAnyPackage(*JDK_E_STDLIB, "..sdui.core..", "..sdui.orchestrator..")
+            .check(importedClasses)
+    }
+
+    @Test
+    fun `contract nao depende de core, frameworks nem de outras camadas`() {
+        noClasses().that().resideInAPackage("..sdui.contract..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                "org.springframework..", "jakarta.servlet..", "tools.jackson..", "com.fasterxml.jackson..",
-                "com.mongodb..", "org.bson..", "io.lettuce..", "io.micrometer..",
-                "..sdui.contract..", "..sdui.adapters..", "..sdui.api..",
+                "..sdui.core..", "org.springframework..", "jakarta.servlet..",
+                "..sdui.adapters..", "..sdui.api..", "..sdui.orchestrator..",
             )
             .check(importedClasses)
     }
@@ -51,32 +63,40 @@ class ArchitectureTest {
     }
 
     @Test
-    fun `nenhuma classe de producao declara Transactional`() {
-        noMethods().that().areDeclaredInClassesThat().resideInAnyPackage("br.com.empresa.sdui..")
-            .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
-            .check(importedClasses)
-        noClasses().that().resideInAnyPackage("br.com.empresa.sdui..")
-            .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
+    fun `pacotes de producao sao livres de ciclos`() {
+        slices().matching("br.com.empresa.sdui.(**)")
+            .should().beFreeOfCycles()
             .check(importedClasses)
     }
 
     @Test
-    fun `core e orchestrator nao referenciam ComposeTraceContext nem spring transaction`() {
-        noClasses().that().resideInAnyPackage("..sdui.core..", "..sdui.orchestrator..")
-            .should().dependOnClassesThat().resideInAnyPackage(
-                "..sdui.api.trace..",
-                "org.springframework.transaction..",
-            )
+    fun `adapters de mongo e redis nao dependem um do outro`() {
+        noClasses().that().resideInAPackage("..sdui.adapters.mongo..")
+            .should().dependOnClassesThat().resideInAPackage("..sdui.adapters.redis..")
+            .check(importedClasses)
+        noClasses().that().resideInAPackage("..sdui.adapters.redis..")
+            .should().dependOnClassesThat().resideInAPackage("..sdui.adapters.mongo..")
             .check(importedClasses)
     }
 
     @Test
-    fun `contract nao depende de core, frameworks nem de outras camadas`() {
-        noClasses().that().resideInAPackage("..sdui.contract..")
-            .should().dependOnClassesThat().resideInAnyPackage(
-                "..sdui.core..", "org.springframework..", "jakarta.servlet..",
-                "..sdui.adapters..", "..sdui.api..", "..sdui.orchestrator..",
-            )
+    fun `SectionHydrator reside em hydration e suas implementacoes em hydration ou adapters`() {
+        classes().that().haveSimpleName("SectionHydrator")
+            .should().haveFullyQualifiedName(HYDRATOR)
+            .check(importedClasses)
+        classes().that().implement(HYDRATOR)
+            .should().resideInAnyPackage("..sdui.orchestrator.hydration..", "..sdui.adapters..")
+            .check(importedClasses)
+    }
+
+    @Test
+    fun `controllers somente em api`() {
+        classes().that().areAnnotatedWith("org.springframework.web.bind.annotation.RestController")
+            .or().areAnnotatedWith("org.springframework.stereotype.Controller")
+            .or().areAnnotatedWith("org.springframework.web.bind.annotation.RestControllerAdvice")
+            .or().areAnnotatedWith("org.springframework.web.bind.annotation.ControllerAdvice")
+            .or().haveSimpleNameEndingWith("Controller")
+            .should().resideInAPackage("..sdui.api..")
             .check(importedClasses)
     }
 
@@ -87,20 +107,19 @@ class ArchitectureTest {
             .check(importedClasses)
     }
 
+    /** Cobre `@Transactional` (Spring e Jakarta) e `TransactionTemplate`: a transacao e a porta `TransactionalUnitOfWork`. */
     @Test
-    fun `nenhuma classe de producao depende de coroutines`() {
+    fun `nenhuma classe de producao usa transacao do Spring ou do Jakarta`() {
         noClasses()
-            .should().dependOnClassesThat().resideInAnyPackage("kotlinx.coroutines..")
+            .should().dependOnClassesThat().resideInAnyPackage("org.springframework.transaction..", "jakarta.transaction..")
             .check(importedClasses)
     }
 
+    /** `suspend fun` compila com `kotlin.coroutines.Continuation`, da stdlib, sem tocar em `kotlinx.coroutines`. */
     @Test
-    fun `compose nao declara Transactional`() {
-        noMethods().that().areDeclaredInClassesThat().haveSimpleName("ComposeScreenService")
-            .should().beAnnotatedWith("org.springframework.transaction.annotation.Transactional")
-            .check(importedClasses)
-        noClasses().that().haveSimpleName("ComposeScreenService")
-            .should().dependOnClassesThat().resideInAnyPackage("org.springframework.transaction..")
+    fun `nenhuma classe de producao usa coroutines nem suspend fun`() {
+        noClasses()
+            .should().dependOnClassesThat().resideInAnyPackage("kotlinx.coroutines..", "kotlin.coroutines..")
             .check(importedClasses)
     }
 
@@ -120,13 +139,6 @@ class ArchitectureTest {
     fun `drivers de persistencia ficam confinados aos adapters`() {
         noClasses().that().resideOutsideOfPackages("..sdui.adapters..")
             .should().dependOnClassesThat().resideInAnyPackage("com.mongodb..", "org.bson..", "io.lettuce..", "org.springframework.data..")
-            .check(importedClasses)
-    }
-
-    @Test
-    fun `api resolve surface pela allowlist do core, sem depender de persistencia`() {
-        noClasses().that().resideInAPackage("..sdui.api..")
-            .should().dependOnClassesThat().resideInAnyPackage("com.mongodb..", "io.lettuce..", "org.springframework.data..")
             .check(importedClasses)
     }
 }

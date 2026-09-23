@@ -22,7 +22,10 @@ import br.com.empresa.sdui.core.model.SpecStatus
 import br.com.empresa.sdui.core.model.SurfaceDefinition
 import br.com.empresa.sdui.core.negotiate.Negotiate
 import br.com.empresa.sdui.core.select.Select
+import br.com.empresa.sdui.orchestrator.hydration.HydrationContext
 import br.com.empresa.sdui.orchestrator.hydration.HydrationCoordinator
+import br.com.empresa.sdui.orchestrator.port.inbound.ComposeRequest
+import br.com.empresa.sdui.orchestrator.port.inbound.ComposeResult
 import br.com.empresa.sdui.orchestrator.port.inbound.ComposeScreenUseCase
 import br.com.empresa.sdui.orchestrator.port.outbound.CanaryPolicy
 import br.com.empresa.sdui.orchestrator.port.outbound.ComposeSingleflight

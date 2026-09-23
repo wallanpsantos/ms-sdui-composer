@@ -10,10 +10,10 @@ import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.SlotDefinition
 import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.SpecStatus
-import br.com.empresa.sdui.orchestrator.compose.HydrationContext
-import br.com.empresa.sdui.orchestrator.compose.HydrationResult
-import br.com.empresa.sdui.orchestrator.compose.SectionHydrator
+import br.com.empresa.sdui.orchestrator.hydration.HydrationContext
 import br.com.empresa.sdui.orchestrator.hydration.HydrationCoordinator
+import br.com.empresa.sdui.orchestrator.hydration.HydrationResult
+import br.com.empresa.sdui.orchestrator.hydration.SectionHydrator
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Duration

@@ -5,18 +5,50 @@ import br.com.empresa.sdui.core.model.Catalog
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.ComponentType
+import br.com.empresa.sdui.core.model.ComposedScreen
+import br.com.empresa.sdui.core.model.ContextViolation
+import br.com.empresa.sdui.core.model.FallbackReason
+import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.PublishRequest
 import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecDiff
-import br.com.empresa.sdui.orchestrator.compose.ComposeRequest
-import br.com.empresa.sdui.orchestrator.compose.ComposeResult
+import br.com.empresa.sdui.core.model.SurfaceDefinition
+import br.com.empresa.sdui.core.model.Surfaces
 import br.com.empresa.sdui.orchestrator.port.outbound.PageRequest
 
 /** Porta de entrada da composicao. A borda HTTP depende desta interface, nunca da implementacao. */
 fun interface ComposeScreenUseCase {
     fun compose(request: ComposeRequest): ComposeResult
+}
+
+/**
+ * Entrada do pipeline: a surface pedida, headers de negociacao, o ETag que o cliente ja tem e a
+ * identidade limitada.
+ *
+ * [surface] ja chega resolvida da allowlist: uma surface desconhecida nao tem como chegar aqui, e
+ * por isso nunca vira chave de cache, chave de singleflight nem tag de metrica.
+ */
+data class ComposeRequest(
+    val headers: NegotiateHeaders,
+    val ifNoneMatch: String? = null,
+    val identity: String,
+    val surface: SurfaceDefinition = Surfaces.HOME,
+)
+
+/**
+ * Os desfechos possiveis de uma composicao, incluindo os que nao sao sucesso.
+ *
+ * Tipo soma para que a borda HTTP traduza cada caso ao status certo sem inventar comportamento, e
+ * para o compilador cobrar tratamento quando um caso novo aparecer.
+ */
+sealed interface ComposeResult {
+    data class Success(val screen: ComposedScreen, val fromCache: Boolean) : ComposeResult
+    data class NotModified(val etag: String) : ComposeResult
+    data class InvalidHeaders(val violations: List<ContextViolation>) : ComposeResult
+    data class RateLimited(val retryAfterSeconds: Long) : ComposeResult
+    data class Unavailable(val retryAfterSeconds: Long, val reason: FallbackReason) : ComposeResult
 }
 
 /** Comando para criar ou atualizar um rascunho de spec. */

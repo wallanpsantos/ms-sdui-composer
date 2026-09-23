@@ -34,12 +34,12 @@ import br.com.empresa.sdui.orchestrator.admin.CacheInvalidator
 import br.com.empresa.sdui.orchestrator.admin.DraftService
 import br.com.empresa.sdui.orchestrator.admin.PublishService
 import br.com.empresa.sdui.orchestrator.admin.RollbackService
-import br.com.empresa.sdui.orchestrator.compose.ComposeRequest
-import br.com.empresa.sdui.orchestrator.compose.ComposeResult
 import br.com.empresa.sdui.orchestrator.compose.ComposeScreenService
 import br.com.empresa.sdui.orchestrator.compose.DefaultCanaryPolicy
 import br.com.empresa.sdui.orchestrator.hydration.HydrationCoordinator
 import br.com.empresa.sdui.orchestrator.hydration.PassThroughHydrator
+import br.com.empresa.sdui.orchestrator.port.inbound.ComposeRequest
+import br.com.empresa.sdui.orchestrator.port.inbound.ComposeResult
 import br.com.empresa.sdui.orchestrator.port.inbound.RollbackCommand
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test

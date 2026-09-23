@@ -18,6 +18,7 @@ import br.com.empresa.sdui.core.model.SpecStatus
 import br.com.empresa.sdui.core.model.Surfaces
 import br.com.empresa.sdui.core.model.Targeting
 import br.com.empresa.sdui.core.model.VersionRange
+import br.com.empresa.sdui.orchestrator.port.inbound.ComposeResult
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Clock

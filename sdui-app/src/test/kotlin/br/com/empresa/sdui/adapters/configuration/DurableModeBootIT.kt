@@ -7,8 +7,8 @@ import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.Surfaces
-import br.com.empresa.sdui.orchestrator.compose.ComposeRequest
-import br.com.empresa.sdui.orchestrator.compose.ComposeResult
+import br.com.empresa.sdui.orchestrator.port.inbound.ComposeRequest
+import br.com.empresa.sdui.orchestrator.port.inbound.ComposeResult
 import br.com.empresa.sdui.orchestrator.port.inbound.ComposeScreenUseCase
 import br.com.empresa.sdui.orchestrator.port.outbound.AuditLogStore
 import br.com.empresa.sdui.orchestrator.port.outbound.HydratedScreenCache
