@@ -5,6 +5,9 @@ O `ms-sdui-composer` atua como **Presentation + Application Controller + BFF de 
 árvores de componentes hidratadas, determinísticas e compatíveis a partir de especificações versionadas, capabilities
 homologadas e contexto dinâmico do cliente móvel.
 
+## Importante: 
+De acordo: como o serviços ainda não esta em produção, é o momento barato para realizar desenvolvimento!
+
 ---
 
 ## 📋 Sumário
