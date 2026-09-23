@@ -28,13 +28,13 @@ De acordo: como o serviços ainda não esta em produção, é o momento barato p
     - [1. Endpoint Principal da Home (Hot Path)](#1-endpoint-principal-da-home-hot-path)
     - [2. Chamada Condicional com ETag (HTTP 304)](#2-chamada-condicional-com-etag-http-304)
     - [3. Validação Estrita de Headers (HTTP 400)](#3-validação-estrita-de-headers-http-400)
-    - [4. Escada de Fallback e Resiliência (HTTP 503)](#4-escada-de-fallback-e-resiliência-http-503)
+    - [4. Escada de Fallback e Resiliência (HTTP 503 e Degradação Graciosa)](#4-escada-de-fallback-e-resiliência-http-503-e-degradação-graciosa)
 - [Governança Administrativa (Maker-Checker)](#-governança-administrativa-maker-checker)
     - [Ciclo de Publicação de Especificações](#ciclo-de-publicação-de-especificações)
     - [Rollback Atômico com Idempotência](#rollback-atômico-com-idempotência)
     - [Consulta de Auditoria](#consulta-de-auditoria)
 - [Validação, Testes e Qualidade](#-validação-testes-e-qualidade)
-- [Documentação Canônica Sequencial](#-documentação-canônica-sequencial)
+- [Documentação Canônica de Referência](#-documentação-canônica-de-referência)
 
 ---
 
