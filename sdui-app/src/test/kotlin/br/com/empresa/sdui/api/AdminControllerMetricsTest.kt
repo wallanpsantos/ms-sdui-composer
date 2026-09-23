@@ -1,6 +1,5 @@
 package br.com.empresa.sdui.api
 
-import br.com.empresa.sdui.adapters.memory.InMemoryAuditLogStore
 import br.com.empresa.sdui.adapters.memory.RecordingMetrics
 import br.com.empresa.sdui.api.admin.AdminController
 import br.com.empresa.sdui.api.admin.OpenPublishBody
@@ -64,7 +63,7 @@ class AdminControllerMetricsTest {
         drafts = unused(),
         publish = publish,
         rollback = rollback,
-        auditLog = InMemoryAuditLogStore(),
+        auditQuery = unused(),
         metrics = metrics,
     )
 

@@ -14,6 +14,7 @@ import br.com.empresa.sdui.core.compat.CapabilityMatrix
 import br.com.empresa.sdui.core.limit.Bulkhead
 import br.com.empresa.sdui.core.limit.TokenBucketRateLimiter
 import br.com.empresa.sdui.core.model.ClientPlatform
+import br.com.empresa.sdui.orchestrator.admin.AuditQueryService
 import br.com.empresa.sdui.orchestrator.admin.CacheInvalidator
 import br.com.empresa.sdui.orchestrator.admin.CatalogQueryService
 import br.com.empresa.sdui.orchestrator.admin.DraftService
@@ -26,6 +27,7 @@ import br.com.empresa.sdui.orchestrator.compose.DefaultFallbackCoordinator
 import br.com.empresa.sdui.orchestrator.compose.FallbackCoordinator
 import br.com.empresa.sdui.orchestrator.hydration.HydrationCoordinator
 import br.com.empresa.sdui.orchestrator.hydration.PassThroughHydrator
+import br.com.empresa.sdui.orchestrator.port.inbound.AuditQueryUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.CatalogQueryUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.ComposeScreenUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftUseCase
@@ -269,6 +271,9 @@ class SduiConfiguration {
         specStore: SpecStore,
         diffStore: DiffStore,
     ): CatalogQueryUseCase = CatalogQueryService(catalogStore, skeletonStore, specStore, diffStore)
+
+    @Bean
+    fun auditQueryUseCase(auditLog: AuditLogStore): AuditQueryUseCase = AuditQueryService(auditLog)
 
     @Bean
     fun draftUseCase(

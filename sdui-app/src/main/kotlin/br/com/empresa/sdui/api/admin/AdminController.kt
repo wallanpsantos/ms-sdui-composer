@@ -13,9 +13,10 @@ import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecDiff
 import br.com.empresa.sdui.core.model.Surfaces
-import br.com.empresa.sdui.orchestrator.admin.AdminDenied
-import br.com.empresa.sdui.orchestrator.admin.AdminNotFound
-import br.com.empresa.sdui.orchestrator.admin.AdminValidation
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminDenied
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminNotFound
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminValidation
+import br.com.empresa.sdui.orchestrator.port.inbound.AuditQueryUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.CatalogQueryUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.DecidePublishCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftCatalogCommand
@@ -26,7 +27,6 @@ import br.com.empresa.sdui.orchestrator.port.inbound.OpenPublishCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.PublishUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.RollbackCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.RollbackPointerUseCase
-import br.com.empresa.sdui.orchestrator.port.outbound.AuditLogStore
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricNames
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import br.com.empresa.sdui.orchestrator.port.outbound.PageRequest
@@ -61,7 +61,7 @@ class AdminController(
     private val drafts: DraftUseCase,
     private val publish: PublishUseCase,
     private val rollback: RollbackPointerUseCase,
-    private val auditLog: AuditLogStore,
+    private val auditQuery: AuditQueryUseCase,
     private val metrics: MetricsRecorder,
 ) {
     private val logger = LoggerFactory.getLogger(AdminController::class.java)
@@ -289,12 +289,9 @@ class AdminController(
         @RequestParam(required = false) limit: Int?,
         @RequestHeader headers: HttpHeaders,
     ): List<AuditEvent> {
-        val current = actor(headers)
-        if (current.role != ActorRole.AUDITOR && current.role != ActorRole.CHECKER) {
-            throw AdminDenied("auditoria exige checker ou auditor")
-        }
+        val events = auditQuery.recent(actor(headers), page(0, limit).limit)
         metrics.increment(MetricNames.ADMIN_AUDIT_LIST)
-        return auditLog.recent(page(0, limit).limit)
+        return events
     }
 
     /** Janela validada da listagem. Valor fora da faixa e erro do chamador, nao truncamento silencioso. */

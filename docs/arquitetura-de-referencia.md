@@ -280,8 +280,6 @@ sealed interface ContextValidation {
 br.com.empresa.sdui.orchestrator
 ├── compose/
 │   ├── ComposeScreenService.kt
-│   ├── ComposeRequest.kt
-│   ├── ComposeResult.kt
 │   ├── ContextValidator.kt
 │   ├── SpecResolver.kt
 │   ├── CapabilityFilter.kt
@@ -290,7 +288,9 @@ br.com.empresa.sdui.orchestrator
 │   └── ResponseAssembler.kt
 ├── port/
 │   ├── inbound/
-│   │   ├── ComposeScreenUseCase.kt
+│   │   ├── ComposeScreenUseCase.kt      # com ComposeRequest e ComposeResult, o contrato da porta
+│   │   ├── AuditQueryUseCase.kt
+│   │   ├── AdminErrors.kt               # AdminDenied, AdminConflict, ... traduzidas pela borda
 │   │   ├── PublishSpecUseCase.kt
 │   │   └── RollbackPointerUseCase.kt
 │   └── outbound/
@@ -933,90 +933,55 @@ Usar o artefato `archunit` dentro de testes JUnit Jupiter comuns, com `ClassFile
 `archunit-junit5`: ele depende da compatibilidade de um TestEngine extra com a versão de JUnit do BOM, e
 `@ArchTest static final` não existe em Kotlin (exigiria `@JvmField` em `companion object` para cada regra).
 
-### 7.2 Regras mínimas
+### 7.2 Regras vigentes
 
-```kotlin
-class ArchitectureTest {
+A fonte de verdade é `sdui-integration-test/src/test/kotlin/br/com/empresa/sdui/it/ArchitectureTest.kt`. A tabela
+resume o que cada regra protege; o código não é repetido aqui para não divergir.
 
-    private val classes = ClassFileImporter()
-        .withImportOption(ImportOption.DoNotIncludeTests())
-        .importPackages("br.com.empresa.sdui")
+| Regra                                                            | Forma                               | Protege                                                                     |
+|------------------------------------------------------------------|-------------------------------------|-----------------------------------------------------------------------------|
+| `core` depende só de JDK, stdlib Kotlin e de si mesmo            | lista de permissão                  | Domínio puro (§3). Pega também Micrometer, SLF4J e `kotlinx`               |
+| `orchestrator` depende só de JDK, stdlib Kotlin, `core` e de si  | lista de permissão                  | Aplicação sem Spring, Jackson, contrato, driver ou borda                   |
+| `contract` não depende de `core`, frameworks nem outras camadas  | lista de proibição                  | DTOs públicos independentes do domínio                                     |
+| `api` não depende de `adapters`                                  | lista de proibição                  | Borda HTTP não conhece a implementação dos stores                          |
+| `api` acessa o `orchestrator` só por `port..` e nunca por `*Store` | predicado                         | Borda passa sempre pelo caso de uso e pela regra de papel que ele aplica   |
+| `adapters` não dependem de `api` nem de `contract`               | lista de proibição                  | Só `api` converte entre modelos e DTOs                                     |
+| Pacotes de produção livres de ciclos                             | `slices().matching("br.com.empresa.sdui.(**)")` | Direção única também entre subpacotes, não só entre camadas       |
+| `adapters.mongo` e `adapters.redis` não dependem um do outro     | lista de proibição                  | Autoridade (Mongo) e cache (Redis) substituíveis isoladamente (ADR-021)    |
+| `SectionHydrator` em `orchestrator.hydration`; implementações em `hydration` ou `adapters` | nome e `implement` | SPI de hidratação no lugar certo                                   |
+| Controllers, advices e classes `*Controller` só em `api`         | anotação e nome                     | HTTP confinado à borda                                                     |
+| `@SpringBootApplication` só em `bootstrap`                       | anotação                            | Um único ponto de entrada executável                                       |
+| Nenhuma dependência de `org.springframework.transaction..` ou `jakarta.transaction..` | lista de proibição | Transação só pela porta `TransactionalUnitOfWork` (ADR-013); pega `@Transactional` e `TransactionTemplate` |
+| Nenhuma dependência de `kotlinx.coroutines..` ou `kotlin.coroutines..` | lista de proibição            | Sem coroutines nem `suspend fun` (ADR-012)                                 |
+| Nenhuma dependência de Reactor, WebFlux ou RxJava                | lista de proibição                  | Stack bloqueante com virtual threads (ADR-012)                             |
+| Drivers (`com.mongodb`, `org.bson`, `io.lettuce`, `org.springframework.data`) só em `adapters` | lista de proibição | Persistência confinada aos adapters                            |
 
-    @Test
-    fun `core nao depende de frameworks nem de jackson`() {
-        noClasses().that().resideInAPackage("..sdui.core..")
-            .should().dependOnClassesThat().resideInAnyPackage(
-                "org.springframework..", "org.mongodb..", "com.mongodb..", "io.lettuce..",
-                "jakarta.servlet..", "tools.jackson..", "com.fasterxml.jackson..",
-                "..sdui.contract..", "..sdui.orchestrator..", "..sdui.adapters..", "..sdui.api..",
-            )
-            .check(classes)
-    }
+Regras com `.that()` que não encontram classes falham por padrão (`failOnEmptyShould`); não usar
+`.allowEmptyShould(true)`. Se uma classe citada por nome for movida ou renomeada, a regra falha e precisa ser
+atualizada junto.
 
-    @Test
-    fun `orchestrator nao depende de spring, contrato nem bordas`() {
-        noClasses().that().resideInAPackage("..sdui.orchestrator..")
-            .should().dependOnClassesThat().resideInAnyPackage(
-                "org.springframework..", "jakarta.servlet..", "tools.jackson..", "com.fasterxml.jackson..",
-                "..sdui.contract..", "..sdui.adapters..", "..sdui.api..",
-            )
-            .check(classes)
-    }
+### 7.3 Critérios de desenho das regras
 
-    @Test
-    fun `api nao acessa adapters`() {
-        noClasses().that().resideInAPackage("..sdui.api..")
-            .should().dependOnClassesThat().resideInAPackage("..sdui.adapters..")
-            .check(classes)
-    }
-
-    @Test
-    fun `adapters nao dependem de api nem do contrato`() {
-        noClasses().that().resideInAPackage("..sdui.adapters..")
-            .should().dependOnClassesThat().resideInAnyPackage("..sdui.api..", "..sdui.contract..")
-            .check(classes)
-    }
-
-    @Test
-    fun `somente bootstrap inicia spring boot`() {
-        classes().that().areAnnotatedWith(SpringBootApplication::class.java)
-            .should().resideInAPackage("..sdui.bootstrap..")
-            .check(classes)
-    }
-
-    @Test
-    fun `controllers somente em api`() {
-        classes().that().areAnnotatedWith(RestController::class.java)
-            .should().resideInAPackage("..sdui.api..")
-            .check(classes)
-    }
-}
-```
-
-Enquanto os pacotes estiverem vazios (bootstrap/H00), regras que não encontram classes falham por padrão. Usar
-`.allowEmptyShould(true)` somente nessas regras, com comentário apontando a história que remove a exceção, e registrar
-a pendência no `AGENTS.md`.
-
-Regras do tipo "só pode depender de X" (listas de permissão) precisam liberar `kotlin..`, `org.jetbrains.annotations..`
-e `java..`. As regras acima são listas de proibição e não têm esse problema. Classes sintéticas geradas pelo Kotlin
-(`*Kt`, `$Companion`, `$WhenMappings`) residem no mesmo pacote do fonte e são cobertas normalmente.
-
-### 7.3 Regras adicionais
-
-- Classes `@Document` só em `..adapters.mongo.document..`.
-- `MongoTemplate` e `RedisTemplate` só em `..adapters..`.
-- `@Transactional` não aparece em controllers, filters ou adapters, **com uma única exceção nominal**:
-  `..adapters.mongo.tx.MongoTransactionalUnitOfWork`, que implementa a porta `TransactionalUnitOfWork` (ADR-003). A
-  exceção é por nome de classe, não por pacote. Se o ADR-013 for aceito, a exceção desaparece e a regra vira "nenhum
-  `@Transactional` no projeto".
-- Nenhuma classe de `..sdui.core..` ou `..sdui.orchestrator..` depende de `org.springframework.transaction..`.
-- Nenhuma classe fora de `..adapters.mongo.tx..` implementa `TransactionalUnitOfWork`.
-- Nenhuma classe de `..core..` ou `..orchestrator..` referencia `ComposeTraceContext` (ADR-002).
-- `SectionHydrator` reside em `..orchestrator.hydration..`; implementações residem em `..adapters..`.
-- DTOs públicos residem em `contract`; documentos de banco em `..adapters.mongo..`.
-- Classes terminadas em `Controller` só em `api`.
-- Nenhuma dependência entre `..adapters.mongo..`, `..adapters.redis..` e `..adapters.http..`.
-- Nenhuma classe de produção declara `suspend fun` nem depende de `kotlinx.coroutines..` (ADR-012).
+- **Pureza é lista de permissão.** Lista de proibição só barra o que alguém lembrou de listar. Para `core` e
+  `orchestrator` a permissão libera `java..`, `kotlin..` e `org.jetbrains.annotations..`, que o bytecode Kotlin
+  referencia por conta própria. Classes sintéticas (`*Kt`, `$Companion`, `$WhenMappings`) residem no pacote do fonte e
+  são cobertas normalmente.
+- **`suspend fun` não depende de `kotlinx`.** Ela compila com um parâmetro `kotlin.coroutines.Continuation`, da stdlib;
+  por isso a regra barra `kotlin.coroutines..` além de `kotlinx.coroutines..`. Builders `sequence {}` e `iterator {}`
+  também referenciam esse pacote e ficam proibidos junto.
+- **Tipos de contrato ficam na porta.** `ComposeRequest`, `ComposeResult`, os comandos e as exceções `Admin*` vivem em
+  `orchestrator.port.inbound`; `HydrationContext`, `HydrationResult` e `SectionHydrator` em `orchestrator.hydration`.
+  Tipo usado pela borda dentro do pacote da implementação cria ciclo `port ↔ implementação` e obriga a borda a
+  importar a implementação.
+- **Leitura administrativa também é caso de uso.** A trilha de auditoria sai por `AuditQueryUseCase`, que aplica o
+  papel (checker ou auditor); o controller não injeta `AuditLogStore`. `MetricsRecorder`, `MetricNames` e as
+  exceções `StoreConflict`/`StoreRejected` de `port.outbound` continuam permitidos na borda.
+- **Uma importação por execução.** `ClassFileImporter` varre o classpath; o resultado fica em `companion object`, porque
+  o JUnit cria uma instância da classe por método de teste.
+- **Sem regra redundante.** Uma regra coberta inteiramente por outra só dá a falsa impressão de proteção extra; o nome
+  de cada teste descreve exatamente o que ele verifica.
+- `adapters.configuration` é a raiz de composição: monta os serviços concretos do `orchestrator` e por isso depende
+  deles. Nenhum outro pacote de `adapters` deve instanciar serviço do `orchestrator`.
 
 ### 7.4 ArchUnit e fronteiras Gradle
 

@@ -2,6 +2,7 @@ package br.com.empresa.sdui.orchestrator.admin
 
 import br.com.empresa.sdui.core.compat.CapabilityMatrix
 import br.com.empresa.sdui.core.diff.SpecDiffFactory
+import br.com.empresa.sdui.core.model.Actor
 import br.com.empresa.sdui.core.model.ActorRole
 import br.com.empresa.sdui.core.model.AuditEvent
 import br.com.empresa.sdui.core.model.Catalog
@@ -19,6 +20,14 @@ import br.com.empresa.sdui.core.model.Surfaces
 import br.com.empresa.sdui.core.validate.CatalogValidator
 import br.com.empresa.sdui.core.validate.SkeletonValidator
 import br.com.empresa.sdui.core.validate.SpecValidator
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminConflict
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminDenied
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminIdempotencyMismatch
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminInFlight
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminNotFound
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminUnavailable
+import br.com.empresa.sdui.orchestrator.port.inbound.AdminValidation
+import br.com.empresa.sdui.orchestrator.port.inbound.AuditQueryUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.CatalogQueryUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.DecidePublishCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftCatalogCommand
@@ -49,41 +58,15 @@ import java.time.Clock
 import java.time.Instant
 import java.util.*
 
-/** Papel insuficiente ou regra de segregacao violada. Vira 403. */
-class AdminDenied(message: String) : RuntimeException(message)
-
-/** Estado mudou sob os pes da operacao, como dois approves simultaneos. Vira 409. */
-class AdminConflict(message: String) : RuntimeException(message)
-
-/**
- * A chave de idempotencia esta reservada por uma chamada que ainda nao terminou. Vira 409.
- *
- * Separada de [AdminConflict] de proposito: as duas viram 409, mas dizem coisas diferentes ao
- * operador. Conflito significa que outro ator mudou o pedido; esta significa que a propria
- * requisicao dele ainda esta correndo e reenviar agora nao ajuda.
- */
-class AdminInFlight(key: String) : RuntimeException("Idempotency-Key $key em voo")
-
-/**
- * A chave de idempotencia ja foi usada para outra operacao ou outros parametros. Vira 422.
- *
- * Replay so faz sentido para a mesma operacao sobre o mesmo alvo; devolver o resultado antigo
- * para um pedido diferente afirmaria um efeito que nao aconteceu.
- */
-class AdminIdempotencyMismatch(key: String) :
-    RuntimeException("Idempotency-Key $key ja usada com outra operacao ou outros parametros")
-
-/**
- * O plano administrativo recusou a operacao por falta de capacidade segura. Vira 503 com
- * Retry-After. Hoje: o registro de idempotencia em memoria esta no teto so com registros vivos.
- */
-class AdminUnavailable(message: String) : RuntimeException(message)
-
-/** Conteudo recusado pelos validadores. Carrega todos os erros de uma vez. Vira 400. */
-class AdminValidation(val errors: List<String>) : RuntimeException(errors.joinToString("; "))
-
-/** Spec, skeleton, pedido, pointer ou surface inexistente. Vira 404. */
-class AdminNotFound(message: String) : RuntimeException(message)
+/** Leitura da trilha de auditoria para checker e auditor. Nao altera estado. */
+class AuditQueryService(
+    private val auditLog: AuditLogStore,
+) : AuditQueryUseCase {
+    override fun recent(actor: Actor, limit: Int): List<AuditEvent> {
+        requireRole(actor.role, ActorRole.CHECKER, ActorRole.AUDITOR)
+        return auditLog.recent(limit)
+    }
+}
 
 /** Leitura da governanca: catalogo, skeleton, revisoes e diff. Nao altera estado. */
 class CatalogQueryService(

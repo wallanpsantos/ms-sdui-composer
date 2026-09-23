@@ -1,6 +1,7 @@
 package br.com.empresa.sdui.orchestrator.port.inbound
 
 import br.com.empresa.sdui.core.model.Actor
+import br.com.empresa.sdui.core.model.AuditEvent
 import br.com.empresa.sdui.core.model.Catalog
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
@@ -115,6 +116,17 @@ interface CatalogQueryUseCase {
     fun specs(platform: ClientPlatform?, channel: Channel?, page: PageRequest): List<Spec>
     fun revisions(specId: String, page: PageRequest): List<Spec>
     fun diff(specId: String, from: Int, to: Int): SpecDiff?
+}
+
+/**
+ * Leitura da trilha de auditoria. Somente leitura, restrita a checker e auditor.
+ *
+ * O papel e conferido aqui, e nao na borda, como nas demais operacoes administrativas: quem
+ * decide quem pode ver a trilha e o caso de uso, e a borda so traduz [AdminDenied] em 403.
+ */
+fun interface AuditQueryUseCase {
+    /** Os eventos mais recentes, do mais novo para o mais antigo, ate [limit]. */
+    fun recent(actor: Actor, limit: Int): List<AuditEvent>
 }
 
 /** Autoria de rascunhos. Valida na entrada, para o erro aparecer para quem edita e nao em producao. */

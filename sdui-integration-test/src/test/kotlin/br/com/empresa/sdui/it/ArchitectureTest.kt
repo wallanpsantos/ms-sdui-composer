@@ -1,5 +1,8 @@
 package br.com.empresa.sdui.it
 
+import com.tngtech.archunit.base.DescribedPredicate.not
+import com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage
+import com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith
 import com.tngtech.archunit.core.domain.JavaClasses
 import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
@@ -52,6 +55,24 @@ class ArchitectureTest {
     fun `api nao depende de adapters`() {
         noClasses().that().resideInAPackage("..sdui.api..")
             .should().dependOnClassesThat().resideInAPackage("..sdui.adapters..")
+            .check(importedClasses)
+    }
+
+    /**
+     * A borda HTTP conversa com o orchestrator so pelas portas: casos de uso, comandos, resultados
+     * e excecoes de `port.inbound`, e metricas e excecoes de store de `port.outbound`. Nunca com a
+     * implementacao dos servicos, nem com um store direto — isso pularia o caso de uso e a regra
+     * de papel que ele aplica.
+     */
+    @Test
+    fun `api acessa o orchestrator somente pelas portas e nunca por um store`() {
+        noClasses().that().resideInAPackage("..sdui.api..")
+            .should().dependOnClassesThat(
+                resideInAPackage("..sdui.orchestrator..").and(not(resideInAPackage("..sdui.orchestrator.port.."))),
+            )
+            .orShould().dependOnClassesThat(
+                resideInAPackage("..sdui.orchestrator.port.outbound..").and(simpleNameEndingWith("Store")),
+            )
             .check(importedClasses)
     }
 
