@@ -76,7 +76,8 @@ transacionais. O escopo do `ms-sdui-composer` é delimitado por princípios estr
 
 - **Home (`home`):** Superfície primária de entrada, agregação de produtos e atalhos dinâmicos.
 - **Catálogo (`catalog`, ADR-020):** Vitrines de produtos, categorias, banners e prateleiras comerciais.
-- **Hubs de Produtos e Campanhas Sazonais:** Vitrines com alta rotatividade de negócio sem necessidade de release nas lojas de aplicativos.
+- **Hubs de Produtos e Campanhas Sazonais:** Vitrines com alta rotatividade de negócio sem necessidade de release nas
+  lojas de aplicativos.
 
 ### Superfícies Estritamente Proibidas / Fora de Escopo
 
@@ -106,18 +107,20 @@ transacionais. O escopo do `ms-sdui-composer` é delimitado por princípios estr
 O `ms-sdui-composer` desacopla a **surface** do seu **layout estrutural**, permitindo que uma mesma surface (`home`)
 possua múltiplas opções de montagem versionadas via skeletons canônicos:
 
-| Skeleton | Surface | Layout Raiz | Ordem e Disposição dos Slots | Caso de Uso Principal |
-|:---|:---:|:---|:---|:---|
-| **`home.default`** | `home` | `single_column_vertical` | 1. `header` (`fixed`)<br>2. `shortcuts` (`shelf`)<br>3. `accounts` (`list` - portante)<br>4. `cards` (`list`)<br>5. `offers` (`list`)<br>6. `coverage` (`list`)<br>7. `foryou` (`pager`) | Layout clássico sequencial para usuários correntistas habituais. |
-| **`home.cards_first`** | `home` | `single_column_vertical` | 1. `header` (`fixed`)<br>2. `cards` (`grid_2_columns`)<br>3. `shortcuts` (`shelf`)<br>4. `accounts` (`list` - portante)<br>5. `offers` (`list`)<br>6. `coverage` (`list`)<br>7. `foryou` (`pager`) | Foco em cartões de crédito e faturas, exibidos em grade de 2 colunas no topo logo abaixo do cabeçalho. |
+| Skeleton               | Surface | Layout Raiz              | Ordem e Disposição dos Slots                                                                                                                                                                       | Caso de Uso Principal                                                                                  |
+|:-----------------------|:-------:|:-------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------|
+| **`home.default`**     | `home`  | `single_column_vertical` | 1. `header` (`fixed`)<br>2. `shortcuts` (`shelf`)<br>3. `accounts` (`list` - portante)<br>4. `cards` (`list`)<br>5. `offers` (`list`)<br>6. `coverage` (`list`)<br>7. `foryou` (`pager`)           | Layout clássico sequencial para usuários correntistas habituais.                                       |
+| **`home.cards_first`** | `home`  | `single_column_vertical` | 1. `header` (`fixed`)<br>2. `cards` (`grid_2_columns`)<br>3. `shortcuts` (`shelf`)<br>4. `accounts` (`list` - portante)<br>5. `offers` (`list`)<br>6. `coverage` (`list`)<br>7. `foryou` (`pager`) | Foco em cartões de crédito e faturas, exibidos em grade de 2 colunas no topo logo abaixo do cabeçalho. |
 
 ### Exemplos Executáveis de Demonstração (`docs/examples/screens/`)
 
 Para fins de demonstração e homologação, o repositório versiona composições adicionais:
+
 - **`banking.shortcuts_first`:** Home com atalhos em destaque inicial.
 - **`banking.cards_first`:** Home focada em cartões com grid de 2 colunas.
 - **`banking.transactions`:** Home com slot de resumo de transações recentes (`transaction_summary@1`, ADR-020).
-- **`fashion.catalog`:** Vitrine de produtos e categorias na surface `catalog` (`catalog_navigation@1`, `product_collection@1`, ADR-020).
+- **`fashion.catalog`:** Vitrine de produtos e categorias na surface `catalog` (`catalog_navigation@1`,
+  `product_collection@1`, ADR-020).
 
 ### Vocabulário Fechado de Slots e Layouts Permitidos
 
@@ -144,7 +147,8 @@ O servidor Server-Driven UI é um provedor de **conteúdo estruturado e intenç�
   pertence à lista restrita de atributos visuais. Decisões de densidade visual e responsividade pertencem às classes
   de tamanho nativas (`WindowSizeClass` no Android e `SizeClass` no iOS).
 - **Catálogo Canônico em `@1`:** 7 tipos homologados no MVP (`top_bar`, `shortcut_shelf`, `account_card`,
-  `card_product`, `credit_offer`, `coverage_card`, `decision_card`) e 3 contratos propostos sob ADR-020 (`transaction_summary@1`, `catalog_navigation@1`, `product_collection@1`).
+  `card_product`, `credit_offer`, `coverage_card`, `decision_card`) e 3 contratos propostos sob ADR-020
+  (`transaction_summary@1`, `catalog_navigation@1`, `product_collection@1`).
 
 ---
 
@@ -230,14 +234,17 @@ curl http://localhost:8080/actuator/health
 
 ### Subindo via Docker Compose
 
-O arquivo `compose.yaml` disponibiliza **MongoDB 8.3** (em replica set `rs0` na porta 27017) e **Redis 8** (na porta 6379)
+O arquivo `compose.yaml` disponibiliza **MongoDB 8.3** (em replica set `rs0` na porta 27017) e **Redis 8** (na porta
+
+6379)
 para execução local de infraestrutura:
 
 ```bash
 docker compose up -d
 ```
 
-Por padrão, a aplicação sobe em **modo em memória local** (`sdui.persistence.store=memory` e `sdui.persistence.cache=memory`).
+Por padrão, a aplicação sobe em **modo em memória local** (`sdui.persistence.store=memory` e
+`sdui.persistence.cache=memory`).
 O modo persistente é **opt-in** (ADR-021) e pode ser ativado apontando as variáveis de ambiente:
 
 ```bash
@@ -248,7 +255,8 @@ SDUI_PERSISTENCE_REDIS_URL=redis://localhost:6379
 ```
 
 > **Atenção:** Em modo em memória, o estado vive no heap do processo. Uma segunda réplica não compartilha specs nem
-> pointer, operando como instância única. Detalhes na Seção 8 de [`docs/arquitetura-de-referencia.md`](docs/arquitetura-de-referencia.md#8-persistência-e-cache).
+> pointer, operando como instância única. Detalhes na Seção 8 de [
+`docs/arquitetura-de-referencia.md`](docs/arquitetura-de-referencia.md#8-persistência-e-cache).
 
 > **Atenção:** O plano administrativo (`/admin/v1/**`) não possui autenticação por token — o papel do ator vem
 > do cabeçalho `Actor-Role`. O serviço não deve ser exposto publicamente sem um API Gateway autenticador à frente.
@@ -257,44 +265,47 @@ SDUI_PERSISTENCE_REDIS_URL=redis://localhost:6379
 
 As propriedades podem ser customizadas via `application.yaml` ou variáveis de ambiente com o prefixo `SDUI_`:
 
-| Propriedade | Padrão | Descrição |
-|---|:---:|---|
-| `server.port` | `8080` | Porta HTTP da aplicação |
-| `spring.threads.virtual.enabled` | `true` | Habilita concorrência com Virtual Threads Java 25 |
-| `sdui.seed-ios` | `true` | Carrega o catálogo MVP e a fixture canônica da Home iOS no startup |
-| `sdui.tree-ttl-seconds` | `60` | TTL do cache de tela pré-composta (memória ou Redis) |
-| `sdui.tree-cache-max-entries` | `10000` | Teto de árvores no cache de composição em memória |
-| `sdui.hydration-timeout-ms` | `80` | Timeout individual de hidratação remota de section |
-| `sdui.hydration-fanout` | `8` | Limite de seções hidratadas concorrentemente por requisição |
-| `sdui.request-budget-ms` | `1000` | Orçamento total da requisição; limita esperas no pipeline (ADR-014) |
-| `sdui.singleflight-timeout-ms` | `150` | Espera máxima de waiters pelo líder no singleflight antes do fallback |
-| `sdui.read-bulkhead-permits` | `32` | Teto de concorrência simultânea do plano de leitura (bulkhead) |
-| `sdui.read-bulkhead-wait-ms` | `50` | Espera máxima por permissão no bulkhead de leitura antes de degradar |
-| `sdui.max-fallback-age-seconds` | `86400` | Idade máxima do last good servido como fallback (24h) |
-| `sdui.retry-after-seconds` | `5` | Valor base do Retry-After para HTTP 503 (com jitter de ±40%) |
-| `sdui.rate-limit-retry-after-seconds` | `2` | Valor base do Retry-After para HTTP 429 (com jitter de ±40%) |
-| `sdui.rate-limit-capacity` | `10000` | Capacidade do Token Bucket por coorte/cliente |
-| `sdui.rate-limit-refill-per-second` | `10000` | Taxa de reabastecimento de tokens por segundo do rate limiter |
-| `sdui.rate-limit-max-keys` | `100000` | Teto de buckets residentes no rate limiter |
-| `sdui.idempotency-ttl-seconds` | `86400` | Validade de uma chave de idempotência administrativa (24h) |
-| `sdui.idempotency-max-keys` | `10000` | Teto de chaves de idempotência residentes em memória |
-| `sdui.idempotency-reservation-timeout-seconds` | `300` | Reserva em voo mais velha que isto é tratada como abandonada |
-| `sdui.admin-max-body-bytes` | `1048576` | Teto do payload administrativo antes da desserialização (1MB, ADR-022) |
-| `sdui.admin-max-concurrent-requests` | `8` | Limite de mutações administrativas concorrentes simultâneas (ADR-022) |
-| `sdui.metrics-max-tag-values` | `64` | Teto de valores distintos por tag nas métricas próprias |
-| `sdui.demo-enabled` | `false` | Publica os quatro exemplos de `docs/examples/screens` (nunca em produção) |
-| `sdui.persistence.store` | `memory` | `memory` ou `mongo` (ADR-021); `mongo` exige `SDUI_PERSISTENCE_MONGO_URI` |
-| `sdui.persistence.cache` | `memory` | `memory` ou `redis` (ADR-021); `redis` exige `SDUI_PERSISTENCE_REDIS_URL` |
-| `sdui.persistence.invalidation-relay-interval-ms` | `5000` | Intervalo do relay de invalidação de cache/last good |
-| `sdui.canary-ios-builds` | `[]` | Lista de builds de iOS autorizadas para canal Canary |
-| `sdui.canary-android-builds` | `[]` | Lista de builds de Android autorizadas para canal Canary |
+| Propriedade                                       |  Padrão   | Descrição                                                                 |
+|---------------------------------------------------|:---------:|---------------------------------------------------------------------------|
+| `server.port`                                     |  `8080`   | Porta HTTP da aplicação                                                   |
+| `spring.threads.virtual.enabled`                  |  `true`   | Habilita concorrência com Virtual Threads Java 25                         |
+| `sdui.seed-ios`                                   |  `true`   | Carrega o catálogo MVP e a fixture canônica da Home iOS no startup        |
+| `sdui.tree-ttl-seconds`                           |   `60`    | TTL do cache de tela pré-composta (memória ou Redis)                      |
+| `sdui.tree-cache-max-entries`                     |  `10000`  | Teto de árvores no cache de composição em memória                         |
+| `sdui.hydration-timeout-ms`                       |   `80`    | Timeout individual de hidratação remota de section                        |
+| `sdui.hydration-fanout`                           |    `8`    | Limite de seções hidratadas concorrentemente por requisição               |
+| `sdui.request-budget-ms`                          |  `1000`   | Orçamento total da requisição; limita esperas no pipeline (ADR-014)       |
+| `sdui.singleflight-timeout-ms`                    |   `150`   | Espera máxima de waiters pelo líder no singleflight antes do fallback     |
+| `sdui.read-bulkhead-permits`                      |   `32`    | Teto de concorrência simultânea do plano de leitura (bulkhead)            |
+| `sdui.read-bulkhead-wait-ms`                      |   `50`    | Espera máxima por permissão no bulkhead de leitura antes de degradar      |
+| `sdui.max-fallback-age-seconds`                   |  `86400`  | Idade máxima do last good servido como fallback (24h)                     |
+| `sdui.retry-after-seconds`                        |    `5`    | Valor base do Retry-After para HTTP 503 (com jitter de ±40%)              |
+| `sdui.rate-limit-retry-after-seconds`             |    `2`    | Valor base do Retry-After para HTTP 429 (com jitter de ±40%)              |
+| `sdui.rate-limit-capacity`                        |  `10000`  | Capacidade do Token Bucket por coorte/cliente                             |
+| `sdui.rate-limit-refill-per-second`               |  `10000`  | Taxa de reabastecimento de tokens por segundo do rate limiter             |
+| `sdui.rate-limit-max-keys`                        | `100000`  | Teto de buckets residentes no rate limiter                                |
+| `sdui.idempotency-ttl-seconds`                    |  `86400`  | Validade de uma chave de idempotência administrativa (24h)                |
+| `sdui.idempotency-max-keys`                       |  `10000`  | Teto de chaves de idempotência residentes em memória                      |
+| `sdui.idempotency-reservation-timeout-seconds`    |   `300`   | Reserva em voo mais velha que isto é tratada como abandonada              |
+| `sdui.admin-max-body-bytes`                       | `1048576` | Teto do payload administrativo antes da desserialização (1MB, ADR-022)    |
+| `sdui.admin-max-concurrent-requests`              |    `8`    | Limite de mutações administrativas concorrentes simultâneas (ADR-022)     |
+| `sdui.metrics-max-tag-values`                     |   `64`    | Teto de valores distintos por tag nas métricas próprias                   |
+| `sdui.demo-enabled`                               |  `false`  | Publica os quatro exemplos de `docs/examples/screens` (nunca em produção) |
+| `sdui.persistence.store`                          | `memory`  | `memory` ou `mongo` (ADR-021); `mongo` exige `SDUI_PERSISTENCE_MONGO_URI` |
+| `sdui.persistence.cache`                          | `memory`  | `memory` ou `redis` (ADR-021); `redis` exige `SDUI_PERSISTENCE_REDIS_URL` |
+| `sdui.persistence.invalidation-relay-interval-ms` |  `5000`   | Intervalo do relay de invalidação de cache/last good                      |
+| `sdui.canary-ios-builds`                          |   `[]`    | Lista de builds de iOS autorizadas para canal Canary                      |
+| `sdui.canary-android-builds`                      |   `[]`    | Lista de builds de Android autorizadas para canal Canary                  |
 
 ---
 
 ### Medição de Performance e Carga
 
-- `./gradlew :sdui-app:perfHarness`: Executa o harness in-process comparando latências e alocações de memória para seleção de specs, hidratação pass-through e caches residentes.
-- `./gradlew :sdui-app:loadTest -PbaseUrl=http://localhost:8080`: Executa o cenário HTTP de alta concorrência `load/compose-hit-p99.yaml` contra uma instância ativa do serviço, validando throughput (req/s) e percentis P95/P99 de resposta.
+- `./gradlew :sdui-app:perfHarness`: Executa o harness in-process comparando latências e alocações de memória para
+  seleção de specs, hidratação pass-through e caches residentes.
+- `./gradlew :sdui-app:loadTest -PbaseUrl=http://localhost:8080`: Executa o cenário HTTP de alta concorrência
+  `load/compose-hit-p99.yaml` contra uma instância ativa do serviço, validando throughput (req/s) e percentis P95/P99 de
+  resposta.
 
 ---
 
@@ -307,19 +318,20 @@ O BFF Server-Driven UI exige **6 cabeçalhos de negociação obrigatórios** par
 
 #### Cabeçalhos Obrigatórios
 
-| Cabeçalho | Exemplo | Descrição |
-|---|---|---|
-| `API-Version` | `1` | Versão da API REST HTTP |
-| `UI-Schema-Version` | `3` | Versão da estrutura de envelope SDUI (v3 no MVP) |
-| `Client-Platform` | `ios` | Plataforma nativa do cliente (`ios` ou `android`) |
-| `Client-Version` | `8.10.0` | Versão SemVer com 3 partes numéricas (`major.minor.patch`) |
-| `Client-Build` | `1234` | Número da compilação do aplicativo (apenas dígitos) |
-| `Accept-Language` | `pt-BR` | Idioma primário do cliente |
+| Cabeçalho           | Exemplo  | Descrição                                                  |
+|---------------------|----------|------------------------------------------------------------|
+| `API-Version`       | `1`      | Versão da API REST HTTP                                    |
+| `UI-Schema-Version` | `3`      | Versão da estrutura de envelope SDUI (v3 no MVP)           |
+| `Client-Platform`   | `ios`    | Plataforma nativa do cliente (`ios` ou `android`)          |
+| `Client-Version`    | `8.10.0` | Versão SemVer com 3 partes numéricas (`major.minor.patch`) |
+| `Client-Build`      | `1234`   | Número da compilação do aplicativo (apenas dígitos)        |
+| `Accept-Language`   | `pt-BR`  | Idioma primário do cliente                                 |
 
 #### Cabeçalhos Opcionais
 
 - `OS-Version`: Versão do sistema operacional (ex.: `17.5.1`).
-- `Component-Capabilities`: Lista de componentes suportados pelo cliente (ex.: `top_bar@1,shortcut_shelf@1,account_card@1`).
+- `Component-Capabilities`: Lista de componentes suportados pelo cliente (ex.:
+  `top_bar@1,shortcut_shelf@1,account_card@1`).
 - `SDUI-Channel`: Canal solicitado (`stable`, `canary` ou `internal`). Padrão: `stable`.
 - `If-None-Match`: ETag da última tela recebida para validação de cache.
 
@@ -500,8 +512,10 @@ Se ocorrer indisponibilidade temporária de dependências ou ausência de spec c
 Determinística de Fallback**:
 
 1. **`200 OK` (Composição Regular):** Árvore completa montada com sucesso.
-2. **`200 OK` com Omissão Graciosa:** Seções opcionais com falha são omitidas (slots portantes `header` e `accounts` são protegidos).
-3. **`200 OK` com `fallback: true` (Last Good):** Se um slot portante falhar, serve a última composição válida cacheada (`sdui.max-fallback-age-seconds` = 86400s).
+2. **`200 OK` com Omissão Graciosa:** Seções opcionais com falha são omitidas (slots portantes `header` e `accounts` são
+   protegidos).
+3. **`200 OK` com `fallback: true` (Last Good):** Se um slot portante falhar, serve a última composição válida cacheada
+   (`sdui.max-fallback-age-seconds` = 86400s).
 4. **`503 Service Unavailable`:** Caso o last good expire ou não exista, responde com indisponibilidade controlada:
 
 ```http
@@ -528,7 +542,8 @@ Toda alteração de catálogo, skeleton ou especificação passa por governança
 
 - `Actor-Id`: Identificador do usuário administrativo.
 - `Actor-Role`: Papel do usuário (`MAKER`, `CHECKER` ou `AUDITOR`).
-- **Regra:** O criador de um draft de spec (`MAKER`) não pode aprovar a publicação para si mesmo nos canais `canary` e `stable`.
+- **Regra:** O criador de um draft de spec (`MAKER`) não pode aprovar a publicação para si mesmo nos canais `canary` e
+  `stable`.
 
 ### Ciclo de Publicação de Especificações
 
@@ -662,16 +677,28 @@ Garante conformidade com Clean Architecture, pureza do `sdui-core` e ausência d
 
 A documentação técnica detalhada do projeto está versionada na pasta [`docs/`](docs/README.md):
 
-1. [`arquitetura-de-referencia.md`](docs/arquitetura-de-referencia.md) — Clean Architecture, convenções de engenharia, concorrência com Virtual Threads, pipeline, observabilidade, governança, matriz consolidada de decisões (ADR-001 a ADR-022) e histórico das histórias do MVP (H00–H18).
-2. [`guia-depreciacao-e-migracao.md`](docs/guia-depreciacao-e-migracao.md) — Padrão Strangler para componentes, sunset de faixas de app e Expand/Contract no MongoDB.
-3. [`guia-criacao-telas-componentes.md`](docs/guia-criacao-telas-componentes.md) — Guia prático de criação de novas telas, montagens e componentes via SDUI.
+1. [`arquitetura-de-referencia.md`](docs/arquitetura-de-referencia.md) — Clean Architecture, convenções de engenharia,
+   concorrência com Virtual Threads, pipeline, observabilidade, governança, matriz consolidada de decisões (ADR-001 a
+   ADR-022) e histórico das histórias do MVP (H00–H18).
+2. [`guia-depreciacao-e-migracao.md`](docs/guia-depreciacao-e-migracao.md) — Padrão Strangler para componentes, sunset
+   de faixas de app e Expand/Contract no MongoDB.
+3. [`guia-criacao-telas-componentes.md`](docs/guia-criacao-telas-componentes.md) — Guia prático de criação de novas
+   telas, montagens e componentes via SDUI.
 
 ### Subdiretórios Estruturados
 
 - [`docs/adr/`](docs/adr/README.md) — Matriz consolidada de decisões arquiteturais do serviço (ADR-001 a ADR-022).
-- [`docs/contratos/`](docs/contratos/transaction-summary-v1.md) — Contratos propostos de novos componentes (`transaction_summary@1`, `catalog_navigation@1`, `product_collection@1`).
-- [`docs/examples/screens/`](docs/examples/screens/README.md) — Quatro composições de exemplo executáveis (skeleton, spec e resposta esperada).
+- [`docs/contratos/`](docs/contratos/transaction-summary-v1.md) — Contratos propostos de novos componentes
+  (`transaction_summary@1`, `catalog_navigation@1`, `product_collection@1`).
+- [`docs/examples/screens/`](docs/examples/screens/README.md) — Quatro composições de exemplo executáveis (skeleton,
+  spec e resposta esperada).
 - [`docs/images/`](docs/images/README.md) — Catálogo de compatibilidade visual de telas móveis reais.
-- [`docs/runbooks/`](docs/runbooks/) — Procedimentos operacionais para rollback de Canary ([iOS](docs/runbooks/ios-canary-rollback.md) e [Android](docs/runbooks/android-canary-rollback.md)) e [Contrato de Retry para Clientes Móveis](docs/runbooks/contrato-de-retry-clientes-moveis.md).
-- [Histórico do MVP (`H00`–`H18`)](docs/arquitetura-de-referencia.md#12-histórico-consolidado-de-histórias-do-mvp-h00h18) — Matriz consolidada de entrega das histórias do MVP (100% entregues e validadas).
-- Fixtures canônicas e contratos oficiais versionados em [`sdui-contract/src/test/resources/fixtures/`](sdui-contract/src/test/resources/fixtures/) (`contrato-sdui-home-definitivo.json` e `contrato-sdui-home-cards-first.json`).
+- [`docs/runbooks/`](docs/runbooks/) — Procedimentos operacionais para rollback de Canary
+  ([iOS](docs/runbooks/ios-canary-rollback.md) e [Android](docs/runbooks/android-canary-rollback.md))
+  e [Contrato de Retry para Clientes Móveis](docs/runbooks/contrato-de-retry-clientes-moveis.md).
+- [Histórico do MVP (`H00`–
+  `H18`)](docs/arquitetura-de-referencia.md#12-histórico-consolidado-de-histórias-do-mvp-h00h18) — Matriz consolidada de
+  entrega das histórias do MVP (100% entregues e validadas).
+- Fixtures canônicas e contratos oficiais versionados em [
+  `sdui-contract/src/test/resources/fixtures/`](sdui-contract/src/test/resources/fixtures/)
+  (`contrato-sdui-home-definitivo.json` e `contrato-sdui-home-cards-first.json`).

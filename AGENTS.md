@@ -15,7 +15,8 @@ homologação com clientes móveis.
 **Ciclo de 2026-09-23 (Seção 23):** surface `catalog` e contratos novos (ADR-020), adapters MongoDB/Redis opt-in
 (ADR-021) e integridade da governança com limites de entrada (ADR-022) implementados no código e fontes de teste.
 ADR-020, ADR-021 e ADR-022 estão `PROPOSTO` (aguardando homologação móvel para 020, ensaio operacional de persistência
-para 021 e validação em build para 022). O PASS histórico acima não cobre este ciclo; a evidência dele está em `tasks/todo.md`.
+para 021 e validação em build para 022). O PASS histórico acima não cobre este ciclo; a evidência dele está em
+`tasks/todo.md`.
 
 Regras deste modo:
 
@@ -139,7 +140,8 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 ## 11. Lacunas Documentais Registradas
 
-- ADRs canônicos (ADR-001 a ADR-022) estão unificados e narrados em `docs/arquitetura-de-referencia.md` (matriz consolidada em `docs/adr/README.md`).
+- ADRs canônicos (ADR-001 a ADR-022) estão unificados e narrados em `docs/arquitetura-de-referencia.md` (matriz
+  consolidada em `docs/adr/README.md`).
 - Presente: `docs/README.md` — catálogo da documentação canônica em 3 arquivos (`arquitetura-de-referencia.md`,
   `guia-depreciacao-e-migracao.md`, `guia-criacao-telas-componentes.md`).
 - Presente: `sdui-contract/src/test/resources/fixtures/contrato-sdui-home-definitivo.json`. Fonte de verdade do contrato
@@ -206,7 +208,8 @@ O modo padrão é em memória (`sdui.persistence.store=memory`, `sdui.persistenc
 caches vivem no heap, e as autoconfigurações de Mongo e Redis continuam excluídas em `SduiApplication`. Existem
 adapters MongoDB e Redis **opt-in** (ADR-021), com clientes montados pelo próprio serviço, mas eles **não foram
 homologados operacionalmente** (ensaio de restart, perda de Redis, indisponibilidade do Mongo, publicação concorrente
-e duas instâncias em base representativa pendente de execução). Detalhes na Seção 8 de `docs/arquitetura-de-referencia.md`.
+e duas instâncias em base representativa pendente de execução). Detalhes na Seção 8 de
+`docs/arquitetura-de-referencia.md`.
 Enquanto não forem homologados, as consequências abaixo valem para qualquer decisão de deploy:
 
 - O estado não sobrevive a restart. O que existe após subir é o que o seed reconstrói.

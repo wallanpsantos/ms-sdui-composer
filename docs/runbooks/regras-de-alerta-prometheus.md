@@ -28,8 +28,8 @@ Seguindo as diretrizes da disciplina de observabilidade:
 | `SDUIReadBulkheadShedding`     |  `ticket`  | Rejeições no bulkhead de leitura > 0                                |   2m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
 | `SDUIRollbackTriggered`        |   `page`   | Execução de rollback administrativo > 0                             |   1m   | [`ios-canary-rollback.md`](ios-canary-rollback.md) / [`android-canary-rollback.md`](android-canary-rollback.md) |
 | `SDUIRateLimitSpike`           |  `ticket`  | Taxa de HTTP 429 (`compose.rate_limited`) > 5%                      |   5m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
-| `SDUIStoreFailures`            |  `ticket`  | Falhas de dependência de dados (`store.failure`) > 0                |   5m   | [`arquitetura-de-referencia.md §8`](../arquitetura-de-referencia.md#8-persistência-e-cache)                   |
-| `SDUICacheInvalidationPending` |  `ticket`  | Invalidações pendentes no outbox (`cache.invalidation.pending`) > 0 |  10m   | [`arquitetura-de-referencia.md §8`](../arquitetura-de-referencia.md#8-persistência-e-cache)                   |
+| `SDUIStoreFailures`            |  `ticket`  | Falhas de dependência de dados (`store.failure`) > 0                |   5m   | [`arquitetura-de-referencia.md §8`](../arquitetura-de-referencia.md#8-persistência-e-cache)                     |
+| `SDUICacheInvalidationPending` |  `ticket`  | Invalidações pendentes no outbox (`cache.invalidation.pending`) > 0 |  10m   | [`arquitetura-de-referencia.md §8`](../arquitetura-de-referencia.md#8-persistência-e-cache)                     |
 
 As regras de latência, indisponibilidade e 429 filtram `surface="home"`: todas as métricas do
 pipeline carregam a tag `surface` (valores `home` e `catalog`), e o SLO desta tabela é o da Home.
