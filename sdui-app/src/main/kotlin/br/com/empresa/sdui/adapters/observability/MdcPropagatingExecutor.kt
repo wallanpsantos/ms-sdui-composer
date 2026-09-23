@@ -15,20 +15,17 @@ class MdcPropagatingExecutor(private val delegate: Executor) : Executor {
         val contextMap = MDC.getCopyOfContextMap()
         delegate.execute {
             val previous = MDC.getCopyOfContextMap()
-            if (contextMap != null) {
-                MDC.setContextMap(contextMap)
-            } else {
-                MDC.clear()
-            }
+            install(contextMap)
             try {
                 command.run()
             } finally {
-                if (previous != null) {
-                    MDC.setContextMap(previous)
-                } else {
-                    MDC.clear()
-                }
+                install(previous)
             }
         }
+    }
+
+    /** `getCopyOfContextMap` devolve null quando o MDC esta vazio; instalar null e limpar. */
+    private fun install(contextMap: Map<String, String>?) {
+        if (contextMap != null) MDC.setContextMap(contextMap) else MDC.clear()
     }
 }

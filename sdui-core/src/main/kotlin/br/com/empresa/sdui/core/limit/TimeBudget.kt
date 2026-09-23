@@ -38,8 +38,5 @@ class TimeBudget(
     fun isExhausted(): Boolean = (nanoTime() - startNanos) >= total.toNanos()
 
     /** O prazo desta etapa: o menor entre o teto dela e o que resta do orcamento. */
-    fun stage(cap: Duration): Duration {
-        val left = remaining()
-        return if (left < cap) left else cap
-    }
+    fun stage(cap: Duration): Duration = minOf(remaining(), cap)
 }

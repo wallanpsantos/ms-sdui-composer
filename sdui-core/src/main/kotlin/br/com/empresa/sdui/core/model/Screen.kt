@@ -28,9 +28,7 @@ data class ComposedScreen(
     val experience: String,
     val skeleton: Skeleton,
     val sections: List<Section>,
-) {
-    fun analyticsSectionCount(): Int = sections.size
-}
+)
 
 /**
  * Montagem das chaves de cache, num lugar so.

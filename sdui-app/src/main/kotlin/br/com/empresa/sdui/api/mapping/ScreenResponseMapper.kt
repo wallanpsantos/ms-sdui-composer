@@ -77,7 +77,7 @@ class ScreenResponseMapper(
                     experience = screen.experience,
                     schemaVersion = screen.schemaVersion,
                     specRevisionId = screen.specRevisionId,
-                    sectionCount = screen.analyticsSectionCount(),
+                    sectionCount = screen.sections.size,
                     fallback = screen.fallback,
                 ),
             ),

@@ -33,6 +33,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.SingleflightOutcome
 import br.com.empresa.sdui.orchestrator.port.outbound.SkeletonStore
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecCache
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
+import br.com.empresa.sdui.orchestrator.port.outbound.findFor
 import java.time.Clock
 import java.util.concurrent.ThreadLocalRandom
 
@@ -263,9 +264,7 @@ class ComposeScreenService(
             val outcome = readBulkhead.withPermit(budget.stage(budgets.bulkheadWait)) {
                 val spec = specCache.get(selected.specRevisionId, context.platform) ?: selected
                 specCache.put(spec)
-                val skeleton = skeletonStore.find(spec.skeletonId, spec.skeletonRevision)
-                    ?: skeletonStore.current(spec.skeletonId)
-                spec to skeleton
+                spec to skeletonStore.findFor(spec)
             }
         ) {
             is BulkheadOutcome.Rejected -> {

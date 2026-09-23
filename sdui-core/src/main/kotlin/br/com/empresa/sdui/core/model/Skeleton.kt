@@ -35,6 +35,4 @@ data class Skeleton(
     val requiredSlotIds: Set<String> = slots.filter { it.required }.map { it.id }.toSet()
 
     fun slot(id: String): SlotDefinition? = slots.firstOrNull { it.id == id }
-
-    fun wireSlots(): List<SlotDefinition> = slots
 }

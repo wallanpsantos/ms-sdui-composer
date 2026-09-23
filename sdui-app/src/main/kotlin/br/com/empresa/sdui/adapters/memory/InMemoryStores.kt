@@ -35,6 +35,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -244,22 +245,7 @@ class InMemoryIdempotencyStore(
     /** Quantas chaves estao residentes agora. Serve a diagnostico e aos testes do teto. */
     fun residentEntries(): Int = items.size
 
-    private fun prune() {
-        if (!pruning.compareAndSet(false, true)) return
-        try {
-            val now = clock.instant()
-            items.entries.removeIf { it.value.expiresAt.isBefore(now) }
-            val excess = items.size - maxEntries / 2
-            if (excess > 0) {
-                items.entries
-                    .sortedBy { it.value.expiresAt }
-                    .take(excess)
-                    .forEach { items.remove(it.key, it.value) }
-            }
-        } finally {
-            pruning.set(false)
-        }
-    }
+    private fun prune() = items.pruneToHalf(pruning, maxEntries, { clock.instant() }) { it.expiresAt }
 
     fun clear() = items.clear()
 }
@@ -306,26 +292,7 @@ class InMemoryHydratedScreenCache(
     /** Quantas entradas o cache guarda agora. Serve a diagnostico e aos testes do teto. */
     fun residentEntries(): Int = items.size
 
-    /**
-     * Descarta expirados e, se ainda assim faltar folga, as entradas que expiram primeiro. Uma
-     * unica thread poda por vez; as demais gravam sem esperar e a poda seguinte as alcanca.
-     */
-    private fun prune() {
-        if (!pruning.compareAndSet(false, true)) return
-        try {
-            val now = System.currentTimeMillis()
-            items.entries.removeIf { it.value.expiresAt < now }
-            val excess = items.size - maxEntries / 2
-            if (excess > 0) {
-                items.entries
-                    .sortedBy { it.value.expiresAt }
-                    .take(excess)
-                    .forEach { items.remove(it.key, it.value) }
-            }
-        } finally {
-            pruning.set(false)
-        }
-    }
+    private fun prune() = items.pruneToHalf(pruning, maxEntries, System::currentTimeMillis) { it.expiresAt }
 
     fun clear() = items.clear()
 }
@@ -399,25 +366,37 @@ class InMemoryProjectionStore(
             Entry(props, System.currentTimeMillis() + ttl.toMillis())
     }
 
-    private fun prune() {
-        if (!pruning.compareAndSet(false, true)) return
-        try {
-            val now = System.currentTimeMillis()
-            items.entries.removeIf { it.value.expiresAt < now }
-            val excess = items.size - (maxEntries / 2)
-            if (excess > 0) {
-                items.entries
-                    .sortedBy { it.value.expiresAt }
-                    .take(excess)
-                    .forEach { items.remove(it.key, it.value) }
-            }
-        } finally {
-            pruning.set(false)
-        }
-    }
+    private fun prune() = items.pruneToHalf(pruning, maxEntries, System::currentTimeMillis) { it.expiresAt }
 
     fun residentEntries(): Int = items.size
     fun clear() = items.clear()
+}
+
+/**
+ * Descarta as entradas vencidas e, se ainda assim faltar folga, as que vencem primeiro, ate sobrar
+ * metade do teto. Uma unica thread poda por vez; as demais gravam sem esperar e a poda seguinte as
+ * alcanca.
+ */
+private fun <V : Any, T : Comparable<T>> ConcurrentHashMap<String, V>.pruneToHalf(
+    pruning: AtomicBoolean,
+    maxEntries: Int,
+    now: () -> T,
+    expiresAt: (V) -> T,
+) {
+    if (!pruning.compareAndSet(false, true)) return
+    try {
+        val instant = now()
+        entries.removeIf { expiresAt(it.value) < instant }
+        val excess = size - maxEntries / 2
+        if (excess > 0) {
+            entries
+                .sortedBy { expiresAt(it.value) }
+                .take(excess)
+                .forEach { remove(it.key, it.value) }
+        }
+    } finally {
+        pruning.set(false)
+    }
 }
 
 /**
@@ -463,7 +442,7 @@ class InMemoryComposeSingleflight : ComposeSingleflight {
             SingleflightOutcome.Waiter(value)
         } catch (_: TimeoutException) {
             SingleflightOutcome.WaitTimeout
-        } catch (ex: java.util.concurrent.ExecutionException) {
+        } catch (ex: ExecutionException) {
             val cause = ex.cause ?: ex
             if (cause is Exception) throw cause else throw RuntimeException(cause)
         }

@@ -70,7 +70,6 @@ import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.KotlinModule
 import java.time.Clock
 import java.time.Duration
-import java.util.concurrent.Executor
 import java.util.concurrent.Semaphore
 
 /**
@@ -230,17 +229,14 @@ class SduiConfiguration {
         )
 
     @Bean
-    fun hydrationCoordinator(metrics: MetricsRecorder, properties: SduiProperties): HydrationCoordinator {
-        val virtualThreadFactory = Thread.ofVirtual().name("sdui-hydrate-", 0).factory()
-        val baseExecutor = Executor { runnable -> virtualThreadFactory.newThread(runnable).start() }
-        return HydrationCoordinator(
+    fun hydrationCoordinator(metrics: MetricsRecorder, properties: SduiProperties): HydrationCoordinator =
+        HydrationCoordinator(
             hydrators = listOf(PassThroughHydrator()),
             fanOut = Semaphore(properties.hydrationFanout),
             timeout = Duration.ofMillis(properties.hydrationTimeoutMs),
             metrics = metrics,
-            executor = MdcPropagatingExecutor(baseExecutor),
+            executor = MdcPropagatingExecutor(HydrationCoordinator.virtualThreadExecutor()),
         )
-    }
 
     /**
      * Registra medidores de medicao instantanea (USE - Utilization/Saturation) no Micrometer.

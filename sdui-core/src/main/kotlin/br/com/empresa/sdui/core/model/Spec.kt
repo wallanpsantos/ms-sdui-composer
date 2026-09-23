@@ -25,7 +25,7 @@ data class Targeting(
         val os = osVersion
         val clientOs = context.osVersion
         if (os != null && clientOs != null && !os.contains(clientOs)) return false
-        return requiredCapabilities.isEmpty() || requiredCapabilities.all { it in effectiveCaps }
+        return requiredCapabilities.all { it in effectiveCaps }
     }
 
     fun wireMin(): String = appVersion.min.toString()
@@ -150,7 +150,7 @@ data class SpecDiff(
  */
 data class AuditEvent(
     val id: String,
-    val ts: java.time.Instant,
+    val ts: Instant,
     val actorId: String,
     val role: ActorRole,
     val action: String,

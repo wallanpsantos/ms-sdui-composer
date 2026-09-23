@@ -21,6 +21,20 @@ class SemVerAndNegotiateTest {
     }
 
     @Test
+    fun `parse aceita major e major minor completando com zero e recusa o resto`() {
+        assertThat(SemVer.parse("17")).isEqualTo(SemVer(17, 0, 0))
+        assertThat(SemVer.parse("17.4")).isEqualTo(SemVer(17, 4, 0))
+        assertThat(SemVer.parse(" 17.4 ")).isEqualTo(SemVer(17, 4, 0))
+        assertThat(SemVer.parse("17.4.1")).isEqualTo(SemVer(17, 4, 1))
+        assertThat(SemVer.parse("17.")).isNull()
+        assertThat(SemVer.parse(".4")).isNull()
+        assertThat(SemVer.parse("17.4.1.2")).isNull()
+        assertThat(SemVer.parse("17.x")).isNull()
+        assertThat(SemVer.parse("")).isNull()
+        assertThat(SemVer.parse(null)).isNull()
+    }
+
+    @Test
     fun `negotiate rejeita plataforma semver build e locale invalidos`() {
         val base = NegotiateHeaders(
             uiSchemaVersion = "3",

@@ -3,6 +3,7 @@ package br.com.empresa.sdui.api.http
 import br.com.empresa.sdui.api.mapping.ScreenResponseMapper
 import br.com.empresa.sdui.api.trace.ComposeTraceContext
 import br.com.empresa.sdui.contract.error.ApiErrorResponse
+import br.com.empresa.sdui.core.model.ComposedScreen
 import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.orchestrator.compose.ComposeRequest
 import br.com.empresa.sdui.orchestrator.compose.ComposeResult
@@ -111,33 +112,7 @@ class HomeController(
                         ),
                     )
 
-                is ComposeResult.Success -> {
-                    val body = mapper.toResponse(result.screen)
-                    val serializeStarted = System.nanoTime()
-                    val json = jsonMapper.writeValueAsBytes(body)
-                    val metricTags = mapOf(
-                        "schemaVersion" to result.screen.schemaVersion,
-                        "appVersion" to result.screen.client.appVersion.toString(),
-                        "surface" to result.screen.surface,
-                        "platform" to result.screen.platform.wire(),
-                    )
-                    metrics.recordTime(
-                        "serialize.ms",
-                        (System.nanoTime() - serializeStarted) / 1_000_000,
-                        metricTags,
-                    )
-                    metrics.recordBytes(
-                        "payload.bytes",
-                        json.size.toLong(),
-                        metricTags,
-                    )
-                    ResponseEntity.ok()
-                        .header("ETag", result.screen.etag)
-                        .header("Cache-Control", CACHE_CONTROL)
-                        .header("Vary", VARY)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(json)
-                }
+                is ComposeResult.Success -> ok(result.screen)
             }
         } finally {
             metrics.recordTime(
@@ -147,6 +122,27 @@ class HomeController(
             )
             trace.close()
         }
+    }
+
+    /** Serializa a arvore uma unica vez, direto para bytes, e mede tempo e tamanho do payload. */
+    private fun ok(screen: ComposedScreen): ResponseEntity<ByteArray> {
+        val body = mapper.toResponse(screen)
+        val serializeStarted = System.nanoTime()
+        val json = jsonMapper.writeValueAsBytes(body)
+        val metricTags = mapOf(
+            "schemaVersion" to screen.schemaVersion,
+            "appVersion" to screen.client.appVersion.toString(),
+            "surface" to screen.surface,
+            "platform" to screen.platform.wire(),
+        )
+        metrics.recordTime("serialize.ms", (System.nanoTime() - serializeStarted) / 1_000_000, metricTags)
+        metrics.recordBytes("payload.bytes", json.size.toLong(), metricTags)
+        return ResponseEntity.ok()
+            .header("ETag", screen.etag)
+            .header("Cache-Control", CACHE_CONTROL)
+            .header("Vary", VARY)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(json)
     }
 
     /**

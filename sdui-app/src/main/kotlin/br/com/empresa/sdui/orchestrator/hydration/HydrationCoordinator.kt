@@ -14,6 +14,7 @@ import java.util.concurrent.Executor
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Saida da hidratacao: o que foi preenchido, o que caiu e se um slot portante ficou vazio.
@@ -40,8 +41,10 @@ class HydrationCoordinator(
     private val fanOut: Semaphore,
     private val timeout: Duration,
     private val metrics: MetricsRecorder,
-    private val executor: Executor = defaultExecutor(),
+    private val executor: Executor = virtualThreadExecutor(),
 ) {
+    private val passThrough = PassThroughHydrator()
+
     fun hydrate(
         context: HydrationContext,
         skeleton: Skeleton,
@@ -54,61 +57,7 @@ class HydrationCoordinator(
             return HydratedTree(emptyList(), omitted, requiredSlotFailed = false)
         }
 
-        val jobs = sections.map { section ->
-            val hydrator = hydrators.firstOrNull { it.supports(section.type, section.typeVersion) }
-                ?: PassThroughHydrator()
-            val started = System.nanoTime()
-            val taskThread = java.util.concurrent.atomic.AtomicReference<Thread?>()
-            val original = CompletableFuture.supplyAsync(
-                {
-                    taskThread.set(Thread.currentThread())
-                    val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
-                    val remainingMs = (timeout.toMillis() - elapsedMs).coerceAtLeast(0)
-                    if (remainingMs <= 0 || !fanOut.tryAcquire(remainingMs, TimeUnit.MILLISECONDS)) {
-                        throw TimeoutException("Fan-out semaphore acquire timeout")
-                    }
-                    try {
-                        if (System.nanoTime() - started >= timeout.toNanos() || Thread.currentThread().isInterrupted) {
-                            throw TimeoutException("Timeout before hydrator invocation")
-                        }
-                        hydrator.hydrate(context, section)
-                    } finally {
-                        fanOut.release()
-                    }
-                },
-                executor,
-            )
-            original.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
-                .handle { result, error ->
-                    if (error != null) {
-                        taskThread.get()?.interrupt()
-                    }
-                    val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
-                    runCatching {
-                        metrics.recordTime(
-                            SECTION_HYDRATE_TIMER,
-                            elapsedMs,
-                            mapOf(
-                                "type" to section.type,
-                                "typeVersion" to section.typeVersion.toString(),
-                                "platform" to context.platform.wire(),
-                                "channel" to context.channel.wire(),
-                            ),
-                        )
-                    }
-                    val hydration = if (error != null) {
-                        val root = rootCause(error)
-                        if (root is TimeoutException) {
-                            HydrationResult.Failed(OmittedReason.HYDRATION_TIMEOUT)
-                        } else {
-                            HydrationResult.Failed(OmittedReason.HYDRATION_FAILED)
-                        }
-                    } else {
-                        result ?: HydrationResult.Failed(OmittedReason.HYDRATION_FAILED)
-                    }
-                    section to hydration
-                }
-        }
+        val jobs = sections.map { section -> launch(context, section) }
 
         val kept = mutableListOf<Section>()
         var requiredFailed = false
@@ -133,6 +82,61 @@ class HydrationCoordinator(
         return HydratedTree(kept, omitted, requiredFailed)
     }
 
+    /** Dispara a hidratacao de uma section numa virtual thread, sob o semaforo de fan-out e o prazo. */
+    private fun launch(
+        context: HydrationContext,
+        section: Section,
+    ): CompletableFuture<Pair<Section, HydrationResult>> {
+        val hydrator = hydrators.firstOrNull { it.supports(section.type, section.typeVersion) } ?: passThrough
+        val started = System.nanoTime()
+        val taskThread = AtomicReference<Thread?>()
+        val original = CompletableFuture.supplyAsync(
+            {
+                taskThread.set(Thread.currentThread())
+                val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
+                val remainingMs = (timeout.toMillis() - elapsedMs).coerceAtLeast(0)
+                if (remainingMs <= 0 || !fanOut.tryAcquire(remainingMs, TimeUnit.MILLISECONDS)) {
+                    throw TimeoutException("Fan-out semaphore acquire timeout")
+                }
+                try {
+                    if (System.nanoTime() - started >= timeout.toNanos() || Thread.currentThread().isInterrupted) {
+                        throw TimeoutException("Timeout before hydrator invocation")
+                    }
+                    hydrator.hydrate(context, section)
+                } finally {
+                    fanOut.release()
+                }
+            },
+            executor,
+        )
+        return original.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS)
+            .handle { result, error ->
+                if (error != null) {
+                    taskThread.get()?.interrupt()
+                }
+                val elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
+                runCatching {
+                    metrics.recordTime(
+                        SECTION_HYDRATE_TIMER,
+                        elapsedMs,
+                        mapOf(
+                            "type" to section.type,
+                            "typeVersion" to section.typeVersion.toString(),
+                            "platform" to context.platform.wire(),
+                            "channel" to context.channel.wire(),
+                        ),
+                    )
+                }
+                section to outcome(result, error)
+            }
+    }
+
+    private fun outcome(result: HydrationResult?, error: Throwable?): HydrationResult = when {
+        error == null -> result ?: HydrationResult.Failed(OmittedReason.HYDRATION_FAILED)
+        rootCause(error) is TimeoutException -> HydrationResult.Failed(OmittedReason.HYDRATION_TIMEOUT)
+        else -> HydrationResult.Failed(OmittedReason.HYDRATION_FAILED)
+    }
+
     private fun rootCause(error: Throwable): Throwable {
         var current = error
         val seen = HashSet<Throwable>()
@@ -143,14 +147,16 @@ class HydrationCoordinator(
         }
     }
 
-    private companion object {
+    companion object {
         private val threadFactory = Thread.ofVirtual().name("sdui-hydrate-", 0).factory()
-        private fun defaultExecutor(): Executor = Executor { runnable -> threadFactory.newThread(runnable).start() }
+
+        /** Uma virtual thread nova por section, com nome rastreavel nos dumps. */
+        fun virtualThreadExecutor(): Executor = Executor { runnable -> threadFactory.newThread(runnable).start() }
 
         /**
          * Nome fixo: o tipo do componente ja viaja na tag `type`. Interpolar o tipo no nome criaria
          * um meter por componente e multiplicaria as series no registry.
          */
-        const val SECTION_HYDRATE_TIMER: String = "section.hydrate.ms"
+        private const val SECTION_HYDRATE_TIMER: String = "section.hydrate.ms"
     }
 }

@@ -40,6 +40,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.SkeletonStore
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecCache
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
 import br.com.empresa.sdui.orchestrator.port.outbound.TransactionalUnitOfWork
+import br.com.empresa.sdui.orchestrator.port.outbound.findFor
 import java.time.Clock
 import java.util.*
 
@@ -96,8 +97,7 @@ class DraftService(
         if (existing?.status == SpecStatus.PUBLISHED) {
             throw AdminValidation(listOf("spec PUBLISHED e imutavel; crie nova revisao"))
         }
-        val skeleton = skeletonStore.find(command.spec.skeletonId, command.spec.skeletonRevision)
-            ?: skeletonStore.current(command.spec.skeletonId)
+        val skeleton = skeletonStore.findFor(command.spec)
             ?: throw AdminNotFound("skeleton ${command.spec.skeletonId}")
         val errors = SpecValidator.validateDraft(
             command.spec.copy(status = SpecStatus.DRAFT),
@@ -168,23 +168,17 @@ class PublishService(
 
     override fun open(command: OpenPublishCommand): PublishRequest {
         requireRole(command.actor.role, ActorRole.MAKER)
-        idempotency.find(command.idempotencyKey)?.let { return replayPublish(it) }
-        if (!idempotency.reserve(command.idempotencyKey, OPERATION_OPEN)) {
-            return replayPublish(
-                idempotency.find(command.idempotencyKey) ?: throw AdminInFlight(command.idempotencyKey),
-            )
-        }
-        try {
+        replayOrReserve(command.idempotencyKey, OPERATION_OPEN)?.let { return it }
+        return idempotency.releasingOnFailure(command.idempotencyKey) {
             val spec = specStore.findBySpecIdAndRevision(command.specId, command.revision)
                 ?: throw AdminNotFound("spec ${command.specId}#${command.revision}")
             if (spec.status == SpecStatus.PUBLISHED) {
                 throw AdminValidation(listOf("revisao ja publicada"))
             }
-            val skeleton = skeletonStore.find(spec.skeletonId, spec.skeletonRevision)
-                ?: skeletonStore.current(spec.skeletonId)
-                ?: throw AdminNotFound("skeleton")
-            val catalogErrors = CatalogValidator.validate(catalogStore.current())
-            val specErrors = SpecValidator.validateDraft(spec, skeleton, catalogStore.current(), matrix)
+            val skeleton = skeletonStore.findFor(spec) ?: throw AdminNotFound("skeleton")
+            val catalog = catalogStore.current()
+            val catalogErrors = CatalogValidator.validate(catalog)
+            val specErrors = SpecValidator.validateDraft(spec, skeleton, catalog, matrix)
             if (catalogErrors.isNotEmpty() || specErrors.isNotEmpty()) {
                 throw AdminValidation(catalogErrors + specErrors)
             }
@@ -205,18 +199,23 @@ class PublishService(
             )
             // Diff, pedido e fecho da chave no mesmo commit. O diff e o que o checker revisa antes
             // de aprovar; gravado fora da transacao, uma falha no meio deixaria diff sem pedido.
-            return tx.execute {
+            tx.execute {
                 diffStore.save(diff)
                 val saved = publishStore.save(request)
                 idempotency.complete(IdempotencyRecord(command.idempotencyKey, OPERATION_OPEN, saved.requestId))
                 saved
             }
-        } catch (error: Throwable) {
-            // A operacao nao produziu efeito: devolver a chave permite ao maker corrigir o
-            // rascunho e reenviar com a mesma chave, em vez de ter de inventar outra.
-            idempotency.release(command.idempotencyKey)
-            throw error
         }
+    }
+
+    /**
+     * Devolve o resultado ja produzido para a chave, ou null quando esta chamada acabou de
+     * reserva-la e deve executar a operacao. Perder a corrida da reserva cai no mesmo replay.
+     */
+    private fun replayOrReserve(key: String, operation: String): PublishRequest? {
+        idempotency.find(key)?.let { return replayPublish(it) }
+        if (idempotency.reserve(key, operation)) return null
+        return replayPublish(idempotency.find(key) ?: throw AdminInFlight(key))
     }
 
     /**
@@ -232,18 +231,8 @@ class PublishService(
 
     override fun approve(command: DecidePublishCommand): PublishRequest {
         requireRole(command.actor.role, ActorRole.CHECKER)
-        idempotency.find(command.idempotencyKey)?.let { return replayPublish(it) }
-        if (!idempotency.reserve(command.idempotencyKey, OPERATION_APPROVE)) {
-            return replayPublish(
-                idempotency.find(command.idempotencyKey) ?: throw AdminInFlight(command.idempotencyKey),
-            )
-        }
-        val outcome = try {
-            approveReserved(command)
-        } catch (error: Throwable) {
-            idempotency.release(command.idempotencyKey)
-            throw error
-        }
+        replayOrReserve(command.idempotencyKey, OPERATION_APPROVE)?.let { return it }
+        val outcome = idempotency.releasingOnFailure(command.idempotencyKey) { approveReserved(command) }
         // Escritas de cache ficam fora da transacao: nao sao transacionais e, aplicadas antes do
         // commit, entregariam aos leitores uma revisao que um rollback ainda pode desfazer.
         specCache.put(outcome.spec)
@@ -265,9 +254,7 @@ class PublishService(
         }
         val spec = specStore.findBySpecIdAndRevision(open.specId, open.revision)
             ?: throw AdminNotFound("spec")
-        val skeleton = skeletonStore.find(spec.skeletonId, spec.skeletonRevision)
-            ?: skeletonStore.current(spec.skeletonId)
-            ?: throw AdminNotFound("skeleton")
+        val skeleton = skeletonStore.findFor(spec) ?: throw AdminNotFound("skeleton")
         val errors = SpecValidator.validateDraft(spec, skeleton, catalogStore.current(), matrix)
         if (errors.isNotEmpty()) throw AdminValidation(errors)
         // Revisao com pai exige diff calculado: e o que o checker revisa antes de aprovar. A
@@ -326,13 +313,8 @@ class PublishService(
 
     override fun reject(command: DecidePublishCommand, reason: String): PublishRequest {
         requireRole(command.actor.role, ActorRole.CHECKER)
-        idempotency.find(command.idempotencyKey)?.let { return replayPublish(it) }
-        if (!idempotency.reserve(command.idempotencyKey, OPERATION_REJECT)) {
-            return replayPublish(
-                idempotency.find(command.idempotencyKey) ?: throw AdminInFlight(command.idempotencyKey),
-            )
-        }
-        try {
+        replayOrReserve(command.idempotencyKey, OPERATION_REJECT)?.let { return it }
+        return idempotency.releasingOnFailure(command.idempotencyKey) {
             val open = publishStore.find(command.requestId) ?: throw AdminNotFound("publish ${command.requestId}")
             if (open.makerId == command.actor.id && open.channel != Channel.INTERNAL) {
                 throw AdminDenied("maker nao rejeita o proprio pedido como checker unico sem papel")
@@ -343,7 +325,7 @@ class PublishService(
             // transicao e o fecho deixaria o efeito aplicado sem registro da chave: o retry do
             // checker acharia o pedido fora de OPEN e receberia 409, sem meio de saber se a propria
             // rejeicao dele foi a que valeu.
-            return tx.execute {
+            tx.execute {
                 val won = publishStore.compareAndSetStatus(open.requestId, PublishRequestStatus.OPEN, rejected)
                     ?: throw AdminConflict("pedido nao esta aberto")
                 auditLog.append(
@@ -365,9 +347,6 @@ class PublishService(
                 idempotency.complete(IdempotencyRecord(command.idempotencyKey, OPERATION_REJECT, won.requestId))
                 won
             }
-        } catch (error: Throwable) {
-            idempotency.release(command.idempotencyKey)
-            throw error
         }
     }
 }
@@ -401,12 +380,7 @@ class RollbackService(
         if (!idempotency.reserve(command.idempotencyKey, OPERATION_ROLLBACK)) {
             throw AdminInFlight(command.idempotencyKey)
         }
-        val outcome = try {
-            rollbackReserved(command)
-        } catch (error: Throwable) {
-            idempotency.release(command.idempotencyKey)
-            throw error
-        }
+        val outcome = idempotency.releasingOnFailure(command.idempotencyKey) { rollbackReserved(command) }
         // Mesma razao do approve: o cache so pode refletir o ponteiro depois que ele commitou.
         outcome.retiredRevisionId?.let { specCache.invalidate(it, command.platform) }
         specCache.put(outcome.target)
@@ -420,8 +394,9 @@ class RollbackService(
     private fun rollbackReserved(command: RollbackCommand): RollbackOutcome {
         val pointer = pointerStore.find(command.surface, command.platform, command.channel)
             ?: throw AdminNotFound("pointer")
-        val targetId = command.targetSpecRevisionId ?: pointer.previousSpecRevisionId
-        ?: throw AdminValidation(listOf("sem revisao anterior"))
+        val targetId = command.targetSpecRevisionId
+            ?: pointer.previousSpecRevisionId
+            ?: throw AdminValidation(listOf("sem revisao anterior"))
         val target = specStore.findByRevisionId(targetId) ?: throw AdminNotFound("spec $targetId")
         if (target.status != SpecStatus.PUBLISHED) {
             throw AdminValidation(listOf("alvo nao publicado"))
@@ -476,6 +451,20 @@ private data class RollbackOutcome(
     val target: Spec,
     val retiredRevisionId: String?,
 )
+
+/**
+ * Executa [work] sobre uma chave ja reservada e a devolve ao pool se a operacao falhar sem efeito.
+ *
+ * Devolver a chave permite ao operador corrigir o rascunho e reenviar com a mesma chave, em vez de
+ * ter de inventar outra — sem isso um 400 de validacao queimaria a chave para sempre.
+ */
+private inline fun <T> IdempotencyStore.releasingOnFailure(key: String, work: () -> T): T =
+    try {
+        work()
+    } catch (error: Throwable) {
+        release(key)
+        throw error
+    }
 
 private fun requireRole(actual: ActorRole, vararg allowed: ActorRole) {
     if (actual !in allowed) throw AdminDenied("papel $actual insuficiente")

@@ -164,7 +164,9 @@ class AdminController(
                 idempotencyKey = idempotencyKey,
             ),
         )
-        metrics.increment("admin.publish.open", mapOf("channel" to body.channel))
+        // Tag vem do pedido persistido, e nao do corpo: Channel.parse aceita qualquer texto e cai
+        // em stable, entao o valor cru abriria uma serie de metrica por string enviada.
+        metrics.increment("admin.publish.open", mapOf("channel" to created.channel.wire()))
         logger.info(
             "publish request opened: id={}, specId={}, revision={}, channel={}, actor={}",
             created.requestId,
@@ -238,7 +240,12 @@ class AdminController(
                 reason = body?.reason ?: "rollback",
             ),
         )
-        metrics.increment("admin.rollback", mapOf("surface" to surface, "platform" to platform, "channel" to channel))
+        // Tags do pointer movido, e nao do path: plataforma e canal chegam como texto livre e so o
+        // valor normalizado mantem a cardinalidade fechada.
+        metrics.increment(
+            "admin.rollback",
+            mapOf("surface" to moved.surface, "platform" to moved.platform.wire(), "channel" to moved.channel.wire()),
+        )
         logger.warn(
             "pointer rollback executed: surface={}, platform={}, channel={}, actor={}, targetSpecRevisionId={}, reason={}",
             surface,

@@ -29,23 +29,15 @@ data class SemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<S
 
     companion object {
         private val THREE = Regex("""^(\d+)\.(\d+)\.(\d+)$""")
-        private val TWO = Regex("""^(\d+)\.(\d+)$""")
-        private val ONE = Regex("""^(\d+)$""")
+        private val MAJOR_OPTIONAL_MINOR = Regex("""^(\d+)(?:\.(\d+))?$""")
 
+        /** Aceita `major`, `major.minor` ou `major.minor.patch`; o que faltar vale zero. */
         fun parse(raw: String?): SemVer? {
             parseThreePart(raw)?.let { return it }
-            val value = raw?.trim().orEmpty()
-            if (value.isEmpty()) return null
-            TWO.matchEntire(value)?.let { m ->
-                val major = m.groupValues[1].toIntOrNull() ?: return null
-                val minor = m.groupValues[2].toIntOrNull() ?: return null
-                return SemVer(major, minor, 0)
-            }
-            ONE.matchEntire(value)?.let { m ->
-                val major = m.groupValues[1].toIntOrNull() ?: return null
-                return SemVer(major, 0, 0)
-            }
-            return null
+            val match = MAJOR_OPTIONAL_MINOR.matchEntire(raw?.trim().orEmpty()) ?: return null
+            val major = match.groupValues[1].toIntOrNull() ?: return null
+            val minor = match.groupValues[2].ifEmpty { "0" }.toIntOrNull() ?: return null
+            return SemVer(major, minor, 0)
         }
 
         fun parseThreePart(raw: String?): SemVer? {

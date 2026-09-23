@@ -95,13 +95,13 @@ object SpecValidator {
         matrix: CapabilityMatrix,
     ): List<String> {
         val errors = mutableListOf<String>()
-        val combos = targetingCombos(spec, matrix)
-        for (combo in combos) {
-            for (slot in skeleton.slots.filter { it.required }) {
-                val occupying = spec.sections.filter { section ->
+        val requiredSlots = skeleton.slots.filter { it.required }
+        for (combo in targetingCombos(spec, matrix)) {
+            for (slot in requiredSlots) {
+                val empty = spec.sections.none { section ->
                     section.slot == slot.id && section.capability in combo.caps
                 }
-                if (occupying.isEmpty()) {
+                if (empty) {
                     errors += "slot required '${slot.id}' pode ficar vazio para ${combo.label}"
                 }
             }

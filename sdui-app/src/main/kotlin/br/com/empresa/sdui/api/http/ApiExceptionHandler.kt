@@ -24,17 +24,12 @@ class ApiExceptionHandler(
     private val metrics: MetricsRecorder,
 ) : ResponseEntityExceptionHandler() {
     @ExceptionHandler(AdminDenied::class)
-    fun denied(ex: AdminDenied): ResponseEntity<ApiErrorResponse> {
-        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to "denied"))
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-            .body(ApiErrorResponse("FORBIDDEN", ex.message ?: "forbidden"))
-    }
+    fun denied(ex: AdminDenied): ResponseEntity<ApiErrorResponse> =
+        adminError("denied", HttpStatus.FORBIDDEN, ApiErrorResponse("FORBIDDEN", ex.message ?: "forbidden"))
 
     @ExceptionHandler(AdminConflict::class)
-    fun conflict(ex: AdminConflict): ResponseEntity<ApiErrorResponse> {
-        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to "conflict"))
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse("CONFLICT", ex.message ?: "conflict"))
-    }
+    fun conflict(ex: AdminConflict): ResponseEntity<ApiErrorResponse> =
+        adminError("conflict", HttpStatus.CONFLICT, ApiErrorResponse("CONFLICT", ex.message ?: "conflict"))
 
     /**
      * Chave de idempotencia em voo. Tambem 409, mas com codigo proprio: o operador precisa
@@ -42,24 +37,24 @@ class ApiExceptionHandler(
      * porque so o segundo caso se resolve esperando.
      */
     @ExceptionHandler(AdminInFlight::class)
-    fun inFlight(ex: AdminInFlight): ResponseEntity<ApiErrorResponse> {
-        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to "in_flight"))
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(ApiErrorResponse("IDEMPOTENT_IN_FLIGHT", ex.message ?: "operacao em voo"))
-    }
+    fun inFlight(ex: AdminInFlight): ResponseEntity<ApiErrorResponse> =
+        adminError(
+            "in_flight",
+            HttpStatus.CONFLICT,
+            ApiErrorResponse("IDEMPOTENT_IN_FLIGHT", ex.message ?: "operacao em voo"),
+        )
 
     @ExceptionHandler(AdminValidation::class)
-    fun validation(ex: AdminValidation): ResponseEntity<ApiErrorResponse> {
-        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to "validation"))
-        return ResponseEntity.badRequest().body(ApiErrorResponse("VALIDATION", "rascunho invalido", ex.errors))
-    }
+    fun validation(ex: AdminValidation): ResponseEntity<ApiErrorResponse> =
+        adminError(
+            "validation",
+            HttpStatus.BAD_REQUEST,
+            ApiErrorResponse("VALIDATION", "rascunho invalido", ex.errors),
+        )
 
     @ExceptionHandler(AdminNotFound::class)
-    fun notFound(ex: AdminNotFound): ResponseEntity<ApiErrorResponse> {
-        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to "not_found"))
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(ApiErrorResponse("NOT_FOUND", ex.message ?: "not found"))
-    }
+    fun notFound(ex: AdminNotFound): ResponseEntity<ApiErrorResponse> =
+        adminError("not_found", HttpStatus.NOT_FOUND, ApiErrorResponse("NOT_FOUND", ex.message ?: "not found"))
 
     /**
      * Rede de seguranca para o que nao foi previsto.
@@ -74,6 +69,16 @@ class ApiExceptionHandler(
         logger.error("falha nao tratada ao atender a requisicao", ex)
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ApiErrorResponse("INTERNAL_ERROR", "erro interno"))
+    }
+
+    /** Conta a falha de governanca pelo tipo, em tag, e responde com o status dela. */
+    private fun adminError(
+        error: String,
+        status: HttpStatus,
+        body: ApiErrorResponse,
+    ): ResponseEntity<ApiErrorResponse> {
+        metrics.increment(METRIC_ADMIN_ERROR, mapOf("error" to error))
+        return ResponseEntity.status(status).body(body)
     }
 
     private companion object {

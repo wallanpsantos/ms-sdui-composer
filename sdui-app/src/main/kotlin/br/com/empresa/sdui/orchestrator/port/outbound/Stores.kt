@@ -12,7 +12,6 @@ import br.com.empresa.sdui.core.model.PublishRequestStatus
 import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecDiff
-import br.com.empresa.sdui.core.model.SpecStatus
 import java.time.Duration
 import java.time.Instant
 
@@ -33,6 +32,10 @@ interface SkeletonStore {
     fun find(skeletonId: String, revision: Int? = null): Skeleton?
     fun current(skeletonId: String): Skeleton?
 }
+
+/** O skeleton na revisao que o spec referencia, ou o vigente quando aquela revisao nao existe. */
+fun SkeletonStore.findFor(spec: Spec): Skeleton? =
+    find(spec.skeletonId, spec.skeletonRevision) ?: current(spec.skeletonId)
 
 /** O catalogo de componentes vigente. Guardado inteiro, porque so faz sentido validado como conjunto. */
 interface CatalogStore {
@@ -204,12 +207,4 @@ interface MetricsRecorder {
     fun increment(name: String, tags: Map<String, String> = emptyMap())
     fun recordTime(name: String, durationMs: Long, tags: Map<String, String> = emptyMap())
     fun recordBytes(name: String, bytes: Long, tags: Map<String, String> = emptyMap())
-}
-
-fun Spec.requireMutable() {
-    check(status != SpecStatus.PUBLISHED) { "spec PUBLISHED e imutavel" }
-}
-
-fun Skeleton.requireMutable() {
-    check(status != SpecStatus.PUBLISHED) { "skeleton PUBLISHED e imutavel" }
 }

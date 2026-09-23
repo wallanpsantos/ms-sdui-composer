@@ -46,9 +46,4 @@ data class OmittedSection(
     val type: String,
     val typeVersion: Int,
     val reason: OmittedReason,
-) {
-    val capability: Capability = Capability(type, typeVersion)
-    fun capability(): Capability = capability
-}
-
-fun Section.capability(): Capability = capability
+)
