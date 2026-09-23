@@ -92,13 +92,14 @@ class SurfaceController(
         ifNoneMatch: String?,
     ): ResponseEntity<*> {
         val started = System.nanoTime()
-        // Versao exata do app vai para o contexto de log, nunca para tag de metrica.
+        // Versao exata do app vai para o contexto de log, nunca para tag de metrica. Os valores
+        // ainda nao foram validados pelo Negotiate: entram truncados.
         trace.open(
             mapOf(
                 "surface" to surface.id,
-                "platform" to (headers.clientPlatform ?: ""),
-                "schemaVersion" to (headers.uiSchemaVersion ?: ""),
-                "appVersion" to (headers.clientVersion?.take(MAX_LOGGED_VERSION_LENGTH) ?: ""),
+                "platform" to (headers.clientPlatform?.take(MAX_LOGGED_HEADER_LENGTH) ?: ""),
+                "schemaVersion" to (headers.uiSchemaVersion?.take(MAX_LOGGED_HEADER_LENGTH) ?: ""),
+                "appVersion" to (headers.clientVersion?.take(MAX_LOGGED_HEADER_LENGTH) ?: ""),
             ),
         )
         // O desfecho comeca como erro e so e substituido depois que a composicao devolve: se algo
@@ -208,7 +209,7 @@ class SurfaceController(
     }
 
     private companion object {
-        const val MAX_LOGGED_VERSION_LENGTH: Int = 32
+        const val MAX_LOGGED_HEADER_LENGTH: Int = 32
         const val CACHE_CONTROL: String = "private, max-age=60"
         const val VARY: String =
             "API-Version, UI-Schema-Version, Client-Platform, Client-Version, Client-Build, Component-Capabilities"

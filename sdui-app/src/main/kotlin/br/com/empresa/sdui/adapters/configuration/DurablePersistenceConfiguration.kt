@@ -54,6 +54,7 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.serializer.RedisSerializer
 import java.net.URI
+import java.net.URISyntaxException
 import java.time.Clock
 import java.time.Duration
 import java.util.concurrent.TimeUnit
@@ -177,7 +178,16 @@ class RedisCacheConfiguration {
         require(redis.url.isNotBlank()) {
             "sdui.persistence.cache=redis exige sdui.persistence.redis.url (SDUI_PERSISTENCE_REDIS_URL)"
         }
-        val uri = URI.create(redis.url)
+        // A mensagem de URISyntaxException repete a entrada inteira, senha inclusa, e a falha de
+        // subida vai para o log. Recusa sem ecoar o valor.
+        val uri = try {
+            URI(redis.url)
+        } catch (_: URISyntaxException) {
+            throw IllegalArgumentException(
+                "sdui.persistence.redis.url malformada (valor omitido por conter credencial); " +
+                    "codifique caracteres especiais da senha em percent-encoding",
+            )
+        }
         val standalone = RedisStandaloneConfiguration(uri.host, if (uri.port > 0) uri.port else DEFAULT_REDIS_PORT)
         uri.path?.trim('/')?.toIntOrNull()?.let { standalone.database = it }
         uri.userInfo?.let { info ->

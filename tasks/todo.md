@@ -157,10 +157,44 @@ Execução única, em 2026-09-23: `gradlew clean build --warning-mode=fail --con
   12,9–13,4 mil req/s, p99 no cliente 10,6–11,5 ms, p99 do hit no servidor ≤ 2,4 ms; detalhes, 429 do limitador
   por coorte e limitações em [`medicoes-2026-09-23.md`](../docs/performance/medicoes-2026-09-23.md#carga-http).
 
+### Revisão `code-review-and-quality` (depois da execução Gradle)
+
+Cinco eixos sobre o working tree. Corrigido na hora:
+
+- **Segredo em log (segurança):** `RedisCacheConfiguration` usava `URI.create(url)`; uma URL malformada falhava a
+  subida com a URL inteira, senha inclusa, na mensagem. Agora recusa sem ecoar o valor e sem causa encadeada
+  (`RedisUrlSecretTest`).
+- **Nit:** `platform` e `schemaVersion` entram no MDC truncados, como `appVersion` (valores ainda não validados).
+
+Validação das correções, fora do Gradle (regra de execução única): produção e testes recompilados com `kotlinc`
+2.4.20, `-Werror` e o preset `spring` do all-open (como o plugin do build); a suíte inteira de `sdui-app`
+executada pelo JUnit Platform Launcher com as bibliotecas de runtime do `bootJar`: **102 testes, 0 falhas** (os 12
+ITs sem infraestrutura abortam por premissa, como no Gradle); `ArchitectureTest`, `VisualKeysAlignmentTest` e
+`SduiApplicationTest` com o classpath de produção: **15 testes, 0 falhas**.
+
+Deferido com justificativa (entra no ensaio P13, porque o modo Mongo não está homologado):
+
+- **Falha do Mongo no plano administrativo vira 500:** timeout de operação, resultado de commit desconhecido e
+  chave duplicada no `MongoSpecStore.save` sobem como `MongoException`/`IllegalStateException` e caem no handler
+  genérico (`INTERNAL_ERROR`, sem `Retry-After`, contado como erro inesperado). Para o operador, o certo é 503
+  com `Retry-After` (reenvio com a mesma `Idempotency-Key`) e 409 no conflito de chave. Proposta: traduzir no
+  adapter para exceções de porta (`StoreUnavailable`, `StoreConflict`) e mapear na API.
+- **Leitura de pointer no MongoDB a cada requisição:** aceita no ADR-021 (§19.10), mas a carga HTTP mostra a escala:
+  cerca de 13 mil leituras/s por pod. Além disso, com o Mongo fora, todo pedido vai para o last good mesmo com a
+  árvore no Redis. Uma alternativa é um cache local de pointer com TTL de até 1 s, o que exige ADR (troca por
+  defasagem) e medição no P13.
+- **Consider:** `RedisHydratedScreenCache.put` faz SET, SADD e EXPIRE em três idas e voltas não atômicas; pipeline
+  ou Lua economizaria cerca de 2 RTT por miss.
+- **FYI:** `FallbackReason.REDIS_UNAVAILABLE` também é emitido para falha do MongoDB. O nome está no contrato do
+  envelope, então trocá-lo é mudança de contrato. O limitador por coorte (`plataforma:build`, 10 mil/s por pod)
+  recusou 24% da carga de um build único na rodada 1.
+- **Código sem chamador em produção (remoção a decidir):** `IdempotencyStore.find`, `SpecStore.list(platform,
+  channel)` sem paginação e `AuditLogStore.list()`; hoje só os testes os usam.
+
 ### Pendências
 
-1. Reexecutar a suíte Gradle completa uma vez, quando autorizado, para confirmar a correção do teto em
-   `sdui-app`.
+1. Reexecutar a suíte Gradle completa uma vez, quando autorizado, para confirmar no build as correções feitas
+   depois da execução única (teto do cache, URL do Redis, MDC).
 2. Rodar `MongoPersistenceIT`, `RedisCachesIT` e `DurableModeBootIT` com infraestrutura real
    (`docker compose up -d` + variáveis `SDUI_IT_*`) e executar o ensaio P13 do
    [runbook](../docs/runbooks/persistencia-mongodb-redis.md). Até lá o AGENTS.md §17 (instância única) vale.

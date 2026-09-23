@@ -83,7 +83,7 @@ da implementação se necessário. Testes são escritos com o código, sem execu
 | P10 | Feito | Outbox + lápide versionada + relay; `CacheInvalidatorTest`, `InMemoryStoresBehaviorTest`, `RedisCachesIT` |
 | P11 | Feito, IT não executado | Wiring condicional sem fallback silencioso, seed e demo idempotentes, health; `DurableModeBootIT` (restart) |
 | P12 | Feito | Métricas `cache.operation.ms`, `cache.write.skipped`, `cache.invalidation.*`, listeners Micrometer do driver; runbook |
-| P13 | **Pendente** | Roteiro escrito (runbook §6); ensaio multi-instância, restauração e `explain` em base representativa não realizados |
+| P13 | **Pendente** | Roteiro escrito (runbook §6); ensaio multi-instância, restauração e `explain` em base representativa não realizados. Entram junto os itens deferidos da revisão (`todo.md`, Verificação final): falha do Mongo no admin como 503/409 e custo da leitura de pointer por requisição |
 
 ProjectionStore só será conectado se houver consumidor definido; não criar adapter morto como
 preparação. Retenção de audit/diffs/revisões precisa preservar seleção e rollback, não copiar
