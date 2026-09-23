@@ -1,0 +1,63 @@
+{
+  "skeletonId": "home.shortcuts_first",
+  "revision": 1,
+  "surface": "home",
+  "layout": "vertical_scroll",
+  "status": "DRAFT",
+  "slots": [
+    {
+      "id": "header",
+      "layout": "FIXED",
+      "title": null,
+      "maxInstances": 1,
+      "allowedTypes": ["top_bar"],
+      "required": true,
+      "allowedLayouts": ["FIXED"]
+    },
+    {
+      "id": "accounts",
+      "layout": "LIST",
+      "title": "Conta",
+      "maxInstances": 1,
+      "allowedTypes": ["account_card"],
+      "required": true,
+      "allowedLayouts": ["LIST", "FIXED"]
+    },
+    {
+      "id": "shortcuts",
+      "layout": "SHELF",
+      "title": null,
+      "maxInstances": 1,
+      "allowedTypes": ["shortcut_shelf"],
+      "required": false,
+      "allowedLayouts": ["SHELF", "GRID"]
+    },
+    {
+      "id": "cards",
+      "layout": "LIST",
+      "title": "Cartão de crédito",
+      "maxInstances": 3,
+      "allowedTypes": ["card_product"],
+      "required": false,
+      "allowedLayouts": ["LIST", "PAGER"]
+    },
+    {
+      "id": "offers",
+      "layout": "LIST",
+      "title": "Empréstimo",
+      "maxInstances": 4,
+      "allowedTypes": ["credit_offer"],
+      "required": false,
+      "allowedLayouts": ["LIST", "PAGER"]
+    },
+    {
+      "id": "coverage",
+      "layout": "LIST",
+      "title": "Descubra mais",
+      "maxInstances": 3,
+      "allowedTypes": ["coverage_card"],
+      "required": false,
+      "allowedLayouts": ["LIST", "SHELF"]
+    }
+  ]
+}

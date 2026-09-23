@@ -22,6 +22,8 @@ management:
       percentiles-histogram:
         compose.duration: true
         section.hydrate.ms: true
+        mapping.ms: true
+        serialize.ms: true
 
 logging:
   structured:
@@ -45,8 +47,36 @@ sdui:
   read-bulkhead-wait-ms: 50
   max-fallback-age-seconds: 86400
   idempotency-ttl-seconds: 86400
+  # Reserva em voo mais velha que isto e tratada como abandonada e a chave pode ser retomada.
+  idempotency-reservation-timeout-seconds: 300
   idempotency-max-keys: 10000
+  # Teto de valores distintos por tag nas metricas proprias (defesa de cardinalidade).
+  metrics-max-tag-values: 64
+  # Publica os quatro exemplos de docs/examples/screens pelo fluxo administrativo. Nunca em producao.
+  demo-enabled: false
   retry-after-seconds: 5
   rate-limit-retry-after-seconds: 2
   canary-ios-builds: [ ]
   canary-android-builds: [ ]
+  # Persistencia (ADR-021). memory: governanca e caches no heap, instancia unica.
+  # mongo/redis: URIs vem de configuracao externa (SDUI_PERSISTENCE_MONGO_URI,
+  # SDUI_PERSISTENCE_REDIS_URL); valor invalido ou URI ausente falha a subida.
+  persistence:
+    store: memory
+    cache: memory
+    invalidation-relay-interval-ms: 5000
+    mongo:
+      database: sdui
+      connect-timeout-ms: 2000
+      server-selection-timeout-ms: 2000
+      operation-timeout-ms: 1000
+      max-pool-size: 50
+      min-pool-size: 0
+      max-wait-time-ms: 500
+      max-document-bytes: 1048576
+    redis:
+      connect-timeout-ms: 1000
+      command-timeout-ms: 200
+      max-entry-bytes: 262144
+      spec-ttl-seconds: 600
+      last-good-ttl-seconds: 604800

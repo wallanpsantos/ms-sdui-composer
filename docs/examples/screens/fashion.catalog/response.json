@@ -1,0 +1,286 @@
+{
+  "envelope" : {
+    "surface" : "catalog",
+    "platform" : "ios",
+    "schemaVersion" : "3",
+    "specRevisionId" : "rev_demo_ios_fashion_catalog",
+    "skeletonId" : "catalog.default",
+    "skeletonHash" : "sha256:135c6ad0913c5920205d7dfcad42ec26afa8a1633029e571719798c28e36e207",
+    "etag" : "W/\"rev_demo_ios_fashion_catalog-ios-3-09a9a0815606\"",
+    "generatedAt" : "2026-09-23T09:00:00-03:00",
+    "locale" : "pt-BR",
+    "channel" : "stable",
+    "fallback" : false,
+    "fallbackReason" : "none",
+    "omitted" : [ ],
+    "client" : {
+      "platform" : "ios",
+      "appVersion" : "8.14.2",
+      "build" : "81420",
+      "osVersion" : "18.1",
+      "schemaVersionRequested" : "3"
+    },
+    "targeting" : {
+      "platform" : "ios",
+      "appVersionMin" : "8.10.0",
+      "appVersionMax" : null,
+      "osVersionMin" : null,
+      "schemaVersion" : "3",
+      "band" : "demo"
+    },
+    "analytics" : {
+      "event" : "sdui_catalog_composed",
+      "surface" : "catalog",
+      "platform" : "ios",
+      "experience" : "demo_fashion_catalog",
+      "schemaVersion" : "3",
+      "specRevisionId" : "rev_demo_ios_fashion_catalog",
+      "sectionCount" : 4,
+      "fallback" : false
+    }
+  },
+  "skeleton" : {
+    "id" : "catalog.default",
+    "layout" : "vertical_scroll",
+    "slots" : [ {
+      "id" : "header",
+      "layout" : "fixed"
+    }, {
+      "id" : "navigation",
+      "layout" : "shelf"
+    }, {
+      "id" : "featured",
+      "layout" : "pager",
+      "title" : "Destaques"
+    }, {
+      "id" : "products",
+      "layout" : "grid",
+      "title" : "Produtos"
+    } ]
+  },
+  "sections" : [ {
+    "id" : "sec_header",
+    "slot" : "header",
+    "type" : "top_bar",
+    "typeVersion" : 1,
+    "layout" : "fixed",
+    "props" : {
+      "greetingPrefix" : "Olá",
+      "greetingName" : "Cliente",
+      "primaryActionLabel" : "Sacola"
+    },
+    "actions" : [ {
+      "id" : "act_bag",
+      "type" : "navigate",
+      "label" : "Sacola",
+      "payload" : {
+        "route" : "app://shop/cart"
+      }
+    } ],
+    "analytics" : {
+      "event" : "sdui_section_shown",
+      "component" : "top_bar",
+      "componentVersion" : 1,
+      "slot" : "header",
+      "sectionId" : "sec_header",
+      "specRevisionId" : "rev_demo_ios_fashion_catalog"
+    }
+  }, {
+    "id" : "sec_navigation",
+    "slot" : "navigation",
+    "type" : "catalog_navigation",
+    "typeVersion" : 1,
+    "layout" : "shelf",
+    "props" : {
+      "searchPlaceholder" : "Buscar produtos",
+      "searchActionId" : "act_search",
+      "filterLabel" : "Filtrar",
+      "filterActionId" : "act_filter",
+      "categories" : [ {
+        "id" : "cat_trending",
+        "label" : "Em alta",
+        "selected" : true,
+        "actionId" : "act_cat_trending"
+      }, {
+        "id" : "cat_shoes",
+        "label" : "Calçados",
+        "selected" : false,
+        "actionId" : "act_cat_shoes"
+      }, {
+        "id" : "cat_bags",
+        "label" : "Bolsas",
+        "selected" : false,
+        "actionId" : "act_cat_bags"
+      }, {
+        "id" : "cat_shirts",
+        "label" : "Camisetas",
+        "selected" : false,
+        "actionId" : "act_cat_shirts"
+      } ]
+    },
+    "actions" : [ {
+      "id" : "act_search",
+      "type" : "navigate",
+      "label" : "Buscar",
+      "payload" : {
+        "route" : "app://shop/search"
+      }
+    }, {
+      "id" : "act_filter",
+      "type" : "open_bottom_sheet",
+      "label" : "Filtrar",
+      "payload" : {
+        "sheet" : "sheet_catalog_filters"
+      }
+    }, {
+      "id" : "act_cat_trending",
+      "type" : "navigate",
+      "label" : "Em alta",
+      "payload" : {
+        "route" : "app://shop/catalog/trending"
+      }
+    }, {
+      "id" : "act_cat_shoes",
+      "type" : "navigate",
+      "label" : "Calçados",
+      "payload" : {
+        "route" : "app://shop/catalog/shoes"
+      }
+    }, {
+      "id" : "act_cat_bags",
+      "type" : "navigate",
+      "label" : "Bolsas",
+      "payload" : {
+        "route" : "app://shop/catalog/bags"
+      }
+    }, {
+      "id" : "act_cat_shirts",
+      "type" : "navigate",
+      "label" : "Camisetas",
+      "payload" : {
+        "route" : "app://shop/catalog/shirts"
+      }
+    } ],
+    "analytics" : {
+      "event" : "sdui_section_shown",
+      "component" : "catalog_navigation",
+      "componentVersion" : 1,
+      "slot" : "navigation",
+      "sectionId" : "sec_navigation",
+      "specRevisionId" : "rev_demo_ios_fashion_catalog"
+    }
+  }, {
+    "id" : "sec_featured",
+    "slot" : "featured",
+    "type" : "product_collection",
+    "typeVersion" : 1,
+    "layout" : "pager",
+    "props" : {
+      "title" : "Destaque da semana",
+      "items" : [ {
+        "id" : "prd_hoodie",
+        "name" : "Moletom canguru",
+        "priceLabel" : "Preço",
+        "priceDisplay" : "R$ 199,00",
+        "imageUrl" : "https://cdn.example-allowlist.com/products/hoodie.jpg",
+        "actionId" : "act_prd_hoodie"
+      } ]
+    },
+    "actions" : [ {
+      "id" : "act_prd_hoodie",
+      "type" : "navigate",
+      "label" : "Ver produto",
+      "payload" : {
+        "route" : "app://shop/products/hoodie"
+      }
+    } ],
+    "analytics" : {
+      "event" : "sdui_section_shown",
+      "component" : "product_collection",
+      "componentVersion" : 1,
+      "slot" : "featured",
+      "sectionId" : "sec_featured",
+      "specRevisionId" : "rev_demo_ios_fashion_catalog"
+    }
+  }, {
+    "id" : "sec_products",
+    "slot" : "products",
+    "type" : "product_collection",
+    "typeVersion" : 1,
+    "layout" : "grid",
+    "props" : {
+      "title" : "Novidades",
+      "items" : [ {
+        "id" : "prd_jacket",
+        "name" : "Jaqueta corta-vento",
+        "priceDisplay" : "R$ 259,00",
+        "imageUrl" : "https://cdn.example-allowlist.com/products/jacket.jpg",
+        "actionId" : "act_prd_jacket"
+      }, {
+        "id" : "prd_tshirt",
+        "name" : "Camiseta básica",
+        "priceDisplay" : "R$ 79,90",
+        "imageUrl" : "https://cdn.example-allowlist.com/products/tshirt.jpg",
+        "actionId" : "act_prd_tshirt"
+      }, {
+        "id" : "prd_sneaker",
+        "name" : "Tênis casual",
+        "priceDisplay" : "R$ 349,00",
+        "imageUrl" : "https://cdn.example-allowlist.com/products/sneaker.jpg",
+        "actionId" : "act_prd_sneaker"
+      }, {
+        "id" : "prd_bag",
+        "name" : "Bolsa tiracolo",
+        "priceDisplay" : "R$ 189,00",
+        "imageUrl" : "https://cdn.example-allowlist.com/products/bag.jpg",
+        "actionId" : "act_prd_bag"
+      } ],
+      "viewAllLabel" : "Ver todos",
+      "viewAllActionId" : "act_products_all"
+    },
+    "actions" : [ {
+      "id" : "act_prd_jacket",
+      "type" : "navigate",
+      "label" : "Ver produto",
+      "payload" : {
+        "route" : "app://shop/products/jacket"
+      }
+    }, {
+      "id" : "act_prd_tshirt",
+      "type" : "navigate",
+      "label" : "Ver produto",
+      "payload" : {
+        "route" : "app://shop/products/tshirt"
+      }
+    }, {
+      "id" : "act_prd_sneaker",
+      "type" : "navigate",
+      "label" : "Ver produto",
+      "payload" : {
+        "route" : "app://shop/products/sneaker"
+      }
+    }, {
+      "id" : "act_prd_bag",
+      "type" : "navigate",
+      "label" : "Ver produto",
+      "payload" : {
+        "route" : "app://shop/products/bag"
+      }
+    }, {
+      "id" : "act_products_all",
+      "type" : "navigate",
+      "label" : "Ver todos",
+      "payload" : {
+        "route" : "app://shop/catalog"
+      }
+    } ],
+    "analytics" : {
+      "event" : "sdui_section_shown",
+      "component" : "product_collection",
+      "componentVersion" : 1,
+      "slot" : "products",
+      "sectionId" : "sec_products",
+      "specRevisionId" : "rev_demo_ios_fashion_catalog"
+    }
+  } ]
+}

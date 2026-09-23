@@ -265,3 +265,21 @@ Todos os fontes abaixo foram inspecionados. Os hashes identificam o conteúdo ao
 | [sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/PropWalk.kt](../sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/PropWalk.kt)                                                   | `247b2e97b005684438e7ace6d2edf0f8a7c22b02c554fc90e0623f4f38ab7bfe` |
 | [sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/SkeletonValidator.kt](../sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/SkeletonValidator.kt)                                 | `b1f2e18ff5bfa7e1c050e587b9f3c17ff8a589971971736b6eb2ca57a9982d0e` |
 | [sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/SpecValidator.kt](../sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/SpecValidator.kt)                                         | `17a299c10e401f6665e600ce155a3f095da89117905d4998430191a1a5ec84d0` |
+
+## Status de tratamento (adendo de 2026-09-23)
+
+Adendo posterior à análise; o texto acima foi mantido como registrado. Medições, antes e depois,
+em [`performance/medicoes-2026-09-23.md`](performance/medicoes-2026-09-23.md).
+
+| # | Achado | Situação |
+|---|--------|----------|
+| 1 | Cardinalidade de métricas | Corrigido e medido (1.008 → 9 meters); guarda `MeterFilter` com teto por tag |
+| 2 | Poda de idempotência | Corrigido e medido: registro vivo nunca sai por pressão; admissão recusada no teto (503) |
+| 3 | Seleção O(N) em hit e 304 | Otimizado e medido (~100× com 10 mil revisões); seleção continua antes do cache |
+| 4 | Segunda consulta ao cache no líder; waiter com campos do líder | Corrigidos e medidos (2 → 1 composição; waiter com os próprios campos) |
+| 5 | Fan-out para pass-through | Otimizado e medido (~8× no miss, 0 tarefas virtuais) |
+| 6 | Poda síncrona e teto aproximado | Corrigido e medido (5,7 mi → 10.315 residentes); projeções com varredura periódica |
+| 7 | Histórico sem paginação | Paginação em specs, revisões e auditoria; retenção de governança definida no ADR-021 (sem poda automática) |
+| 8 | Cenário de carga | Cenário alinhado ao runtime e conferido por teste; gerador HTTP versionado; baseline HTTP em medicoes |
+| — | Menores | `PropWalk` com parada real, teto em `JsonMaps`, timers em nanossegundos; memoização do mapper e anel da auditoria rejeitados por medição |
+

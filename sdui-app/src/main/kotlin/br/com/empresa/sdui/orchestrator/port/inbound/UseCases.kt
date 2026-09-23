@@ -12,6 +12,7 @@ import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecDiff
 import br.com.empresa.sdui.orchestrator.compose.ComposeRequest
 import br.com.empresa.sdui.orchestrator.compose.ComposeResult
+import br.com.empresa.sdui.orchestrator.port.outbound.PageRequest
 
 /** Porta de entrada da composicao. A borda HTTP depende desta interface, nunca da implementacao. */
 fun interface ComposeScreenUseCase {
@@ -69,12 +70,18 @@ data class RollbackCommand(
     val reason: String,
 )
 
-/** Consultas de governanca: catalogo, skeleton, revisoes e diffs. Somente leitura. */
+/**
+ * Consultas de governanca: catalogo, skeleton, revisoes e diffs. Somente leitura.
+ *
+ * As listagens sao paginadas: o historico de specs cresce sem teto, e devolve-lo inteiro com as
+ * props de cada revisao custava 127 ms e 60 MiB por chamada com 10 mil revisoes (medicao de
+ * 2026-09-23), na mesma JVM que atende as surfaces.
+ */
 interface CatalogQueryUseCase {
     fun catalog(): Catalog
     fun skeleton(id: String): Skeleton?
-    fun specs(platform: ClientPlatform?, channel: Channel?): List<Spec>
-    fun revisions(specId: String): List<Spec>
+    fun specs(platform: ClientPlatform?, channel: Channel?, page: PageRequest): List<Spec>
+    fun revisions(specId: String, page: PageRequest): List<Spec>
     fun diff(specId: String, from: Int, to: Int): SpecDiff?
 }
 

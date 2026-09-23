@@ -3,10 +3,18 @@
 #   docker compose up --build              sobe apenas o servico
 #   docker compose --profile infra up -d   sobe tambem MongoDB e Redis
 #
-# O servico nao consome MongoDB nem Redis: todos os stores sao in-memory e as autoconfiguracoes
-# dos dois estao excluidas em SduiApplication (ver AGENTS.md secao 17). Os dois containers ficam
-# atras do profile `infra` para nao subirem por engano e darem a impressao de que ha persistencia;
-# eles existem para quando os adapters forem cabeados.
+# Por padrao o servico sobe em memoria (sdui.persistence.store=memory, cache=memory): nada
+# sobrevive a restart e so vale uma instancia (AGENTS.md secao 17). MongoDB e Redis ficam atras do
+# profile `infra` e so sao usados quando o modo persistente e ligado explicitamente (ADR-021):
+#
+#   SDUI_PERSISTENCE_STORE=mongo
+#   SDUI_PERSISTENCE_MONGO_URI=mongodb://mongo:27017/?replicaSet=rs0&directConnection=true
+#   SDUI_PERSISTENCE_CACHE=redis
+#   SDUI_PERSISTENCE_REDIS_URL=redis://redis:6379
+#
+# O MongoDB sobe como replica set de um membro (rs0): standalone nao tem transacao
+# multi-documento, e a publicacao depende dela. Este compose e ambiente local, nao evidencia de
+# topologia de producao nem ensaio de homologacao.
 
 services:
   sdui-composer:
@@ -48,12 +56,14 @@ services:
     profiles: [ "infra" ]
     image: mongo:8.3
     container_name: sdui-mongo
+    command: [ "mongod", "--replSet", "rs0", "--bind_ip_all" ]
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    # O healthcheck inicia o replica set na primeira execucao e depois so confirma que ha primario.
     healthcheck:
-      test: [ "CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')" ]
+      test: [ "CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]}).ok }" ]
       interval: 15s
       timeout: 5s
       start_period: 20s
@@ -66,7 +76,9 @@ services:
     container_name: sdui-redis
     ports:
       - "6379:6379"
-    command: [ "redis-server", "--save", "", "--appendonly", "no" ]
+    # Cache, nao fonte de verdade: sem persistencia em disco e com teto de memoria. Toda chave
+    # gravada pelo servico tem TTL, entao volatile-lru so expulsa entradas de cache.
+    command: [ "redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru" ]
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 15s

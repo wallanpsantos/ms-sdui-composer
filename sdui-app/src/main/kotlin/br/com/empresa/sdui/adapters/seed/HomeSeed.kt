@@ -29,12 +29,17 @@ import java.time.Instant
 /**
  * Carrega o catalogo, o skeleton e os specs da home a partir da fixture canonica do contrato.
  *
- * Como nao ha persistencia, e o seed que deixa o servico utilizavel ao subir. Partir da mesma
- * fixture que os testes de contrato usam garante que o que sobe e o que foi acordado com as
- * equipes moveis, em vez de uma copia que envelhece em paralelo.
+ * Em memoria, e o seed que deixa o servico utilizavel ao subir. Partir da mesma fixture que os
+ * testes de contrato usam garante que o que sobe e o que foi acordado com as equipes moveis, em
+ * vez de uma copia que envelhece em paralelo.
  *
  * Alem da revisao corrente, semeia uma legacy e uma seguinte, para exercitar a selecao por faixa
  * de versao e o canary sem depender de dado montado a mao.
+ *
+ * **Idempotente (ADR-021).** Cada item so e gravado se ainda nao existir: com persistencia real, o
+ * segundo boot — ou um segundo pod subindo junto — encontra catalogo, skeletons, specs e pointers
+ * no banco e nao sobrescreve nada que a governanca publicou ou moveu depois. Uma gravacao que
+ * perde a corrida para outro pod e aceita se o item passou a existir.
  */
 class HomeSeed(
     private val catalogStore: CatalogStore,
@@ -55,6 +60,7 @@ class HomeSeed(
     }
 
     fun seedCatalog() {
+        if (catalogStore.current().components.isNotEmpty()) return
         catalogStore.save(
             Catalog(
                 MvpCatalog.TYPES.map { cap ->
@@ -96,17 +102,33 @@ class HomeSeed(
         ),
     )
 
-    private fun savePublishedSkeleton(skeletonId: String, slots: List<SlotDefinition>): Skeleton =
-        skeletonStore.save(
-            Skeleton(
-                skeletonId = skeletonId,
-                revision = 1,
-                surface = MvpCatalog.SURFACE_HOME,
-                layout = MvpCatalog.SKELETON_LAYOUT,
-                slots = slots,
-                status = SpecStatus.PUBLISHED,
-            ),
+    private fun savePublishedSkeleton(skeletonId: String, slots: List<SlotDefinition>): Skeleton {
+        skeletonStore.find(skeletonId, 1)?.let { return it }
+        val skeleton = Skeleton(
+            skeletonId = skeletonId,
+            revision = 1,
+            surface = MvpCatalog.SURFACE_HOME,
+            layout = MvpCatalog.SKELETON_LAYOUT,
+            slots = slots,
+            status = SpecStatus.PUBLISHED,
         )
+        return ifAbsent({ skeletonStore.find(skeletonId, 1) }) { skeletonStore.save(skeleton) }
+    }
+
+    /**
+     * Grava com [save] e, se a gravacao falhar porque outro processo gravou primeiro, devolve o
+     * que ele gravou. Qualquer outra falha sobe.
+     */
+    private fun <T : Any> ifAbsent(existing: () -> T?, save: () -> T): T = try {
+        save()
+    } catch (error: RuntimeException) {
+        existing() ?: throw error
+    }
+
+    private fun saveSpecIfAbsent(spec: Spec) {
+        if (specStore.findBySpecIdAndRevision(spec.specId, spec.revision) != null) return
+        ifAbsent({ specStore.findBySpecIdAndRevision(spec.specId, spec.revision) }) { specStore.save(spec) }
+    }
 
     @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     private fun seedIosCurrent(root: JsonNode, skeleton: Skeleton) {
@@ -147,7 +169,7 @@ class HomeSeed(
             madeBy = "seed.maker",
             experience = envelope.get("analytics").get("experience").asText(),
         )
-        specStore.save(spec)
+        saveSpecIfAbsent(spec)
     }
 
     @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
@@ -183,7 +205,7 @@ class HomeSeed(
 
     private fun seedIosLegacy() {
         val current = iosCurrent()
-        specStore.save(
+        saveSpecIfAbsent(
             current.copy(
                 specId = "spec_home_ios_legacy",
                 revision = 1,
@@ -205,7 +227,7 @@ class HomeSeed(
 
     private fun seedIosNext() {
         val current = iosCurrent()
-        specStore.save(
+        saveSpecIfAbsent(
             current.copy(
                 specId = "spec_home_ios_next",
                 revision = 1,
@@ -221,14 +243,21 @@ class HomeSeed(
     }
 
     private fun iosCurrent(): Spec =
-        specStore.listPublished(MvpCatalog.SURFACE_HOME, ClientPlatform.IOS)
-            .first { it.specId == IOS_CURRENT_SPEC_ID }
+        checkNotNull(specStore.findBySpecIdAndRevision(IOS_CURRENT_SPEC_ID, 1)) { "spec corrente do seed ausente" }
 
+    /** Pointers iniciais, so onde ainda nao ha pointer: nunca desfaz uma publicacao ou rollback. */
     fun seedPointers() {
         val iosCurrent = specStore.findByRevisionId("rev_01K8HOMEMAIN")
         for (channel in Channel.entries) {
-            pointerStore.save(initialPointer(ClientPlatform.IOS, channel, iosCurrent))
-            pointerStore.save(initialPointer(ClientPlatform.ANDROID, channel, null))
+            savePointerIfAbsent(initialPointer(ClientPlatform.IOS, channel, iosCurrent))
+            savePointerIfAbsent(initialPointer(ClientPlatform.ANDROID, channel, null))
+        }
+    }
+
+    private fun savePointerIfAbsent(pointer: Pointer) {
+        if (pointerStore.find(pointer.surface, pointer.platform, pointer.channel) != null) return
+        ifAbsent({ pointerStore.find(pointer.surface, pointer.platform, pointer.channel) }) {
+            pointerStore.compareAndSet(null, pointer)
         }
     }
 

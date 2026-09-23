@@ -8,6 +8,8 @@ import br.com.empresa.sdui.core.model.FallbackReason
 import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.OmittedReason
 import br.com.empresa.sdui.core.model.Section
+import br.com.empresa.sdui.core.model.SurfaceDefinition
+import br.com.empresa.sdui.core.model.Surfaces
 import java.time.Duration
 
 /**
@@ -47,11 +49,18 @@ data class ComposeBudgets(
     val rateLimitRetryAfterSeconds: Long = 2,
 )
 
-/** Entrada do pipeline: headers de negociacao, o ETag que o cliente ja tem e a identidade limitada. */
+/**
+ * Entrada do pipeline: a surface pedida, headers de negociacao, o ETag que o cliente ja tem e a
+ * identidade limitada.
+ *
+ * [surface] ja chega resolvida da allowlist: uma surface desconhecida nao tem como chegar aqui, e
+ * por isso nunca vira chave de cache, chave de singleflight nem tag de metrica.
+ */
 data class ComposeRequest(
     val headers: NegotiateHeaders,
     val ifNoneMatch: String? = null,
     val identity: String,
+    val surface: SurfaceDefinition = Surfaces.HOME,
 )
 
 /**
@@ -92,8 +101,14 @@ sealed interface HydrationResult {
  *
  * Um hidratador declara em [supports] com quais tipos lida, o que permite acrescentar fontes de
  * dado por tipo de componente sem tocar no pipeline. Nao deve vazar PII para as props.
+ *
+ * [performsIo] diz se a hidratacao espera por alguma dependencia. So essas vao para o fan-out em
+ * virtual threads, com semaforo e prazo; um hidratador sem I/O roda na thread da requisicao, onde
+ * uma tarefa assincrona so acrescentaria custo (medido em 2026-09-23: 8 tarefas por miss para
+ * repassar mapas).
  */
 interface SectionHydrator {
     fun supports(type: String, typeVersion: Int): Boolean
     fun hydrate(context: HydrationContext, section: Section): HydrationResult
+    val performsIo: Boolean get() = true
 }

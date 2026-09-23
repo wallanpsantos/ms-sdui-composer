@@ -6,10 +6,11 @@ import org.springframework.boot.runApplication
 /**
  * O unico modulo executavel: sobe o servico e faz o component scan das demais camadas.
  *
- * As autoconfiguracoes de MongoDB e Redis sao excluidas de proposito. Os starters estao no
- * classpath como preparacao, mas nenhum adapter persistente e cabeado; sem a exclusao o Boot
- * tentaria conectar em bancos que o servico nao usa e o health ficaria DOWN. Ver AGENTS.md
- * secao 17 para o que essa ausencia de persistencia implica em producao.
+ * As autoconfiguracoes de MongoDB e Redis sao excluidas de proposito. O modo padrao e em memoria
+ * e nao deve tentar conectar em banco nenhum; quando `sdui.persistence.store=mongo` ou
+ * `sdui.persistence.cache=redis`, os clientes sao montados pela configuracao do proprio servico,
+ * com prazos, pool e retry declarados (ADR-021), e nao pelos defaults da autoconfiguracao. Ver
+ * AGENTS.md secao 17 para o que o modo em memoria implica em producao.
  */
 @SpringBootApplication(
     scanBasePackages = ["br.com.empresa.sdui"],

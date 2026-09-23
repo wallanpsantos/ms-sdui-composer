@@ -1,7 +1,12 @@
 # Plano separado — persistência MongoDB e cache Redis
 
-Status: planejamento; execução não iniciada. Independente da entrega de quatro specs em
-[plan.md](plan.md). Não instalar infraestrutura, rodar Gradle ou cabear adapters nesta etapa.
+Status: **P01–P12 implementados em 2026-09-23; P13 (ensaio operacional) pendente.** Decisão em
+[ADR-021](../docs/adr/ADR-021-persistencia-mongodb-e-cache-redis.md) (`PROPOSTO`, não homologado). O modo padrão
+continua em memória e a restrição de instância única do AGENTS.md §17 continua valendo até o roteiro de homologação de
+[`persistencia-mongodb-redis.md`](../docs/runbooks/persistencia-mongodb-redis.md) ser executado e registrado. Testes com
+infraestrutura real só rodam com `SDUI_IT_MONGO_URI`/`SDUI_IT_REDIS_URL`; na execução desta entrega não havia Docker
+nem banco disponível, então eles **não foram executados** (ver tabela de evidências). O texto original do plano vem a
+seguir, mantido como registro.
 
 ## Estado verificado
 
@@ -61,6 +66,24 @@ da implementação se necessário. Testes são escritos com o código, sem execu
 | P11 | Wiring final, seed idempotente, health, teste de restart | P10 | Segundo boot não sobrescreve publicações; modo persistente sem substituição silenciosa por in-memory; falhas explícitas |
 | P12 | Métricas de adapters/pools, testes de falha, runbook | P11 | Instrumentação finita, sem PII; observar latência, saturação, falhas, cache e invalidação pendente |
 | P13 | Migração/backup/rollback operacional, ensaio multi-instância, índice docs | P12 | Publicar em A e ler em B, reiniciar, limpar Redis e recuperar autoridade Mongo; restauração e retorno de versão documentados |
+
+### Evidências (2026-09-23)
+
+| ID  | Situação | Evidência |
+|-----|----------|-----------|
+| P01 | Feito | ADR-021 (autoridade por porta, documentos, índices, TTL, tetos, invalidação, topologia); índice em `docs/adr/README.md` |
+| P02 | Feito, sem ensaio | `SduiProperties.persistence`, `MongoStoreConfiguration` (CSOT, pool, `retryWrites/Reads=false`), `application.yaml`, `compose.yaml` com replica set `rs0`, health `sduiStore` que distingue inalcançável × standalone |
+| P03 | Feito, IT não executado | `MongoSpecStore`, `MongoSkeletonStore` (PUBLISHED imutável, índice único de revisão); `DomainJsonRoundTripTest`; `MongoPersistenceIT` |
+| P04 | Feito, IT não executado | `MongoCatalogStore`, `MongoDiffStore`, `MongoPublishRequestStore` (`findOneAndReplace` condicionado); teste concorrente em `MongoPersistenceIT` |
+| P05 | Feito | `PointerStore.compareAndSet` (memória e Mongo), `MongoAuditLogStore.recent`; `InMemoryStoresBehaviorTest`, `MongoPersistenceIT` |
+| P06 | Feito | Reserva por `insertOne`/`putIfAbsent` sob lock, fingerprint (422 em reuso), prazo de reserva, sem expulsão por pressão; `AdminIdempotencyTest`, medição M2, `MongoPersistenceIT` |
+| P07 | Feito, IT não executado | `MongoTransactionalUnitOfWork` sem `withTransaction`; falha injetada em `MongoPersistenceIT` |
+| P08 | Feito, IT não executado | `RedisCacheConfiguration` (prazo, `REJECT_COMMANDS`), `RedisCacheCodec` versionado, teto de bytes; `DomainJsonRoundTripTest`, `RedisCachesIT` |
+| P09 | Feito, IT não executado | `RedisSpecCache`, `RedisHydratedScreenCache` (índice por escopo), `RedisLastGoodScreenStore` (Lua); `RedisCachesIT` |
+| P10 | Feito | Outbox + lápide versionada + relay; `CacheInvalidatorTest`, `InMemoryStoresBehaviorTest`, `RedisCachesIT` |
+| P11 | Feito, IT não executado | Wiring condicional sem fallback silencioso, seed e demo idempotentes, health; `DurableModeBootIT` (restart) |
+| P12 | Feito | Métricas `cache.operation.ms`, `cache.write.skipped`, `cache.invalidation.*`, listeners Micrometer do driver; runbook |
+| P13 | **Pendente** | Roteiro escrito (runbook §6); ensaio multi-instância, restauração e `explain` em base representativa não realizados |
 
 ProjectionStore só será conectado se houver consumidor definido; não criar adapter morto como
 preparação. Retenção de audit/diffs/revisões precisa preservar seleção e rollback, não copiar

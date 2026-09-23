@@ -5,9 +5,13 @@ import br.com.empresa.sdui.api.trace.ComposeTraceContext
 import br.com.empresa.sdui.contract.error.ApiErrorResponse
 import br.com.empresa.sdui.core.model.ComposedScreen
 import br.com.empresa.sdui.core.model.NegotiateHeaders
+import br.com.empresa.sdui.core.model.SurfaceDefinition
+import br.com.empresa.sdui.core.model.Surfaces
 import br.com.empresa.sdui.orchestrator.compose.ComposeRequest
 import br.com.empresa.sdui.orchestrator.compose.ComposeResult
 import br.com.empresa.sdui.orchestrator.port.inbound.ComposeScreenUseCase
+import br.com.empresa.sdui.orchestrator.port.outbound.MetricNames
+import br.com.empresa.sdui.orchestrator.port.outbound.MetricTags
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -18,16 +22,22 @@ import org.springframework.web.bind.annotation.RestController
 import tools.jackson.databind.json.JsonMapper
 
 /**
- * A borda HTTP da home: GET /v1/surfaces/home.
+ * A borda HTTP de leitura das surfaces: GET /v1/surfaces/home e GET /v1/surfaces/catalog.
+ *
+ * Um mapeamento literal por surface da allowlist, e nao `/v1/surfaces/{surface}`: nao ha como uma
+ * surface desconhecida chegar ao pipeline, e o contrato da Home continua servido exatamente pelo
+ * mesmo caminho, headers e corpo. Um caminho fora da lista recebe 404 do proprio roteamento, sem
+ * criar chave de cache nem tag.
  *
  * Le os headers de negociacao, delega ao caso de uso e traduz cada desfecho ao status certo.
  * Responde com o JSON ja serializado em bytes, sem devolver objeto para o Spring serializar de
- * novo, e instrumenta tempo e tamanho do payload. ETag e Cache-Control permitem ao cliente
- * revalidar com If-None-Match e receber 304, e o Vary declara de quais headers a resposta depende
- * para nenhum cache intermediario servir a arvore de um contexto a outro.
+ * novo, e instrumenta tempo total, montagem do DTO, serializacao e tamanho do payload. ETag e
+ * Cache-Control permitem ao cliente revalidar com If-None-Match e receber 304, e o Vary declara de
+ * quais headers a resposta depende para nenhum cache intermediario servir a arvore de um contexto
+ * a outro.
  */
 @RestController
-class HomeController(
+class SurfaceController(
     private val compose: ComposeScreenUseCase,
     private val mapper: ScreenResponseMapper,
     private val jsonMapper: JsonMapper,
@@ -46,13 +56,49 @@ class HomeController(
         @RequestHeader(name = "Component-Capabilities", required = false) capabilities: String?,
         @RequestHeader(name = "SDUI-Channel", required = false) channel: String?,
         @RequestHeader(name = "If-None-Match", required = false) ifNoneMatch: String?,
+    ): ResponseEntity<*> = serve(
+        Surfaces.HOME,
+        NegotiateHeaders(
+            uiSchemaVersion, clientPlatform, clientVersion, clientBuild, acceptLanguage,
+            apiVersion, osVersion, capabilities, channel,
+        ),
+        ifNoneMatch,
+    )
+
+    @GetMapping(path = ["/v1/surfaces/catalog"], version = "1")
+    fun catalog(
+        @RequestHeader(name = "UI-Schema-Version", required = false) uiSchemaVersion: String?,
+        @RequestHeader(name = "Client-Platform", required = false) clientPlatform: String?,
+        @RequestHeader(name = "Client-Version", required = false) clientVersion: String?,
+        @RequestHeader(name = "Client-Build", required = false) clientBuild: String?,
+        @RequestHeader(name = "Accept-Language", required = false) acceptLanguage: String?,
+        @RequestHeader(name = "API-Version", required = false) apiVersion: String?,
+        @RequestHeader(name = "OS-Version", required = false) osVersion: String?,
+        @RequestHeader(name = "Component-Capabilities", required = false) capabilities: String?,
+        @RequestHeader(name = "SDUI-Channel", required = false) channel: String?,
+        @RequestHeader(name = "If-None-Match", required = false) ifNoneMatch: String?,
+    ): ResponseEntity<*> = serve(
+        Surfaces.CATALOG,
+        NegotiateHeaders(
+            uiSchemaVersion, clientPlatform, clientVersion, clientBuild, acceptLanguage,
+            apiVersion, osVersion, capabilities, channel,
+        ),
+        ifNoneMatch,
+    )
+
+    private fun serve(
+        surface: SurfaceDefinition,
+        headers: NegotiateHeaders,
+        ifNoneMatch: String?,
     ): ResponseEntity<*> {
         val started = System.nanoTime()
+        // Versao exata do app vai para o contexto de log, nunca para tag de metrica.
         trace.open(
             mapOf(
-                "surface" to "home",
-                "platform" to (clientPlatform ?: ""),
-                "schemaVersion" to (uiSchemaVersion ?: ""),
+                "surface" to surface.id,
+                "platform" to (headers.clientPlatform ?: ""),
+                "schemaVersion" to (headers.uiSchemaVersion ?: ""),
+                "appVersion" to (headers.clientVersion?.take(MAX_LOGGED_VERSION_LENGTH) ?: ""),
             ),
         )
         // O desfecho comeca como erro e so e substituido depois que a composicao devolve: se algo
@@ -61,22 +107,13 @@ class HomeController(
         try {
             val result = compose.compose(
                 ComposeRequest(
-                    headers = NegotiateHeaders(
-                        uiSchemaVersion = uiSchemaVersion,
-                        clientPlatform = clientPlatform,
-                        clientVersion = clientVersion,
-                        clientBuild = clientBuild,
-                        acceptLanguage = acceptLanguage,
-                        apiVersion = apiVersion,
-                        osVersion = osVersion,
-                        componentCapabilities = capabilities,
-                        channel = channel,
-                    ),
+                    headers = headers,
                     ifNoneMatch = ifNoneMatch,
                     // Identidade nao autenticada: serve para repartir a capacidade entre chamadores
                     // bem-comportados, nao para conter um cliente que troque os headers. O teto por
                     // cliente depende de autenticacao no gateway.
-                    identity = "${clientPlatform.orEmpty()}:${clientBuild.orEmpty()}",
+                    identity = "${headers.clientPlatform.orEmpty()}:${headers.clientBuild.orEmpty()}",
+                    surface = surface,
                 ),
             )
             outcome = outcomeOf(result)
@@ -107,7 +144,7 @@ class HomeController(
                     .body(
                         ApiErrorResponse(
                             code = "COMPOSE_UNAVAILABLE",
-                            message = "home indisponivel",
+                            message = "${surface.id} indisponivel",
                             details = listOf(result.reason.wire),
                         ),
                     )
@@ -115,28 +152,33 @@ class HomeController(
                 is ComposeResult.Success -> ok(result.screen)
             }
         } finally {
-            metrics.recordTime(
-                "compose.duration",
-                (System.nanoTime() - started) / 1_000_000,
-                mapOf("surface" to "home", "outcome" to outcome),
+            metrics.recordNanos(
+                MetricNames.COMPOSE_DURATION,
+                System.nanoTime() - started,
+                mapOf("surface" to surface.id, "outcome" to outcome),
             )
             trace.close()
         }
     }
 
-    /** Serializa a arvore uma unica vez, direto para bytes, e mede tempo e tamanho do payload. */
+    /**
+     * Monta o DTO e serializa a arvore uma unica vez, direto para bytes. Os dois tempos sao
+     * medidos em separado: o perfil de 2026-09-23 mostrou a serializacao em torno de quatro vezes
+     * a montagem, e somados no mesmo timer eles escondiam onde esta o custo.
+     */
     private fun ok(screen: ComposedScreen): ResponseEntity<ByteArray> {
-        val body = mapper.toResponse(screen)
-        val serializeStarted = System.nanoTime()
-        val json = jsonMapper.writeValueAsBytes(body)
         val metricTags = mapOf(
-            "schemaVersion" to screen.schemaVersion,
-            "appVersion" to screen.client.appVersion.toString(),
+            "schemaVersion" to MetricTags.schema(screen.schemaVersion),
             "surface" to screen.surface,
             "platform" to screen.platform.wire(),
         )
-        metrics.recordTime("serialize.ms", (System.nanoTime() - serializeStarted) / 1_000_000, metricTags)
-        metrics.recordBytes("payload.bytes", json.size.toLong(), metricTags)
+        val mappingStarted = System.nanoTime()
+        val body = mapper.toResponse(screen)
+        val serializeStarted = System.nanoTime()
+        metrics.recordNanos(MetricNames.MAPPING, serializeStarted - mappingStarted, metricTags)
+        val json = jsonMapper.writeValueAsBytes(body)
+        metrics.recordNanos(MetricNames.SERIALIZE, System.nanoTime() - serializeStarted, metricTags)
+        metrics.recordBytes(MetricNames.PAYLOAD_BYTES, json.size.toLong(), metricTags)
         return ResponseEntity.ok()
             .header("ETag", screen.etag)
             .header("Cache-Control", CACHE_CONTROL)
@@ -166,6 +208,7 @@ class HomeController(
     }
 
     private companion object {
+        const val MAX_LOGGED_VERSION_LENGTH: Int = 32
         const val CACHE_CONTROL: String = "private, max-age=60"
         const val VARY: String =
             "API-Version, UI-Schema-Version, Client-Platform, Client-Version, Client-Build, Component-Capabilities"

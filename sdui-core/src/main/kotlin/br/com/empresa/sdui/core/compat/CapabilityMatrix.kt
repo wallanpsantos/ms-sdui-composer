@@ -3,6 +3,7 @@ package br.com.empresa.sdui.core.compat
 import br.com.empresa.sdui.core.model.Capability
 import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.ClientPlatform
+import br.com.empresa.sdui.core.model.ComponentContracts
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.SemVer
 
@@ -30,8 +31,12 @@ class CapabilityMatrix(
      * Universo finito de capabilities que o servidor reconhece. O delta declarado pelo cliente e
      * filtrado por este conjunto: uma capability arbitraria nunca casaria com uma section de spec,
      * mas entraria no capsHash e produziria uma chave de cache de arvore nova a cada requisicao.
+     *
+     * Coincide com os contratos aprovados na publicacao ([ComponentContracts.APPROVED]): um type
+     * aceito no catalogo e sempre declaravel pelo cliente, e nada alem disso. Os contratos novos
+     * nao entram em nenhuma faixa de [defaultMatrix] — so chegam a quem os declara.
      */
-    private val known: Set<Capability> = byPlatformVersion.values.flatten().toSet() + MvpCatalog.TYPES
+    val known: Set<Capability> = byPlatformVersion.values.flatten().toSet() + ComponentContracts.APPROVED
 
     fun effective(context: ClientContext): Set<Capability> {
         val server = serverCaps(context.platform, context.appVersion)

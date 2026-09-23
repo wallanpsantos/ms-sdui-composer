@@ -30,6 +30,7 @@ class ArchitectureTest {
         noClasses().that().resideInAPackage("..sdui.orchestrator..")
             .should().dependOnClassesThat().resideInAnyPackage(
                 "org.springframework..", "jakarta.servlet..", "tools.jackson..", "com.fasterxml.jackson..",
+                "com.mongodb..", "org.bson..", "io.lettuce..", "io.micrometer..",
                 "..sdui.contract..", "..sdui.adapters..", "..sdui.api..",
             )
             .check(importedClasses)
@@ -112,6 +113,20 @@ class ArchitectureTest {
                 "io.reactivex..",
                 "rx..",
             )
+            .check(importedClasses)
+    }
+
+    @Test
+    fun `drivers de persistencia ficam confinados aos adapters`() {
+        noClasses().that().resideOutsideOfPackages("..sdui.adapters..")
+            .should().dependOnClassesThat().resideInAnyPackage("com.mongodb..", "org.bson..", "io.lettuce..", "org.springframework.data..")
+            .check(importedClasses)
+    }
+
+    @Test
+    fun `api resolve surface pela allowlist do core, sem depender de persistencia`() {
+        noClasses().that().resideInAPackage("..sdui.api..")
+            .should().dependOnClassesThat().resideInAnyPackage("com.mongodb..", "io.lettuce..", "org.springframework.data..")
             .check(importedClasses)
     }
 }

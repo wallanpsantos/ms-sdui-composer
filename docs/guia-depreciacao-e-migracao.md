@@ -143,7 +143,7 @@ Quando a organização decide encerrar o suporte a uma faixa legada (ex.: descon
 - **Evolução Incompatível (migração para UI-Schema 4):**
     - Reestruturação de campos de raiz (`envelope`, `sections`), mudança no formato de ações ou remoção de campos de
       analytics.
-    - Exige suporte dual no `HomeController` e `Negotiate`:
+    - Exige suporte dual no `SurfaceController` e `Negotiate`:
       ```kotlin
       when (context.schemaVersion) {
           "3" -> mapperV3.toResponse(screen)

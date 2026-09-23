@@ -15,4 +15,9 @@ tasks.withType<Test>().configureEach {
         .asFile
         .absolutePath
     systemProperty("sdui.canonicalArtifact", artifact)
+    val examples = rootProject.layout.projectDirectory
+        .dir("docs/examples/screens")
+        .asFile
+        .absolutePath
+    systemProperty("sdui.examplesDir", examples)
 }

@@ -1,0 +1,54 @@
+{
+  "skeletonId": "home.transactions",
+  "revision": 1,
+  "surface": "home",
+  "layout": "vertical_scroll",
+  "status": "DRAFT",
+  "slots": [
+    {
+      "id": "header",
+      "layout": "FIXED",
+      "title": null,
+      "maxInstances": 1,
+      "allowedTypes": ["top_bar"],
+      "required": true,
+      "allowedLayouts": ["FIXED"]
+    },
+    {
+      "id": "accounts",
+      "layout": "FIXED",
+      "title": null,
+      "maxInstances": 1,
+      "allowedTypes": ["account_card"],
+      "required": true,
+      "allowedLayouts": ["LIST", "FIXED"]
+    },
+    {
+      "id": "cards",
+      "layout": "PAGER",
+      "title": "Cartões",
+      "maxInstances": 3,
+      "allowedTypes": ["card_product"],
+      "required": false,
+      "allowedLayouts": ["LIST", "PAGER"]
+    },
+    {
+      "id": "shortcuts",
+      "layout": "GRID",
+      "title": null,
+      "maxInstances": 1,
+      "allowedTypes": ["shortcut_shelf"],
+      "required": false,
+      "allowedLayouts": ["SHELF", "GRID"]
+    },
+    {
+      "id": "transactions",
+      "layout": "LIST",
+      "title": "Últimas transações",
+      "maxInstances": 1,
+      "allowedTypes": ["transaction_summary"],
+      "required": false,
+      "allowedLayouts": ["LIST"]
+    }
+  ]
+}

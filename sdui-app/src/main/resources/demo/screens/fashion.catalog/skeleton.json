@@ -1,0 +1,45 @@
+{
+  "skeletonId": "catalog.default",
+  "revision": 1,
+  "surface": "catalog",
+  "layout": "vertical_scroll",
+  "status": "DRAFT",
+  "slots": [
+    {
+      "id": "header",
+      "layout": "FIXED",
+      "title": null,
+      "maxInstances": 1,
+      "allowedTypes": ["top_bar"],
+      "required": true,
+      "allowedLayouts": ["FIXED"]
+    },
+    {
+      "id": "navigation",
+      "layout": "SHELF",
+      "title": null,
+      "maxInstances": 1,
+      "allowedTypes": ["catalog_navigation"],
+      "required": false,
+      "allowedLayouts": ["SHELF", "FIXED"]
+    },
+    {
+      "id": "featured",
+      "layout": "PAGER",
+      "title": "Destaques",
+      "maxInstances": 1,
+      "allowedTypes": ["product_collection"],
+      "required": false,
+      "allowedLayouts": ["PAGER", "LIST"]
+    },
+    {
+      "id": "products",
+      "layout": "GRID",
+      "title": "Produtos",
+      "maxInstances": 1,
+      "allowedTypes": ["product_collection"],
+      "required": true,
+      "allowedLayouts": ["GRID", "LIST"]
+    }
+  ]
+}

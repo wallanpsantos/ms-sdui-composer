@@ -4,8 +4,9 @@ package br.com.empresa.sdui.core.model
  * Um slot do skeleton e as regras de quem pode ocupa-lo.
  *
  * [allowedTypes] e [maxInstances] sao validados na publicacao, nao em runtime. [required] marca
- * slot portante — header e accounts —, cujo vazio derruba a composicao em vez de gerar omissao.
- * [layout] e semantico; o skeleton nunca descreve medida de tela.
+ * slot portante — na Home, header e accounts —, cujo vazio derruba a composicao em vez de gerar
+ * omissao. [layout] e semantico; o skeleton nunca descreve medida de tela. Sem [allowedLayouts]
+ * explicito, vale a regra do slot em [Surfaces].
  */
 data class SlotDefinition(
     val id: String,
@@ -14,7 +15,7 @@ data class SlotDefinition(
     val maxInstances: Int,
     val allowedTypes: List<String>,
     val required: Boolean,
-    val allowedLayouts: List<SlotLayout> = MvpCatalog.DEFAULT_ALLOWED_LAYOUTS[id] ?: listOf(layout),
+    val allowedLayouts: List<SlotLayout> = Surfaces.defaultAllowedLayouts(id) ?: listOf(layout),
 )
 
 /**

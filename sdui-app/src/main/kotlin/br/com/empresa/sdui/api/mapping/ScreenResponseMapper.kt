@@ -13,6 +13,7 @@ import br.com.empresa.sdui.contract.screen.SkeletonResponse
 import br.com.empresa.sdui.contract.screen.SlotResponse
 import br.com.empresa.sdui.contract.targeting.TargetingResponse
 import br.com.empresa.sdui.core.model.ComposedScreen
+import br.com.empresa.sdui.core.model.Surfaces
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.databind.node.ArrayNode
@@ -21,7 +22,7 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 /**
- * Converte a arvore do dominio no contrato JSON publicado.
+ * Converte a arvore do dominio no contrato JSON publicado, para qualquer surface da allowlist.
  *
  * A fronteira que mantem o modelo interno livre para evoluir sem mexer no que iOS e Android
  * consomem: qualquer renomeacao ou reorganizacao de dominio para aqui. Tambem e onde as props,
@@ -71,7 +72,7 @@ class ScreenResponseMapper(
                     band = screen.targeting.band,
                 ),
                 analytics = ScreenAnalyticsResponse(
-                    event = "sdui_home_composed",
+                    event = analyticsEvent(screen.surface),
                     surface = screen.surface,
                     platform = screen.platform.wire(),
                     experience = screen.experience,
@@ -118,6 +119,13 @@ class ScreenResponseMapper(
             },
         )
     }
+
+    /**
+     * Evento de composicao da surface. A Home mantem `sdui_home_composed` do contrato v3; cada
+     * surface nova declara o seu em [Surfaces], e uma arvore de surface fora da lista nao existe.
+     */
+    private fun analyticsEvent(surface: String): String =
+        Surfaces.find(surface)?.analyticsEvent ?: error("surface fora da allowlist: $surface")
 
     private fun toNode(value: Any?, depth: Int = 0): JsonNode {
         if (value == null) return mapper.nodeFactory.nullNode()

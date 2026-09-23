@@ -172,9 +172,13 @@ data class AuditEvent(
  * [resultRef] nulo significa reserva em voo: a chave foi tomada e a operacao ainda nao commitou.
  * A distincao importa porque so ela separa "ja fizemos, aqui esta o resultado" de "alguem esta
  * fazendo agora" — sem ela, um retry concorrente executaria a operacao uma segunda vez.
+ *
+ * [fingerprint] resume os parametros da operacao. A chave vale para uma operacao com aqueles
+ * parametros: reusa-la com outro alvo e erro do chamador, nao replay.
  */
 data class IdempotencyRecord(
     val key: String,
     val operation: String,
     val resultRef: String?,
+    val fingerprint: String = "",
 )

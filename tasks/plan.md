@@ -1,6 +1,10 @@
 # Plano — quatro specs SDUI a partir das referências visuais
 
-Status: planejamento para revisão; implementação não iniciada.
+Status: **implementado no servidor em 2026-09-23** (branch `feature/melhorias`). Decisões em
+[ADR-020](../docs/adr/ADR-020-multiplas-surfaces-e-contratos-de-componente.md) (`PROPOSTO`); exemplos em
+[`docs/examples/screens`](../docs/examples/screens/README.md); checklist com evidências em [todo.md](todo.md).
+Pendente de terceiros: homologação dos contratos novos pelos apps iOS/Android e fixture Android canônica.
+O texto abaixo é o planejamento original, mantido como registro.
 Escopo confirmado: specs/JSON do backend. MongoDB e Redis constituem entrega separada,
 planejada em [plano-persistencia-mongo-redis.md](plano-persistencia-mongo-redis.md).
 Execução detalhada em [todo.md](todo.md).

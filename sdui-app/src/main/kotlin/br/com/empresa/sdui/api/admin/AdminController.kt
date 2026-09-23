@@ -12,8 +12,10 @@ import br.com.empresa.sdui.core.model.PublishRequest
 import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecDiff
+import br.com.empresa.sdui.core.model.Surfaces
 import br.com.empresa.sdui.orchestrator.admin.AdminDenied
 import br.com.empresa.sdui.orchestrator.admin.AdminNotFound
+import br.com.empresa.sdui.orchestrator.admin.AdminValidation
 import br.com.empresa.sdui.orchestrator.port.inbound.CatalogQueryUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.DecidePublishCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.DraftCatalogCommand
@@ -25,7 +27,9 @@ import br.com.empresa.sdui.orchestrator.port.inbound.PublishUseCase
 import br.com.empresa.sdui.orchestrator.port.inbound.RollbackCommand
 import br.com.empresa.sdui.orchestrator.port.inbound.RollbackPointerUseCase
 import br.com.empresa.sdui.orchestrator.port.outbound.AuditLogStore
+import br.com.empresa.sdui.orchestrator.port.outbound.MetricNames
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
+import br.com.empresa.sdui.orchestrator.port.outbound.PageRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
@@ -42,9 +46,13 @@ import org.springframework.web.bind.annotation.RestController
 /**
  * A borda HTTP da governanca: catalogo, skeletons, specs, publicacao e rollback.
  *
- * Plano administrativo, separado do plano de leitura da home. A identidade do ator vem dos
+ * Plano administrativo, separado do plano de leitura das surfaces. A identidade do ator vem dos
  * headers Actor-Id e Actor-Role, sem autenticacao — enquanto isso valer, estes endpoints so podem
  * ficar acessiveis atras de uma barreira de rede.
+ *
+ * As listagens sao paginadas por `offset` e `limit` (padrao 100, teto 500). Toda tag de metrica
+ * vem de valor ja validado — type aprovado, surface da allowlist, plataforma e canal normalizados
+ * —, nunca do texto cru do path ou do corpo.
  */
 @RestController
 @RequestMapping("/admin/v1")
@@ -78,7 +86,8 @@ class AdminController(
                 component.copy(type = type, typeVersion = ver),
             ),
         )
-        metrics.increment("admin.catalog.upsert", mapOf("type" to type))
+        // O validador de catalogo so aceita contratos aprovados: `type` aqui e de vocabulario fechado.
+        metrics.increment(MetricNames.ADMIN_CATALOG_UPSERT, mapOf("type" to type))
         logger.info("catalog component upserted: type={}, version={}, actor={}", type, ver, currentActor.id)
         return catalog
     }
@@ -97,7 +106,7 @@ class AdminController(
     ): Skeleton {
         val currentActor = actor(headers)
         val saved = drafts.createSkeletonDraft(DraftSkeletonCommand(currentActor, skeleton.copy(skeletonId = id)))
-        metrics.increment("admin.skeleton.upsert")
+        metrics.increment(MetricNames.ADMIN_SKELETON_UPSERT)
         logger.info("skeleton draft upserted: skeletonId={}, actor={}", id, currentActor.id)
         return saved
     }
@@ -106,10 +115,16 @@ class AdminController(
     fun specs(
         @RequestParam(required = false) platform: String?,
         @RequestParam(required = false) channel: String?,
+        @RequestParam(required = false) offset: Int?,
+        @RequestParam(required = false) limit: Int?,
         @RequestHeader headers: HttpHeaders,
     ): List<Spec> {
         actor(headers)
-        return catalogQuery.specs(platform?.let { ClientPlatform.parse(it) }, channel?.let { Channel.parse(it) })
+        return catalogQuery.specs(
+            platform?.let { ClientPlatform.parse(it) },
+            channel?.let { Channel.parse(it) },
+            page(offset, limit),
+        )
     }
 
     @PostMapping("/specs")
@@ -119,7 +134,11 @@ class AdminController(
     ): Spec {
         val currentActor = actor(headers)
         val created = drafts.createSpecDraft(DraftSpecCommand(currentActor, spec))
-        metrics.increment("admin.spec.draft", mapOf("surface" to spec.surface, "platform" to spec.platform.wire()))
+        // Tags do rascunho gravado: a surface ja passou pela allowlist do validador.
+        metrics.increment(
+            MetricNames.ADMIN_SPEC_DRAFT,
+            mapOf("surface" to created.surface, "platform" to created.platform.wire()),
+        )
         logger.info(
             "spec draft created: specId={}, revision={}, surface={}, platform={}, actor={}",
             spec.specId,
@@ -132,9 +151,14 @@ class AdminController(
     }
 
     @GetMapping("/specs/{id}/revisions")
-    fun revisions(@PathVariable id: String, @RequestHeader headers: HttpHeaders): List<Spec> {
+    fun revisions(
+        @PathVariable id: String,
+        @RequestParam(required = false) offset: Int?,
+        @RequestParam(required = false) limit: Int?,
+        @RequestHeader headers: HttpHeaders,
+    ): List<Spec> {
         actor(headers)
-        return catalogQuery.revisions(id)
+        return catalogQuery.revisions(id, page(offset, limit))
     }
 
     @GetMapping("/specs/{id}/revisions/{from}..{to}/diff")
@@ -166,7 +190,7 @@ class AdminController(
         )
         // Tag vem do pedido persistido, e nao do corpo: Channel.parse aceita qualquer texto e cai
         // em stable, entao o valor cru abriria uma serie de metrica por string enviada.
-        metrics.increment("admin.publish.open", mapOf("channel" to created.channel.wire()))
+        metrics.increment(MetricNames.ADMIN_PUBLISH_OPEN, mapOf("channel" to created.channel.wire()))
         logger.info(
             "publish request opened: id={}, specId={}, revision={}, channel={}, actor={}",
             created.requestId,
@@ -186,7 +210,7 @@ class AdminController(
     ): PublishRequest {
         val currentActor = actor(headers)
         val approved = publish.approve(DecidePublishCommand(currentActor, id, idempotencyKey))
-        metrics.increment("admin.publish.approved", mapOf("channel" to approved.channel.wire()))
+        metrics.increment(MetricNames.ADMIN_PUBLISH_APPROVED, mapOf("channel" to approved.channel.wire()))
         logger.info(
             "publish request approved: id={}, actor={}, role={}, targetSpecRevisionId={}",
             id,
@@ -206,7 +230,7 @@ class AdminController(
     ): PublishRequest {
         val currentActor = actor(headers)
         val rejected = publish.reject(DecidePublishCommand(currentActor, id, idempotencyKey), body.reason)
-        metrics.increment("admin.publish.rejected", mapOf("channel" to rejected.channel.wire()))
+        metrics.increment(MetricNames.ADMIN_PUBLISH_REJECTED, mapOf("channel" to rejected.channel.wire()))
         logger.warn(
             "publish request rejected: id={}, actor={}, role={}, reason={}",
             id,
@@ -227,12 +251,13 @@ class AdminController(
         @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
     ): ResponseEntity<Pointer> {
         val currentActor = actor(headers)
+        val knownSurface = Surfaces.find(surface) ?: throw AdminNotFound("surface desconhecida")
         val clientPlatform = ClientPlatform.parse(platform) ?: throw AdminDenied("plataforma invalida")
         val parsedChannel = Channel.parse(channel)
         val moved = rollback.rollback(
             RollbackCommand(
                 actor = currentActor,
-                surface = surface,
+                surface = knownSurface.id,
                 platform = clientPlatform,
                 channel = parsedChannel,
                 targetSpecRevisionId = body?.targetSpecRevisionId,
@@ -243,7 +268,7 @@ class AdminController(
         // Tags do pointer movido, e nao do path: plataforma e canal chegam como texto livre e so o
         // valor normalizado mantem a cardinalidade fechada.
         metrics.increment(
-            "admin.rollback",
+            MetricNames.ADMIN_ROLLBACK,
             mapOf("surface" to moved.surface, "platform" to moved.platform.wire(), "channel" to moved.channel.wire()),
         )
         logger.warn(
@@ -258,14 +283,28 @@ class AdminController(
         return ResponseEntity.ok(moved)
     }
 
+    /** Os eventos mais recentes, do mais novo para o mais antigo, ate `limit` (padrao 100). */
     @GetMapping("/audit")
-    fun audit(@RequestHeader headers: HttpHeaders): List<AuditEvent> {
+    fun audit(
+        @RequestParam(required = false) limit: Int?,
+        @RequestHeader headers: HttpHeaders,
+    ): List<AuditEvent> {
         val current = actor(headers)
         if (current.role != ActorRole.AUDITOR && current.role != ActorRole.CHECKER) {
             throw AdminDenied("auditoria exige checker ou auditor")
         }
-        metrics.increment("admin.audit.list")
-        return auditLog.list()
+        metrics.increment(MetricNames.ADMIN_AUDIT_LIST)
+        return auditLog.recent(page(0, limit).limit)
+    }
+
+    /** Janela validada da listagem. Valor fora da faixa e erro do chamador, nao truncamento silencioso. */
+    private fun page(offset: Int?, limit: Int?): PageRequest {
+        val resolvedOffset = offset ?: 0
+        val resolvedLimit = limit ?: PageRequest.DEFAULT_LIMIT
+        if (resolvedOffset < 0 || resolvedLimit !in 1..PageRequest.MAX_LIMIT) {
+            throw AdminValidation(listOf("offset >= 0 e limit entre 1 e ${PageRequest.MAX_LIMIT}"))
+        }
+        return PageRequest(resolvedOffset, resolvedLimit)
     }
 
     private fun actor(headers: HttpHeaders): Actor {

@@ -13,8 +13,10 @@ import br.com.empresa.sdui.adapters.seed.HomeSeed
 import br.com.empresa.sdui.core.compat.CapabilityMatrix
 import br.com.empresa.sdui.core.limit.Bulkhead
 import br.com.empresa.sdui.core.limit.TokenBucketRateLimiter
+import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.NegotiateHeaders
+import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.orchestrator.compose.ComposeBudgets
 import br.com.empresa.sdui.orchestrator.compose.ComposeRequest
@@ -23,6 +25,7 @@ import br.com.empresa.sdui.orchestrator.compose.ComposeScreenService
 import br.com.empresa.sdui.orchestrator.compose.DefaultCanaryPolicy
 import br.com.empresa.sdui.orchestrator.hydration.HydrationCoordinator
 import br.com.empresa.sdui.orchestrator.hydration.PassThroughHydrator
+import br.com.empresa.sdui.orchestrator.port.outbound.PointerStore
 import br.com.empresa.sdui.orchestrator.port.outbound.SpecStore
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -69,6 +72,22 @@ class ComposeResilienceTest {
         fun clear() = delegate.clear()
     }
 
+    /**
+     * Pointer store que cai junto: a selecao comeca pelo pointer, entao e ele que um banco fora do
+     * ar derruba primeiro.
+     */
+    private class FlakyPointerStore(
+        private val delegate: InMemoryPointerStore,
+    ) : PointerStore by delegate {
+        @Volatile
+        var failing: Boolean = false
+
+        override fun find(surface: String, platform: ClientPlatform, channel: Channel): Pointer? {
+            if (failing) error("store fora do ar")
+            return delegate.find(surface, platform, channel)
+        }
+    }
+
     private class Harness(
         budgets: ComposeBudgets = ComposeBudgets(),
         bulkhead: Bulkhead = Bulkhead(8),
@@ -80,7 +99,7 @@ class ComposeResilienceTest {
         val specStore = FlakySpecStore(InMemorySpecStore())
         val skeletonStore = InMemorySkeletonStore()
         val catalogStore = InMemoryCatalogStore()
-        val pointerStore = InMemoryPointerStore()
+        val pointerStore = FlakyPointerStore(InMemoryPointerStore())
         val specCache = InMemorySpecCache()
         val treeCache = InMemoryHydratedScreenCache()
         val lastGood = InMemoryLastGoodScreenStore(clock)
@@ -171,8 +190,9 @@ class ComposeResilienceTest {
         harness.seed()
         assertThat(harness.compose()).isInstanceOf(ComposeResult.Success::class.java)
 
-        // Derruba a fonte e o cache: so resta o last good.
+        // Derruba a fonte e os caches: so resta o last good.
         harness.specStore.clear()
+        harness.specCache.clear()
         harness.treeCache.clear()
         harness.clock.now = harness.clock.now.plus(Duration.ofMinutes(10))
 
@@ -191,6 +211,7 @@ class ComposeResilienceTest {
         assertThat(harness.compose()).isInstanceOf(ComposeResult.Success::class.java)
 
         harness.specStore.clear()
+        harness.specCache.clear()
         harness.treeCache.clear()
         harness.clock.now = harness.clock.now.plus(Duration.ofHours(25))
 
@@ -248,6 +269,7 @@ class ComposeResilienceTest {
         harness.metrics.samples.clear()
         harness.treeCache.clear()
         harness.specStore.failing = true
+        harness.pointerStore.failing = true
 
         val result = harness.compose()
 

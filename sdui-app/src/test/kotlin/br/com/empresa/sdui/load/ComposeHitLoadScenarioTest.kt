@@ -1,24 +1,46 @@
 package br.com.empresa.sdui.load
 
+import br.com.empresa.sdui.orchestrator.port.outbound.MetricNames
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.nio.file.Files
-import java.nio.file.Path
 
+/**
+ * O cenario versionado precisa descrever uma carga reproduzivel e citar so metricas que o runtime
+ * emite (achado 8 de 2026-09-23: o cenario citava `section.top_bar.ms`, que nao existia).
+ *
+ * Este teste nao mede o SLO — medir exige carga HTTP real, feita pelo [HttpLoadGenerator] em
+ * ambiente dedicado. Ele garante que o cenario e o runtime nao divirjam de novo.
+ */
 class ComposeHitLoadScenarioTest {
+    private val text: String = checkNotNull(javaClass.getResource("/load/compose-hit-p99.yaml")).readText()
+
     @Test
-    fun `cenario de carga versionado define headers hit miss duracao e meta P99 de 400ms`() {
-        val resource = javaClass.getResource("/load/compose-hit-p99.yaml")
-        assertThat(resource).isNotNull
-        val text = resource!!.readText()
-        assertThat(text).contains("p99_ms: 400")
-        assertThat(text).contains("surface: home")
-        assertThat(text).contains("Client-Platform")
-        assertThat(text).contains("hit_ratio: 0.9")
-        assertThat(text).contains("payload.bytes")
-        val repoCopy: Path = Path.of("src/test/resources/load/compose-hit-p99.yaml")
-        if (Files.isRegularFile(repoCopy)) {
-            assertThat(Files.readString(repoCopy)).contains("p99_ms: 400")
-        }
+    fun `cenario define forma da carga, metas e headers canonicos`() {
+        listOf(
+            "surface: home",
+            "endpoint: /v1/surfaces/home",
+            "arrival: closed_loop",
+            "concurrency: 32",
+            "warmup_seconds: 10",
+            "duration_seconds: 60",
+            "hit_ratio: 0.9",
+            "miss_generation: tree_ttl_expiry",
+            "p99_ms: 400",
+            "Client-Platform",
+        ).forEach { assertThat(text).contains(it) }
+    }
+
+    @Test
+    fun `toda metrica citada no cenario e emitida pelo runtime`() {
+        val cited = text.lineSequence()
+            .dropWhile { it.trim() != "metrics:" }
+            .drop(1)
+            .map { it.trim() }
+            .filter { it.startsWith("- ") }
+            .map { it.removePrefix("- ").trim() }
+            .toList()
+
+        assertThat(cited).isNotEmpty()
+        assertThat(MetricNames.ALL).containsAll(cited)
     }
 }
