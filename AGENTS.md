@@ -150,7 +150,7 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 - Ausente: `contrato-sdui-home-android-proposto.json` (H14 pendente de fornecimento pela equipe mobile).
 - Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`. A skill ausente não
   bloqueia o que já está especificado nas histórias, no plano, na pré-arquitetura, nos ADRs e no contrato.
-- Presente: `docs/historias/README.md` — catálogo das histórias concluídas do MVP (`H00`–`H18`).
+- Presente: catálogo das histórias concluídas do MVP (`H00`–`H18`) consolidado na Seção 10 de `docs/memoria-operacional-e-arquitetural.md`.
 - Presente: `docs/adr/ADR-020-*.md` e `docs/adr/ADR-021-*.md` (`PROPOSTO`); `docs/contratos/` com os contratos
   propostos; `docs/examples/screens/` com os quatro exemplos (skeleton, spec, resposta, matriz de rastreabilidade);
   `docs/guia-criacao-telas-componentes.md`; `docs/performance/medicoes-2026-09-23.md`;

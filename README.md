@@ -768,8 +768,7 @@ A documentação técnica detalhada do projeto está versionada na pasta [`docs/
 - [`docs/runbooks/`](docs/runbooks/) — Procedimentos operacionais para rollback de Canary
   ([iOS](docs/runbooks/ios-canary-rollback.md) e [Android](docs/runbooks/android-canary-rollback.md))
   e [Contrato de Retry para Clientes Móveis](docs/runbooks/contrato-de-retry-clientes-moveis.md).
-- [`docs/historias/`](docs/historias/README.md) — Matriz consolidada de entrega das histórias do MVP (`H00` a `H18`,
-  100% entregues e validadas).
+- [Histórico do MVP (`H00`–`H18`)](docs/memoria-operacional-e-arquitetural.md#10-registro-consolidado-de-histórias-do-mvp-h00h18) — Matriz consolidada de entrega das histórias do MVP (100% entregues e validadas).
 - [`docs/images/`](docs/images/README.md) — Catálogo de compatibilidade visual de telas móveis reais.
 - [`docs/artifacts/`](docs/artifacts/README.md) — Fixtures canônicas e contratos oficiais
   (`contrato-sdui-home-definitivo.json` e `contrato-sdui-home-cards-first.json`).
