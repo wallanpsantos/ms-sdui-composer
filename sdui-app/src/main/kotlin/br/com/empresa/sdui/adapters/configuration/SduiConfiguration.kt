@@ -1,5 +1,7 @@
 package br.com.empresa.sdui.adapters.configuration
 
+import br.com.empresa.sdui.adapters.json.JsonPublicationFingerprint
+import br.com.empresa.sdui.orchestrator.port.outbound.PublicationFingerprint
 import br.com.empresa.sdui.adapters.invalidation.CacheInvalidationRelay
 import br.com.empresa.sdui.adapters.memory.InMemoryComposeSingleflight
 import br.com.empresa.sdui.adapters.memory.InMemoryHydratedScreenCache
@@ -64,6 +66,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.io.ClassPathResource
+import tools.jackson.core.StreamReadConstraints
+import tools.jackson.core.json.JsonFactory
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.module.kotlin.KotlinModule
 import java.time.Clock
@@ -93,7 +97,11 @@ class SduiConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(JsonMapper::class)
-    fun jsonMapper(): JsonMapper = JsonMapper.builder()
+    fun jsonMapper(): JsonMapper = JsonMapper.builder(
+        JsonFactory.builder().streamReadConstraints(
+            StreamReadConstraints.builder().maxNestingDepth(64).maxTokenCount(50_000).build(),
+        ).build(),
+    )
         .addModule(KotlinModule.Builder().build())
         .build()
 
@@ -284,6 +292,9 @@ class SduiConfiguration {
     ): DraftUseCase = DraftService(specStore, skeletonStore, catalogStore, matrix)
 
     @Bean
+    fun publicationFingerprint(): PublicationFingerprint = JsonPublicationFingerprint()
+
+    @Bean
     fun publishUseCase(
         specStore: SpecStore,
         skeletonStore: SkeletonStore,
@@ -299,9 +310,10 @@ class SduiConfiguration {
         tx: TransactionalUnitOfWork,
         matrix: CapabilityMatrix,
         clock: Clock,
+        publicationFingerprint: PublicationFingerprint,
     ): PublishUseCase = PublishService(
         specStore, skeletonStore, catalogStore, pointerStore, publishStore, diffStore,
-        auditLog, idempotency, specCache, outbox, invalidator, tx, matrix, clock,
+        auditLog, idempotency, specCache, outbox, invalidator, tx, matrix, clock, publicationFingerprint,
     )
 
     @Bean

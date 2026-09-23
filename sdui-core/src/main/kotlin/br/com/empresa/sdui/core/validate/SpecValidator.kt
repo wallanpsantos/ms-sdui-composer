@@ -5,7 +5,7 @@ import br.com.empresa.sdui.core.model.Capability
 import br.com.empresa.sdui.core.model.Catalog
 import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.MvpCatalog
-import br.com.empresa.sdui.core.model.SemVer
+import br.com.empresa.sdui.core.model.RevisionIds
 import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.Spec
@@ -37,6 +37,11 @@ object SpecValidator {
         matrix: CapabilityMatrix,
     ): List<String> {
         val errors = mutableListOf<String>()
+        if (!RevisionIds.isValid(spec.specRevisionId)) errors += "specRevisionId invalido para cache e ETag"
+        if (spec.revision < 1) errors += "revision deve ser positiva"
+        if (spec.skeletonRevision < 1 || spec.skeletonRevision != skeleton.revision) {
+            errors += "skeletonRevision divergente ou inexistente"
+        }
         val surface = Surfaces.find(spec.surface)
         if (surface == null) {
             errors += "surface desconhecida: '${spec.surface}' (permitidas: ${Surfaces.IDS})"
@@ -84,6 +89,7 @@ object SpecValidator {
             }
             if (PropWalk.exceedsDepth(section.props)) {
                 errors += "section ${section.id} excede ${PropWalk.MAX_PROPS_DEPTH} niveis de props"
+                continue
             }
             errors += VisualGuard.violations(section.props)
             errors += PiiGuard.violations(section.props)
@@ -136,9 +142,7 @@ object SpecValidator {
      * a nenhuma faixa de app, sem que a validacao aponte um vazio que nunca vai acontecer.
      */
     private fun targetingCombos(spec: Spec, matrix: CapabilityMatrix): List<Combo> {
-        val min = spec.targeting.appVersion.min
-        val max = spec.targeting.appVersion.max ?: SemVer(min.major, min.minor + 50, 0)
-        val samples = linkedSetOf(min, max)
+        val samples = matrix.versionSamples(spec.platform, spec.targeting.appVersion)
         val schemaVersion = spec.targeting.schemaVersion.min.major.toString()
         val required = spec.targeting.requiredCapabilities.toSet()
         return samples.map { version ->

@@ -8,6 +8,8 @@ import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.ComposedScreen
 import br.com.empresa.sdui.core.model.FallbackReason
 import br.com.empresa.sdui.core.model.SurfaceDefinition
+import br.com.empresa.sdui.core.model.MvpCatalog
+import br.com.empresa.sdui.core.model.RevisionIds
 import br.com.empresa.sdui.orchestrator.port.inbound.ComposeResult
 import br.com.empresa.sdui.orchestrator.port.outbound.LastGoodScreenStore
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricNames
@@ -103,6 +105,11 @@ class DefaultFallbackCoordinator(
         }
 
         val screen = stored.screen
+        if (context.schemaVersion !in MvpCatalog.SUPPORTED_SCHEMA_VERSIONS ||
+            screen.schemaVersion != context.schemaVersion ||
+            screen.surface != surface.id || screen.platform != context.platform || screen.channel != channel ||
+            !RevisionIds.isValid(screen.specRevisionId)
+        ) return null
         val filtered = Filter.filter(screen.sections, screen.skeleton, matrix.effective(context))
         val presentSlots = filtered.sections.map { it.slot }.toSet()
         if (!screen.skeleton.requiredSlotIds.all { it in presentSlots }) return null

@@ -103,3 +103,13 @@ Registrar para cada passo: versão do commit, topologia, horário, resultado obs
 
 Só depois deste roteiro registrado a restrição de instância única do AGENTS.md §17 pode ser
 revista. Build verde, mocks ou containers saudáveis não substituem o ensaio.
+
+
+## Atualização com as correções de integridade (ADR-022)
+
+Consultar o [procedimento e as limitações do ADR-022](../adr/ADR-022-integridade-da-governanca-e-limites-de-entrada.md#consequências-e-atualização-operacional)
+antes de trocar o binário: drenar as mutações administrativas, retirar escritores antigos e
+reabrir pedidos OPEN sem hash para revisão. Documentos de idempotência novos têm `owner` e `_v: 2`;
+Redis usa índice ZSET `sdui:treeidx:v2:*`, com teto por escopo. O índice SET antigo expira após o
+último escritor antigo sair. Não executar flush global. Compilação e regressões deste ciclo
+continuam pendentes de execução autorizada.

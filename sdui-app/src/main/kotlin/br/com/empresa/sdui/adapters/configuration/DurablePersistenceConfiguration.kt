@@ -226,7 +226,7 @@ class RedisCacheConfiguration {
         redis: RedisTemplate<String, ByteArray>,
         properties: SduiProperties,
         metrics: MetricsRecorder,
-    ): HydratedScreenCache = RedisHydratedScreenCache(redis, properties.persistence.redis.maxEntryBytes, metrics)
+    ): HydratedScreenCache = RedisHydratedScreenCache(redis, properties.persistence.redis.maxEntryBytes, metrics, properties.treeCacheMaxEntries)
 
     @Bean
     fun specCache(

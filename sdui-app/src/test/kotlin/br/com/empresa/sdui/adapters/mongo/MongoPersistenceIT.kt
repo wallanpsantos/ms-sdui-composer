@@ -1,5 +1,6 @@
 package br.com.empresa.sdui.adapters.mongo
 
+import br.com.empresa.sdui.adapters.json.JsonPublicationFingerprint
 import br.com.empresa.sdui.adapters.memory.InMemoryHydratedScreenCache
 import br.com.empresa.sdui.adapters.memory.InMemoryLastGoodScreenStore
 import br.com.empresa.sdui.adapters.memory.InMemorySpecCache
@@ -105,7 +106,7 @@ class MongoPersistenceIT {
         val drafts = DraftService(specStore, skeletonStore, catalogStore, matrix)
         val publish = PublishService(
             specStore, skeletonStore, catalogStore, pointerStore, publishStore, diffStore,
-            auditLog, idempotency, specCache, outbox, invalidator, tx, matrix, clock,
+            auditLog, idempotency, specCache, outbox, invalidator, tx, matrix, clock, JsonPublicationFingerprint(),
         )
         val rollback = RollbackService(pointerStore, specStore, auditLog, idempotency, specCache, outbox, invalidator, tx, clock)
 
@@ -176,18 +177,18 @@ class MongoPersistenceIT {
     @Test
     fun `idempotencia reserva uma vez, sobrevive a restart e respeita o prazo de reserva`() {
         val first = Instance()
-        assertThat(first.idempotency.reserve("k", "publish.open", "fp")).isEqualTo(IdempotencyReservation.Reserved)
+        val token = (first.idempotency.reserve("k", "publish.open", "fp") as IdempotencyReservation.Reserved).token
         assertThat(Instance().idempotency.reserve("k", "publish.open", "fp")).isInstanceOf(IdempotencyReservation.Existing::class.java)
 
-        first.idempotency.complete(IdempotencyRecord("k", "publish.open", "pr_1", "fp"))
-        first.idempotency.release("k")
+        first.idempotency.complete(IdempotencyRecord("k", "publish.open", "pr_1", "fp"), token)
+        first.idempotency.release("k", token)
         val afterRestart = Instance().idempotency.find("k")
         assertThat(afterRestart?.resultRef).isEqualTo("pr_1")
         assertThat(afterRestart?.fingerprint).isEqualTo("fp")
 
-        assertThat(first.idempotency.reserve("abandonada", "pointer.rollback", "fp")).isEqualTo(IdempotencyReservation.Reserved)
+        assertThat(first.idempotency.reserve("abandonada", "pointer.rollback", "fp")).isInstanceOf(IdempotencyReservation.Reserved::class.java)
         clock.now = clock.now.plus(Duration.ofMinutes(6))
-        assertThat(Instance().idempotency.reserve("abandonada", "pointer.rollback", "fp")).isEqualTo(IdempotencyReservation.Reserved)
+        assertThat(Instance().idempotency.reserve("abandonada", "pointer.rollback", "fp")).isInstanceOf(IdempotencyReservation.Reserved::class.java)
     }
 
     @Test
@@ -195,19 +196,22 @@ class MongoPersistenceIT {
         val instance = Instance()
         instance.seed()
         val pointer = checkNotNull(instance.pointerStore.find("home", ClientPlatform.IOS, Channel.STABLE))
+        val token = (instance.idempotency.reserve("tx-key", "pointer.rollback", "fp") as IdempotencyReservation.Reserved).token
         assertThatThrownBy {
             instance.tx.execute {
                 instance.pointerStore.compareAndSet(pointer.version, pointer.copy(specRevisionId = "rev_01K8HOMENEXT", version = pointer.version + 1))
                 instance.auditLog.append(
                     AuditEvent("e1", clock.instant(), "c", ActorRole.CHECKER, "pointer.rollback", "home", ClientPlatform.IOS, Channel.STABLE, null, null, null, null),
                 )
-                instance.idempotency.complete(IdempotencyRecord("tx-key", "pointer.rollback", "ref", "fp"))
+                instance.idempotency.complete(IdempotencyRecord("tx-key", "pointer.rollback", "ref", "fp"), token)
                 error("falha injetada depois das escritas")
             }
         }.hasMessageContaining("falha injetada")
 
         assertThat(instance.pointerStore.find("home", ClientPlatform.IOS, Channel.STABLE)).isEqualTo(pointer)
         assertThat(instance.auditLog.recent(10)).isEmpty()
+        assertThat(instance.idempotency.find("tx-key")?.resultRef).isNull()
+        instance.idempotency.release("tx-key", token)
         assertThat(instance.idempotency.find("tx-key")).isNull()
     }
 
@@ -250,4 +254,44 @@ class MongoPersistenceIT {
         Instance().outbox.markApplied("inv-1")
         assertThat(instance.outbox.pending(10)).isEmpty()
     }
+
+    @Test
+    fun `CAS de rascunho nao sobrescreve insercao nem edicao concorrente`() {
+        val a = Instance()
+        a.seed()
+        val seed = checkNotNull(a.specStore.findByRevisionId("rev_01K8HOMEMAIN"))
+        val draft = seed.copy(specId = "spec_cas", revision = 1, specRevisionId = "rev_cas", status = SpecStatus.DRAFT)
+        a.specStore.compareAndSet(null, draft)
+        val b = Instance()
+        assertThatThrownBy { b.specStore.compareAndSet(null, draft.copy(experience = "perdida")) }
+            .isInstanceOf(StoreConflict::class.java)
+        val observed = checkNotNull(b.specStore.findByRevisionId(draft.specRevisionId))
+        val updated = a.specStore.compareAndSet(observed, observed.copy(experience = "ganhou"))
+        assertThatThrownBy { b.specStore.compareAndSet(observed, observed.copy(experience = "perdida")) }
+            .isInstanceOf(StoreConflict::class.java)
+        assertThat(b.specStore.findByRevisionId(draft.specRevisionId)).isEqualTo(updated)
+    }
+
+    @Test
+    fun `reserva retomada no Mongo nao pode ser removida nem fechada pelo dono antigo`() {
+        val a = Instance()
+        a.seed()
+        val old = a.idempotency.reserve("lease", "pointer.rollback", "fp") as IdempotencyReservation.Reserved
+        clock.now = clock.now.plusSeconds(301)
+        val b = Instance()
+        val current = b.idempotency.reserve("lease", "pointer.rollback", "fp") as IdempotencyReservation.Reserved
+        a.idempotency.release("lease", old.token)
+        assertThat(b.idempotency.find("lease")).isNotNull()
+        val pointer = checkNotNull(a.pointerStore.find("home", ClientPlatform.IOS, Channel.STABLE))
+        assertThatThrownBy {
+            a.tx.execute {
+                a.pointerStore.compareAndSet(pointer.version, pointer.copy(version = pointer.version + 1))
+                a.idempotency.complete(IdempotencyRecord("lease", "pointer.rollback", "old", "fp"), old.token)
+            }
+        }.isInstanceOf(StoreConflict::class.java)
+        assertThat(b.pointerStore.find("home", ClientPlatform.IOS, Channel.STABLE)).isEqualTo(pointer)
+        b.tx.execute { b.idempotency.complete(IdempotencyRecord("lease", "pointer.rollback", "new", "fp"), current.token) }
+        assertThat(a.idempotency.find("lease")?.resultRef).isEqualTo("new")
+    }
+
 }

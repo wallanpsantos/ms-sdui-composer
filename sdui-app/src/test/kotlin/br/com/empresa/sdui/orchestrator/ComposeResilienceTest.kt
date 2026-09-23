@@ -279,4 +279,18 @@ class ComposeResilienceTest {
         assertThat(harness.names()).contains("store.failure")
         assertThat(harness.tagsOf("store.failure")).containsEntry("stage", "select")
     }
+
+    @Test
+    fun `identificador legado inseguro degrada sem excecao inesperada`() {
+        val harness = Harness()
+        harness.seed()
+        val original = checkNotNull(harness.specStore.findByRevisionId("rev_01K8HOMEMAIN"))
+        val unsafe = original.copy(specId = "unsafe", specRevisionId = "rev_userId_1")
+        harness.specStore.save(unsafe)
+        val pointer = checkNotNull(harness.pointerStore.find("home", ClientPlatform.IOS, Channel.STABLE))
+        harness.pointerStore.save(pointer.copy(specId = unsafe.specId, specRevisionId = unsafe.specRevisionId))
+        assertThat(harness.compose()).isInstanceOf(ComposeResult.Unavailable::class.java)
+        assertThat(harness.names()).contains("compose.unavailable")
+    }
+
 }

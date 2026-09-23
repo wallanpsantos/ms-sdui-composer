@@ -143,4 +143,25 @@ class RedisCachesIT {
         sections = emptyList(),
         pointerVersion = pointerVersion,
     )
+
+    @Test
+    fun `indice tem teto e remove membro vencido mesmo sob trafego continuo`() {
+        val cache = RedisHydratedScreenCache(template, 262_144, metrics, maxEntries = 2)
+        val keys = (1..3).map { RedisKeys.tree(surface, ClientPlatform.IOS, "3", "rev_$it", "caps", Channel.STABLE) }
+        val index = "sdui:treeidx:v2:$surface:ios:stable"
+        keys.forEachIndexed { i, key -> cache.put(key, screen(1, ClientPlatform.IOS, "rev_${i + 1}"), Duration.ofSeconds(60)) }
+        assertThat(template.opsForZSet().zCard(index)).isEqualTo(2L)
+        assertThat(cache.get(keys[2])).isNull()
+        // Simula o TTL da primeira arvore, sem depender de sleep ou do relogio do teste.
+        template.delete(keys[0])
+        template.opsForZSet().add(index, keys[0].toByteArray(), 0.0)
+        cache.put(keys[2], screen(1, ClientPlatform.IOS, "rev_3"), Duration.ofSeconds(60))
+        assertThat(template.opsForZSet().zCard(index)).isEqualTo(2L)
+        assertThat(template.opsForZSet().score(index, keys[0].toByteArray())).isNull()
+        assertThat(cache.get(keys[2])).isNotNull()
+        cache.invalidate(surface, ClientPlatform.IOS, Channel.STABLE)
+        assertThat(keys.map(cache::get)).containsOnlyNulls()
+        assertThat(template.hasKey(index)).isFalse()
+    }
+
 }

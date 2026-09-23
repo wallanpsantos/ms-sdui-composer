@@ -1,5 +1,6 @@
 package br.com.empresa.sdui.adapters.configuration
 
+import br.com.empresa.sdui.adapters.memory.InMemoryGovernance
 import br.com.empresa.sdui.adapters.memory.InMemoryAuditLogStore
 import br.com.empresa.sdui.adapters.memory.InMemoryCacheInvalidationOutbox
 import br.com.empresa.sdui.adapters.memory.InMemoryCatalogStore
@@ -36,46 +37,50 @@ import java.time.Duration
  * Governanca em memoria (`sdui.persistence.store=memory`, o padrao).
  *
  * Serve a desenvolvimento, testes e demonstracao em instancia unica: nada sobrevive a restart nem
- * e compartilhado entre pods, e a unidade de trabalho da exclusao mutua sem rollback.
+ * e compartilhado entre pods, e a unidade de trabalho publica snapshots atomicos, descartados em falha.
  */
 @Configuration
 @ConditionalOnProperty(prefix = "sdui.persistence", name = ["store"], havingValue = "memory", matchIfMissing = true)
 class MemoryStoreConfiguration {
     @Bean
-    fun specStore(): SpecStore = InMemorySpecStore()
+    fun memoryGovernance(): InMemoryGovernance = InMemoryGovernance()
 
     @Bean
-    fun skeletonStore(): SkeletonStore = InMemorySkeletonStore()
+    fun specStore(governance: InMemoryGovernance): SpecStore = InMemorySpecStore(governance)
 
     @Bean
-    fun catalogStore(): CatalogStore = InMemoryCatalogStore()
+    fun skeletonStore(governance: InMemoryGovernance): SkeletonStore = InMemorySkeletonStore(governance)
 
     @Bean
-    fun pointerStore(): PointerStore = InMemoryPointerStore()
+    fun catalogStore(governance: InMemoryGovernance): CatalogStore = InMemoryCatalogStore(governance)
 
     @Bean
-    fun publishRequestStore(): PublishRequestStore = InMemoryPublishRequestStore()
+    fun pointerStore(governance: InMemoryGovernance): PointerStore = InMemoryPointerStore(governance)
 
     @Bean
-    fun diffStore(): DiffStore = InMemoryDiffStore()
+    fun publishRequestStore(governance: InMemoryGovernance): PublishRequestStore = InMemoryPublishRequestStore(governance)
 
     @Bean
-    fun auditLogStore(): AuditLogStore = InMemoryAuditLogStore()
+    fun diffStore(governance: InMemoryGovernance): DiffStore = InMemoryDiffStore(governance)
 
     @Bean
-    fun idempotencyStore(clock: Clock, properties: SduiProperties): IdempotencyStore =
+    fun auditLogStore(governance: InMemoryGovernance): AuditLogStore = InMemoryAuditLogStore(governance = governance)
+
+    @Bean
+    fun idempotencyStore(clock: Clock, properties: SduiProperties, governance: InMemoryGovernance): IdempotencyStore =
         InMemoryIdempotencyStore(
             clock = clock,
             ttl = Duration.ofSeconds(properties.idempotencyTtlSeconds),
             maxEntries = properties.idempotencyMaxKeys,
             reservationTimeout = Duration.ofSeconds(properties.idempotencyReservationTimeoutSeconds),
+            governance = governance,
         )
 
     @Bean
-    fun transactionalUnitOfWork(): TransactionalUnitOfWork = InMemoryTransactionalUnitOfWork()
+    fun transactionalUnitOfWork(governance: InMemoryGovernance): TransactionalUnitOfWork = InMemoryTransactionalUnitOfWork(governance)
 
     @Bean
-    fun cacheInvalidationOutbox(): CacheInvalidationOutbox = InMemoryCacheInvalidationOutbox()
+    fun cacheInvalidationOutbox(governance: InMemoryGovernance): CacheInvalidationOutbox = InMemoryCacheInvalidationOutbox(governance = governance)
 }
 
 /** Caches em memoria (`sdui.persistence.cache=memory`, o padrao), locais a cada processo. */

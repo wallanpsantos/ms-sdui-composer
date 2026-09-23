@@ -6,6 +6,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.CacheInvalidation
 import br.com.empresa.sdui.orchestrator.port.outbound.CacheInvalidationOutbox
 import br.com.empresa.sdui.orchestrator.port.outbound.IdempotencyReservation
 import br.com.empresa.sdui.orchestrator.port.outbound.IdempotencyStore
+import br.com.empresa.sdui.orchestrator.port.outbound.StoreConflict
 import com.mongodb.MongoWriteException
 import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.Filters
@@ -45,33 +46,46 @@ class MongoIdempotencyStore(
 
     override fun reserve(key: String, operation: String, fingerprint: String): IdempotencyReservation {
         val now = clock.instant()
-        val reservation = document(IdempotencyRecord(key, operation, null, fingerprint), STATE_IN_FLIGHT, now.plus(reservationTimeout))
-        if (tryInsert(reservation)) return IdempotencyReservation.Reserved
+        val token = UUID.randomUUID().toString()
+        val reservation = document(IdempotencyRecord(key, operation, null, fingerprint), STATE_IN_FLIGHT, now.plus(reservationTimeout), token)
+        if (tryInsert(reservation)) return IdempotencyReservation.Reserved(token)
         val existing = records.find(Filters.eq(MongoFields.ID, key)).first()
             // Removido pelo TTL entre a insercao recusada e a leitura: a chave esta livre.
-            ?: return if (tryInsert(reservation)) IdempotencyReservation.Reserved else readExisting(key)
+            ?: return if (tryInsert(reservation)) IdempotencyReservation.Reserved(token) else readExisting(key)
         if (existing.expiresAt().isAfter(now)) return IdempotencyReservation.Existing(existing.toRecord())
         // Vencido e ainda nao coletado pelo TTL: troca condicionada ao documento lido, para nao
         // atropelar quem retomou a chave no meio.
         val replaced = records.replaceOne(
-            Filters.and(Filters.eq(MongoFields.ID, key), Filters.eq(FIELD_EXPIRES_AT, existing[FIELD_EXPIRES_AT])),
+            Filters.and(Filters.eq(MongoFields.ID, key), Filters.eq(FIELD_EXPIRES_AT, existing[FIELD_EXPIRES_AT]), Filters.eq(FIELD_OWNER, existing[FIELD_OWNER])),
             reservation,
         )
-        return if (replaced.matchedCount == 1L) IdempotencyReservation.Reserved else readExisting(key)
+        return if (replaced.matchedCount == 1L) IdempotencyReservation.Reserved(token) else readExisting(key)
     }
 
-    override fun complete(record: IdempotencyRecord) {
-        records.replace(
+    override fun complete(record: IdempotencyRecord, token: String) {
+        val now = clock.instant()
+        val result = records.replace(
             sessions,
-            Filters.eq(MongoFields.ID, record.key),
-            document(record, STATE_COMPLETED, clock.instant().plus(ttl)),
-            upsert = true,
+            Filters.and(
+                Filters.eq(MongoFields.ID, record.key),
+                Filters.eq(FIELD_OWNER, token),
+                Filters.eq(FIELD_STATE, STATE_IN_FLIGHT),
+                Filters.gt(FIELD_EXPIRES_AT, Date.from(now)),
+                Filters.eq("operation", record.operation),
+                Filters.eq("fingerprint", record.fingerprint),
+            ),
+            document(record, STATE_COMPLETED, now.plus(ttl), token),
+            upsert = false,
         )
+        if (result.matchedCount == 0L) throw StoreConflict("reserva de idempotencia perdida ou vencida")
     }
 
-    override fun release(key: String) {
-        // So devolve reserva em voo; resultado fechado e o que torna o retry idempotente.
-        records.deleteOne(Filters.and(Filters.eq(MongoFields.ID, key), Filters.eq(FIELD_STATE, STATE_IN_FLIGHT)))
+    override fun release(key: String, token: String) {
+        records.deleteOne(Filters.and(
+            Filters.eq(MongoFields.ID, key),
+            Filters.eq(FIELD_OWNER, token),
+            Filters.eq(FIELD_STATE, STATE_IN_FLIGHT),
+        ))
     }
 
     private fun tryInsert(document: Document): Boolean = try {
@@ -88,8 +102,10 @@ class MongoIdempotencyStore(
         return IdempotencyReservation.Existing(current.toRecord())
     }
 
-    private fun document(record: IdempotencyRecord, state: String, expiresAt: Instant): Document =
+    private fun document(record: IdempotencyRecord, state: String, expiresAt: Instant, token: String): Document =
         Document(MongoFields.ID, record.key)
+            .append(MongoFields.FORMAT, 2)
+            .append(FIELD_OWNER, token)
             .append("operation", record.operation)
             .append("fingerprint", record.fingerprint)
             .append("resultRef", record.resultRef)
@@ -106,6 +122,7 @@ class MongoIdempotencyStore(
     private fun Document.expiresAt(): Instant = getDate(FIELD_EXPIRES_AT).toInstant()
 
     private companion object {
+        const val FIELD_OWNER: String = "owner"
         const val FIELD_STATE: String = "state"
         const val FIELD_EXPIRES_AT: String = "expiresAt"
         const val STATE_IN_FLIGHT: String = "IN_FLIGHT"

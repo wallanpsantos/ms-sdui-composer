@@ -193,4 +193,22 @@ class DefaultFallbackCoordinatorTest {
             sections = sections,
         )
     }
+
+    @Test
+    fun `last good schema 3 nao e servido para schemas diferentes`() {
+        lastGoodStore.put(sampleScreen())
+        for (schema in listOf("2", "4")) {
+            val result = coordinator.fallbackOrUnavailable(
+                Surfaces.HOME, sampleContext.copy(schemaVersion = schema), Channel.STABLE,
+                FallbackReason.REDIS_UNAVAILABLE, mapOf("surface" to "home"),
+            )
+            assertThat(result).isInstanceOf(ComposeResult.Unavailable::class.java)
+        }
+        lastGoodStore.put(sampleScreen().copy(schemaVersion = "4"))
+        val incompatible = coordinator.fallbackOrUnavailable(
+            Surfaces.HOME, sampleContext, Channel.STABLE, FallbackReason.REDIS_UNAVAILABLE, mapOf("surface" to "home"),
+        )
+        assertThat(incompatible).isInstanceOf(ComposeResult.Unavailable::class.java)
+    }
+
 }

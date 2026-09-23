@@ -201,3 +201,20 @@ Deferido com justificativa (entra no ensaio P13, porque o modo Mongo não está 
 3. Baseline HTTP do `compose-hit-p99` em ambiente dedicado, com gerador em outra máquina.
 4. Homologação com os apps: `transaction_summary@1`, `catalog_navigation@1` e `product_collection@1` são
    propostas (ADR-020 `PROPOSTO`); fixture Android canônica continua ausente.
+
+
+## Correções da auditoria de bugs e segurança — 2026-09-23
+
+- [x] Implementar R01–R12 da [análise](../docs/analise-bugs-seguranca-2026-09-23.md).
+- [x] Escrever regressões de entrada, schema, IDs, skeleton exato, revisão humana, CAS, rollback,
+  dono de idempotência, overflow e índice Redis; adaptar os testes/harness às assinaturas.
+- [x] Registrar [ADR-022](../docs/adr/ADR-022-integridade-da-governanca-e-limites-de-entrada.md),
+  incluindo reabertura de pedidos antigos e drenagem de escritores na atualização.
+- [x] Revisar estaticamente o diff, dependências entre camadas e chamadores das portas alteradas.
+- [ ] Compilar e executar a suíte uma única vez ao final, quando o operador autorizar.
+- [ ] Executar regressões Mongo/Redis com infraestrutura real e o ensaio operacional.
+
+Neste ciclo **não foram executados Gradle, compilador, testes ou carga**. Os resultados anteriores
+acima não validam estas alterações. O modo persistente continua não homologado e o modo em memória
+continua restrito a instância única. A sugestão histórica de SET/SADD/EXPIRE foi substituída pelo
+índice v2 com Lua, por correção de cardinalidade e atomicidade, sem alegação de ganho medido.

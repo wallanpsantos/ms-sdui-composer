@@ -1,4 +1,4 @@
-# Registro Histórico e Catálogo de ADRs (ADR-001 a ADR-021)
+# Registro Histórico e Catálogo de ADRs (ADR-001 a ADR-022)
 
 Este documento centraliza o catálogo completo de **Registros de Decisões Arquiteturais (ADRs)** do `ms-sdui-composer`.
 
@@ -36,6 +36,7 @@ registrada e ainda não aprovada/homologada — mesmo quando já existe código 
 | **ADR-019** | Remoção de `variant` do Catálogo      |   `ACEITO`   | Eliminação de `variant: "compact"` do `shortcut_shelf@1` e inserção em `VISUAL_KEYS`                             | `NoVisualAttributesTest.kt`, fixtures canônicas      |
 | **ADR-020** | [Múltiplas Surfaces e Contratos](ADR-020-multiplas-surfaces-e-contratos-de-componente.md) |  `PROPOSTO`  | Allowlist `home`/`catalog`, catálogo fechado em contratos aprovados, types novos só por capability declarada     | `Surface.kt`, `ComponentPropsValidator.kt`, `SurfaceController.kt` |
 | **ADR-021** | [Persistência MongoDB e Cache Redis](ADR-021-persistencia-mongodb-e-cache-redis.md) |  `PROPOSTO`  | Mongo como autoridade transacional, Redis como cache, outbox + lápide versionada; modo em memória segue padrão    | `adapters/mongo`, `adapters/redis`, `DurablePersistenceConfiguration.kt` |
+| **ADR-022** | [Integridade da Governança e Limites](ADR-022-integridade-da-governanca-e-limites-de-entrada.md) | `PROPOSTO` | Hash revisado, CAS de rascunho, transação em memória, dono de reserva e entradas/cache limitados; validação executável pendente | `InMemoryGovernance`, `AdminServices`, `AdminRequestLimitFilter`, `RedisCaches` |
 
 ---
 
@@ -48,5 +49,6 @@ Para a fundamentação técnica aprofundada, consulte os documentos canônicos:
   `docs/memoria-operacional-e-arquitetural.md`](../memoria-operacional-e-arquitetural.md).
 - **ADRs 020 e 021:** Arquivos próprios neste diretório, com status `PROPOSTO` até a homologação móvel (020) e o
   ensaio operacional de persistência (021).
+- **ADR-022:** correções de integridade e limites implementadas; compilação, regressões e homologação pendentes.
 - **Contrato de Retry Móvel:** Detalhado em [
   `docs/runbooks/contrato-de-retry-clientes-moveis.md`](../runbooks/contrato-de-retry-clientes-moveis.md).

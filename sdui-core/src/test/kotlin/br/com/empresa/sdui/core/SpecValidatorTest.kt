@@ -230,4 +230,24 @@ class SpecValidatorTest {
                 .anyMatch { it.contains("chave regulada '$field'") }
         }
     }
+
+    @Test
+    fun `identidade insegura e revisao de skeleton divergente sao erros de validacao`() {
+        for (id in listOf("rev_userId_1", "rev user", "rev\"header", "x".repeat(129))) {
+            assertThat(SpecValidator.validateDraft(baseSpec(emptyList()).copy(specRevisionId = id), validSkeleton(), catalog, matrix))
+                .anyMatch { it.contains("specRevisionId") }
+        }
+        assertThat(SpecValidator.validateDraft(baseSpec(emptyList()).copy(skeletonRevision = 2), validSkeleton(), catalog, matrix))
+            .contains("skeletonRevision divergente ou inexistente")
+    }
+
+    @Test
+    fun `faixa aberta com minor maximo nao lanca overflow e cobre transicoes da matriz`() {
+        val spec = baseSpec(emptyList())
+        val extreme = spec.copy(targeting = spec.targeting.copy(appVersion = VersionRange(SemVer(8, Int.MAX_VALUE, 0), null)))
+        assertThat(SpecValidator.validateDraft(extreme, validSkeleton(), catalog, matrix)).isNotEmpty()
+        val samples = matrix.versionSamples(ClientPlatform.IOS, VersionRange(SemVer(8, 3, 1), SemVer(9, 0, 0)))
+        assertThat(samples).contains(SemVer(8, 4, 0), SemVer(8, 9, 0), SemVer(8, 10, 0))
+    }
+
 }
