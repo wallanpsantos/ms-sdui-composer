@@ -533,8 +533,8 @@ Priorizado pelo custo de adiar: numa fase de desenvolvimento, o que mexe no mode
 
 ## 13. Referências
 
-- ADRs do projeto: 004, 007, 009, 010, 011 (em `docs/arquitetura-de-referencia.md` §16) e 014 a 019 (em
-  `docs/memoria-operacional-e-arquitetural.md` §8 e `docs/adr/README.md`).
+- ADRs do projeto: ADR-001 a ADR-022 (consolidados em `docs/arquitetura-de-referencia.md` §11 e
+  `docs/adr/README.md`).
 - Martin
   Fowler — [Presentation and Application Controller](https://martinfowler.com/eaaCatalog/applicationController.html).
 - Airbnb

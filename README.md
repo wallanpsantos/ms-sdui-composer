@@ -5,16 +5,12 @@ O `ms-sdui-composer` atua como **Presentation + Application Controller + BFF de 
 árvores de componentes hidratadas, determinísticas e compatíveis a partir de especificações versionadas, capabilities
 homologadas e contexto dinâmico do cliente móvel.
 
-## Importante:
-
-De acordo: como o serviços ainda não esta em produção, é o momento barato para realizar desenvolvimento!
-
 ---
 
 ## 📋 Sumário
 
 - [Visão Geral e Arquitetura](#-visão-geral-e-arquitetura)
-- [Escopo do Serviço e Superfícies Não Elegíveis](#-escopo-do-serviço-e-superfícies-não-elegíveis)
+- [Escopo do Serviço e Superfícies Elegíveis](#-escopo-do-serviço-e-superfícies-elegíveis)
 - [Montagens Variáveis e Skeletons Suportados](#-montagens-variáveis-e-skeletons-suportados)
 - [Design System Nativo e Ausência de Atributos Visuais](#-design-system-nativo-e-ausência-de-atributos-visuais)
 - [Stack Tecnológica e Baseline](#-stack-tecnológica-e-baseline)
@@ -23,13 +19,14 @@ De acordo: como o serviços ainda não esta em produção, é o momento barato p
     - [Pré-requisitos](#pré-requisitos)
     - [Subindo via Gradle Wrapper](#subindo-via-gradle-wrapper)
     - [Subindo via JAR Executável](#subindo-via-jar-executável)
-    - [Subindo via Docker](#subindo-via-docker)
+    - [Subindo via Docker Compose](#subindo-via-docker-compose)
     - [Configurações e Variáveis de Ambiente](#configurações-e-variáveis-de-ambiente)
 - [Como Realizar Chamadas (Exemplos Práticos)](#-como-realizar-chamadas-exemplos-práticos)
     - [1. Endpoint Principal da Home (Hot Path)](#1-endpoint-principal-da-home-hot-path)
-    - [2. Chamada Condicional com ETag (HTTP 304)](#2-chamada-condicional-com-etag-http-304)
-    - [3. Validação Estrita de Headers (HTTP 400)](#3-validação-estrita-de-headers-http-400)
-    - [4. Escada de Fallback e Resiliência (HTTP 503 e Degradação Graciosa)](#4-escada-de-fallback-e-resiliência-http-503-e-degradação-graciosa)
+    - [2. Endpoint da Surface de Catálogo](#2-endpoint-da-surface-de-catálogo)
+    - [3. Chamada Condicional com ETag (HTTP 304)](#3-chamada-condicional-com-etag-http-304)
+    - [4. Validação Estrita de Headers (HTTP 400)](#4-validação-estrita-de-headers-http-400)
+    - [5. Escada de Fallback e Resiliência (HTTP 503 e Degradação Graciosa)](#5-escada-de-fallback-e-resiliência-http-503-e-degradação-graciosa)
 - [Governança Administrativa (Maker-Checker)](#-governança-administrativa-maker-checker)
     - [Ciclo de Publicação de Especificações](#ciclo-de-publicação-de-especificações)
     - [Rollback Atômico com Idempotência](#rollback-atômico-com-idempotência)
@@ -47,7 +44,7 @@ diretamente, não retém sessões de usuário e não persiste árvores hidratada
 ### Pipeline de Composição no Hot Path
 
 ```
-[Request HTTP GET /v1/surfaces/home]
+[Request HTTP GET /v1/surfaces/{surface}] (ex.: /home, /catalog)
                   │
                   ▼
          1. NEGOTIATE ── Validação obrigatória de 6 cabeçalhos contratuais.
@@ -59,8 +56,8 @@ diretamente, não retém sessões de usuário e não persiste árvores hidratada
          3. FILTER    ── Omissão graciosa de seções incompatíveis com capabilities.
                   │      Ordenação estável TimSort O(N log N).
                   ▼
-         4. HYDRATE   ── Fan-out assíncrono em Virtual Threads delimitado por Semaphore.
-                  │      Cancelamento ativo e timeout individual de seção.
+         4. HYDRATE   ── Hidratação pass-through na thread ou fan-out em Virtual
+                  │      Threads delimitado por Semaphore e cancelamento ativo.
                   ▼
          5. GUARD     ── Proteção estrutural: VisualGuard (anti-CSS) e PiiGuard (anti-PII).
                   │      Se slot portante falhar: Escada de Fallback (Cache -> LastGood -> 503).
@@ -70,17 +67,17 @@ diretamente, não retém sessões de usuário e não persiste árvores hidratada
 
 ---
 
-## 🎯 Escopo do Serviço e Superfícies Não Elegíveis
+## 🎯 Escopo do Serviço e Superfícies Elegíveis
 
 O Server-Driven UI é uma ferramenta de **orquestração de apresentação dinâmica**, não um substituto para fluxos nativos
 transacionais. O escopo do `ms-sdui-composer` é delimitado por princípios estritos de governança e segurança:
 
 ### Superfícies Elegíveis para SDUI
 
-- **Home:** Superfície primária de entrada, agregação de produtos e atalhos dinâmicos.
-- **Hubs de Produtos:** Vitrines de cartões, crédito, investimentos e seguros onde a composição varia com frequência.
-- **Vitrines Promocionais e Campanhas Sazonais:** Banners e prateleiras com alta rotatividade de negócio sem necessidade
-  de release nas lojas de aplicativos.
+- **Home (`home`):** Superfície primária de entrada, agregação de produtos e atalhos dinâmicos.
+- **Catálogo (`catalog`, ADR-020):** Vitrines de produtos, categorias, banners e prateleiras comerciais.
+- **Hubs de Produtos e Campanhas Sazonais:** Vitrines com alta rotatividade de negócio sem necessidade de release nas
+  lojas de aplicativos.
 
 ### Superfícies Estritamente Proibidas / Fora de Escopo
 
@@ -115,6 +112,16 @@ possua múltiplas opções de montagem versionadas via skeletons canônicos:
 | **`home.default`**     | `home`  | `single_column_vertical` | 1. `header` (`fixed`)<br>2. `shortcuts` (`shelf`)<br>3. `accounts` (`list` - portante)<br>4. `cards` (`list`)<br>5. `offers` (`list`)<br>6. `coverage` (`list`)<br>7. `foryou` (`pager`)           | Layout clássico sequencial para usuários correntistas habituais.                                       |
 | **`home.cards_first`** | `home`  | `single_column_vertical` | 1. `header` (`fixed`)<br>2. `cards` (`grid_2_columns`)<br>3. `shortcuts` (`shelf`)<br>4. `accounts` (`list` - portante)<br>5. `offers` (`list`)<br>6. `coverage` (`list`)<br>7. `foryou` (`pager`) | Foco em cartões de crédito e faturas, exibidos em grade de 2 colunas no topo logo abaixo do cabeçalho. |
 
+### Exemplos Executáveis de Demonstração (`docs/examples/screens/`)
+
+Para fins de demonstração e homologação, o repositório versiona composições adicionais:
+
+- **`banking.shortcuts_first`:** Home com atalhos em destaque inicial.
+- **`banking.cards_first`:** Home focada em cartões com grid de 2 colunas.
+- **`banking.transactions`:** Home com slot de resumo de transações recentes (`transaction_summary@1`, ADR-020).
+- **`fashion.catalog`:** Vitrine de produtos e categorias na surface `catalog` (`catalog_navigation@1`,
+  `product_collection@1`, ADR-020).
+
 ### Vocabulário Fechado de Slots e Layouts Permitidos
 
 Para impedir vazamento de CSS ou layouts arbitrários definidos no servidor, cada slot aceita apenas layouts homologados
@@ -122,7 +129,7 @@ pelo Design System nativo (`allowedLayouts`):
 
 - `header`: `fixed`
 - `shortcuts`: `shelf`, `grid_4_columns`
-- `accounts`: `list`, `compact_card` (Slot portante obrigatório)
+- `accounts`: `list`, `compact_card` (Slot portante obrigatório na Home)
 - `cards`: `list`, `grid_2_columns`, `carousel`
 - `offers`: `list`, `shelf`
 - `coverage`: `list`, `compact_card`
@@ -140,7 +147,8 @@ O servidor Server-Driven UI é um provedor de **conteúdo estruturado e intenç�
   pertence à lista restrita de atributos visuais. Decisões de densidade visual e responsividade pertencem às classes
   de tamanho nativas (`WindowSizeClass` no Android e `SizeClass` no iOS).
 - **Catálogo Canônico em `@1`:** 7 tipos homologados no MVP (`top_bar`, `shortcut_shelf`, `account_card`,
-  `card_product`, `credit_offer`, `coverage_card`, `decision_card`).
+  `card_product`, `credit_offer`, `coverage_card`, `decision_card`) e 3 contratos propostos sob ADR-020
+  (`transaction_summary@1`, `catalog_navigation@1`, `product_collection@1`).
 
 ---
 
@@ -148,10 +156,10 @@ O servidor Server-Driven UI é um provedor de **conteúdo estruturado e intenç�
 
 - **Linguagem:** Kotlin 2.4.20 (`allWarningsAsErrors = true`)
 - **JVM / Plataforma:** Java 25 LTS via Gradle Toolchain (`jvmToolchain(25)`)
-- **Framework:** Spring Boot 4.1.1 (Spring Framework 7.0.x gerenciado pelo BOM oficial)
+- **Framework:** Spring Boot 4.1.1 (Spring Framework 7.0.9 gerenciado pelo BOM oficial)
 - **JSON:** Jackson 3 (`tools.jackson.core:jackson-databind` 3.1.5 + `tools.jackson.module:jackson-module-kotlin`)
 - **Concorrência:** Spring MVC sobre **Virtual Threads Java 25** (`spring.threads.virtual.enabled: true`)
-- **Persistência & Cache:** MongoDB 8.3+ (fonte da verdade de specs) e Redis (cache e fallback de árvores)
+- **Persistência & Cache:** Padrão em memória. Opt-in com MongoDB 8.3+ (autoridade) e Redis (cache e fallback)
 - **Governança Arquitetural:** ArchUnit 1.5.0 garantindo isolamento estrito entre camadas
 
 ---
@@ -180,7 +188,7 @@ sdui-integration-test --> testImplementation de todos os módulos + ArchUnit
 ### Pré-requisitos
 
 - **Java JDK 25 LTS** instalado e configurado no `PATH` (`JAVA_HOME`).
-- Opcional: Docker / Rancher Desktop (para instâncias locais de MongoDB e Redis caso deseje persistência real).
+- Opcional: Docker / Rancher Desktop (para instâncias locais de MongoDB e Redis caso deseje o modo persistente).
 
 ### Subindo via Gradle Wrapper
 
@@ -224,94 +232,80 @@ curl http://localhost:8080/actuator/health
 # {"status":"UP"}
 ```
 
-### Subindo via Docker
+### Subindo via Docker Compose
 
-O `Dockerfile` é multi-estágio: compila com JDK 25, extrai o JAR em camadas (`-Djarmode=tools`) e
-executa sobre `eclipse-temurin:25-jre` com usuário sem privilégio. A extração em camadas faz o
-cache do Docker acompanhar o ritmo de mudança de cada parte — alterar uma linha de Kotlin não
-reenvia os ~50 MB de dependências.
+O arquivo `compose.yaml` disponibiliza **MongoDB 8.3** (em replica set `rs0` na porta 27017) e **Redis 8** (na porta
 
-```bash
-docker compose up --build
-```
-
-O serviço fica em `http://localhost:8080`, com `HEALTHCHECK` apontando para
-`/actuator/health/readiness`. Para acompanhar até ficar saudável:
+6379)
+para execução local de infraestrutura:
 
 ```bash
-docker compose ps
+docker compose up -d
 ```
 
-#### MongoDB e Redis
-
-O `compose.yaml` traz os dois, mas **atrás do profile `infra`**, porque o serviço ainda não os
-consome — todos os stores são in-memory e as autoconfigurações estão excluídas em
-`SduiApplication`. Eles existem para o momento em que os adapters persistentes forem cabeados:
+Por padrão, a aplicação sobe em **modo em memória local** (`sdui.persistence.store=memory` e
+`sdui.persistence.cache=memory`).
+O modo persistente é **opt-in** (ADR-021) e pode ser ativado apontando as variáveis de ambiente:
 
 ```bash
-docker compose --profile infra up -d
+SDUI_PERSISTENCE_STORE=mongo
+SDUI_PERSISTENCE_MONGO_URI=mongodb://localhost:27017/?replicaSet=rs0&directConnection=true
+SDUI_PERSISTENCE_CACHE=redis
+SDUI_PERSISTENCE_REDIS_URL=redis://localhost:6379
 ```
 
-> **Atenção:** o estado vive no heap do processo. Uma segunda réplica não compartilha specs nem
-> pointer, então publicar ou fazer rollback em uma instância não afeta as demais. Enquanto a
-> persistência não for cabeada, o serviço opera como instância única. Ver `AGENTS.md`, seção 17.
+> **Atenção:** Em modo em memória, o estado vive no heap do processo. Uma segunda réplica não compartilha specs nem
+> pointer, operando como instância única. Detalhes na Seção 8 de [
+`docs/arquitetura-de-referencia.md`](docs/arquitetura-de-referencia.md#8-persistência-e-cache).
 
-> **Atenção:** o plano administrativo (`/admin/v1/**`) não tem autenticação — o papel do ator vem
-> de um cabeçalho que o próprio chamador escolhe. O container não deve ser exposto fora da máquina
-> local enquanto isso valer.
+> **Atenção:** O plano administrativo (`/admin/v1/**`) não possui autenticação por token — o papel do ator vem
+> do cabeçalho `Actor-Role`. O serviço não deve ser exposto publicamente sem um API Gateway autenticador à frente.
 
 ### Configurações e Variáveis de Ambiente
 
-As propriedades podem ser customizadas via `application.yml` ou variáveis de ambiente com o prefixo `SDUI_`:
+As propriedades podem ser customizadas via `application.yaml` ou variáveis de ambiente com o prefixo `SDUI_`:
 
-| Propriedade                                    |  Padrão  | Descrição                                                                 |
-|------------------------------------------------|:--------:|---------------------------------------------------------------------------|
-| `server.port`                                  |  `8080`  | Porta HTTP da aplicação                                                   |
-| `spring.threads.virtual.enabled`               |  `true`  | Habilita concorrência com Virtual Threads                                 |
-| `sdui.seed-ios`                                |  `true`  | Carrega o catálogo MVP e a fixture canônica da Home iOS no startup        |
-| `sdui.tree-ttl-seconds`                        |   `60`   | TTL do cache de tela pré-composta (memória ou Redis)                      |
-| `sdui.tree-cache-max-entries`                  | `10000`  | Teto de árvores no cache de composição em memória                         |
-| `sdui.hydration-timeout-ms`                    |   `80`   | Timeout individual de hidratação remota de section                        |
-| `sdui.hydration-fanout`                        |   `8`    | Limite de seções hidratadas concorrentemente por requisição               |
-| `sdui.request-budget-ms`                       |  `1000`  | Orçamento total da requisição; limita as esperas do pipeline              |
-| `sdui.singleflight-timeout-ms`                 |  `150`   | Espera máxima de waiters pelo líder no singleflight antes do fallback     |
-| `sdui.read-bulkhead-permits`                   |   `32`   | Teto de concorrência simultânea do plano de leitura (bulkhead)            |
-| `sdui.read-bulkhead-wait-ms`                   |   `50`   | Espera máxima por permissão no bulkhead de leitura antes de degradar      |
-| `sdui.max-fallback-age-seconds`                | `86400`  | Idade máxima do last good servido como fallback (24h)                     |
-| `sdui.retry-after-seconds`                     |   `5`    | Valor base do Retry-After para HTTP 503 (com jitter de ±40%)              |
-| `sdui.rate-limit-retry-after-seconds`          |   `2`    | Valor base do Retry-After para HTTP 429 (com jitter de ±40%)              |
-| `sdui.rate-limit-capacity`                     | `10000`  | Capacidade do Token Bucket por coorte/cliente                             |
-| `sdui.rate-limit-refill-per-second`            | `10000`  | Taxa de reabastecimento de tokens por segundo do rate limiter             |
-| `sdui.rate-limit-max-keys`                     | `100000` | Teto de buckets residentes; descarta os ociosos e os cheios sob pressão   |
-| `sdui.idempotency-ttl-seconds`                 | `86400`  | Validade de uma chave de idempotência administrativa (24h)                |
-| `sdui.idempotency-max-keys`                    | `10000`  | Teto de chaves em memória; no teto só com chaves vivas, recusa com 503    |
-| `sdui.idempotency-reservation-timeout-seconds` |  `300`   | Reserva em voo mais velha que isto é tratada como abandonada              |
-| `sdui.metrics-max-tag-values`                  |   `64`   | Teto de valores distintos por tag nas métricas próprias                   |
-| `sdui.demo-enabled`                            | `false`  | Publica os quatro exemplos de `docs/examples/screens` (nunca em produção) |
-| `sdui.persistence.store`                       | `memory` | `memory` ou `mongo` (ADR-021); `mongo` exige `SDUI_PERSISTENCE_MONGO_URI` |
-| `sdui.persistence.cache`                       | `memory` | `memory` ou `redis` (ADR-021); `redis` exige `SDUI_PERSISTENCE_REDIS_URL` |
-| `sdui.canary-ios-builds`                       |   `[]`   | Lista de builds de iOS autorizadas para canal Canary                      |
-| `sdui.canary-android-builds`                   |   `[]`   | Lista de builds de Android autorizadas para canal Canary                  |
+| Propriedade                                       |  Padrão   | Descrição                                                                 |
+|---------------------------------------------------|:---------:|---------------------------------------------------------------------------|
+| `server.port`                                     |  `8080`   | Porta HTTP da aplicação                                                   |
+| `spring.threads.virtual.enabled`                  |  `true`   | Habilita concorrência com Virtual Threads Java 25                         |
+| `sdui.seed-ios`                                   |  `true`   | Carrega o catálogo MVP e a fixture canônica da Home iOS no startup        |
+| `sdui.tree-ttl-seconds`                           |   `60`    | TTL do cache de tela pré-composta (memória ou Redis)                      |
+| `sdui.tree-cache-max-entries`                     |  `10000`  | Teto de árvores no cache de composição em memória                         |
+| `sdui.hydration-timeout-ms`                       |   `80`    | Timeout individual de hidratação remota de section                        |
+| `sdui.hydration-fanout`                           |    `8`    | Limite de seções hidratadas concorrentemente por requisição               |
+| `sdui.request-budget-ms`                          |  `1000`   | Orçamento total da requisição; limita esperas no pipeline (ADR-014)       |
+| `sdui.singleflight-timeout-ms`                    |   `150`   | Espera máxima de waiters pelo líder no singleflight antes do fallback     |
+| `sdui.read-bulkhead-permits`                      |   `32`    | Teto de concorrência simultânea do plano de leitura (bulkhead)            |
+| `sdui.read-bulkhead-wait-ms`                      |   `50`    | Espera máxima por permissão no bulkhead de leitura antes de degradar      |
+| `sdui.max-fallback-age-seconds`                   |  `86400`  | Idade máxima do last good servido como fallback (24h)                     |
+| `sdui.retry-after-seconds`                        |    `5`    | Valor base do Retry-After para HTTP 503 (com jitter de ±40%)              |
+| `sdui.rate-limit-retry-after-seconds`             |    `2`    | Valor base do Retry-After para HTTP 429 (com jitter de ±40%)              |
+| `sdui.rate-limit-capacity`                        |  `10000`  | Capacidade do Token Bucket por coorte/cliente                             |
+| `sdui.rate-limit-refill-per-second`               |  `10000`  | Taxa de reabastecimento de tokens por segundo do rate limiter             |
+| `sdui.rate-limit-max-keys`                        | `100000`  | Teto de buckets residentes no rate limiter                                |
+| `sdui.idempotency-ttl-seconds`                    |  `86400`  | Validade de uma chave de idempotência administrativa (24h)                |
+| `sdui.idempotency-max-keys`                       |  `10000`  | Teto de chaves de idempotência residentes em memória                      |
+| `sdui.idempotency-reservation-timeout-seconds`    |   `300`   | Reserva em voo mais velha que isto é tratada como abandonada              |
+| `sdui.admin-max-body-bytes`                       | `1048576` | Teto do payload administrativo antes da desserialização (1MB, ADR-022)    |
+| `sdui.admin-max-concurrent-requests`              |    `8`    | Limite de mutações administrativas concorrentes simultâneas (ADR-022)     |
+| `sdui.metrics-max-tag-values`                     |   `64`    | Teto de valores distintos por tag nas métricas próprias                   |
+| `sdui.demo-enabled`                               |  `false`  | Publica os quatro exemplos de `docs/examples/screens` (nunca em produção) |
+| `sdui.persistence.store`                          | `memory`  | `memory` ou `mongo` (ADR-021); `mongo` exige `SDUI_PERSISTENCE_MONGO_URI` |
+| `sdui.persistence.cache`                          | `memory`  | `memory` ou `redis` (ADR-021); `redis` exige `SDUI_PERSISTENCE_REDIS_URL` |
+| `sdui.persistence.invalidation-relay-interval-ms` |  `5000`   | Intervalo do relay de invalidação de cache/last good                      |
+| `sdui.canary-ios-builds`                          |   `[]`    | Lista de builds de iOS autorizadas para canal Canary                      |
+| `sdui.canary-android-builds`                      |   `[]`    | Lista de builds de Android autorizadas para canal Canary                  |
 
-O modo persistente está implementado e **não homologado**: até o roteiro de
-[`persistencia-mongodb-redis.md`](docs/runbooks/persistencia-mongodb-redis.md) ser executado, rode em memória e em
-instância única. Prazos, pool e tetos em `sdui.persistence.mongo.*` e `sdui.persistence.redis.*`.
+---
 
-### Surfaces e exemplos
+### Medição de Performance e Carga
 
-Além de `GET /v1/surfaces/home`, o serviço serve `GET /v1/surfaces/catalog` (ADR-020), com os mesmos headers.
-Quatro composições de exemplo — duas montagens da Home bancária, Home com resumo de transações e catálogo de
-moda — estão em [`docs/examples/screens`](docs/examples/screens/README.md), com skeleton, spec, resposta esperada e
-roteiro de publicação. O passo a passo para criar telas e componentes está em
-[`docs/guia-criacao-telas-componentes.md`](docs/guia-criacao-telas-componentes.md).
-
-### Medição de performance
-
-`./gradlew :sdui-app:perfHarness` roda o harness in-process dos achados de
-[`docs/analise-performance-2026-09-23.md`](docs/analise-performance-2026-09-23.md) e
-`./gradlew :sdui-app:loadTest -PbaseUrl=http://localhost:8080` executa o cenário HTTP
-`load/compose-hit-p99.yaml` contra uma instância no ar. Resultados em
-[`docs/performance/medicoes-2026-09-23.md`](docs/performance/medicoes-2026-09-23.md).
+- `./gradlew :sdui-app:perfHarness`: Executa o harness in-process comparando latências e alocações de memória para
+  seleção de specs, hidratação pass-through e caches residentes.
+- `./gradlew :sdui-app:loadTest -PbaseUrl=http://localhost:8080`: Executa o cenário HTTP de alta concorrência
+  `load/compose-hit-p99.yaml` contra uma instância ativa do serviço, validando throughput (req/s) e percentis P95/P99 de
+  resposta.
 
 ---
 
@@ -341,8 +335,6 @@ O BFF Server-Driven UI exige **6 cabeçalhos de negociação obrigatórios** par
 - `SDUI-Channel`: Canal solicitado (`stable`, `canary` ou `internal`). Padrão: `stable`.
 - `If-None-Match`: ETag da última tela recebida para validação de cache.
 
----
-
 #### Exemplo de Chamada com cURL
 
 ```bash
@@ -357,26 +349,6 @@ curl -X GET http://localhost:8080/v1/surfaces/home \
   -H "SDUI-Channel: stable" \
   -i
 ```
-
-#### Exemplo de Chamada com PowerShell
-
-```powershell
-$headers = @{
-    "API-Version" = "1"
-    "UI-Schema-Version" = "3"
-    "Client-Platform" = "ios"
-    "Client-Version" = "8.10.0"
-    "Client-Build" = "1234"
-    "Accept-Language" = "pt-BR"
-    "OS-Version" = "17.5.1"
-    "SDUI-Channel" = "stable"
-}
-
-$response = Invoke-RestMethod -Uri "http://localhost:8080/v1/surfaces/home" -Headers $headers -Method Get
-$response | ConvertTo-Json -Depth 5
-```
-
----
 
 #### Exemplo de Resposta: HTTP 200 OK
 
@@ -426,41 +398,13 @@ $response | ConvertTo-Json -Depth 5
     "id": "home.default",
     "layout": "single_column_vertical",
     "slots": [
-      {
-        "id": "header",
-        "layout": "fixed",
-        "title": null
-      },
-      {
-        "id": "shortcuts",
-        "layout": "shelf",
-        "title": null
-      },
-      {
-        "id": "accounts",
-        "layout": "list",
-        "title": "Conta"
-      },
-      {
-        "id": "cards",
-        "layout": "list",
-        "title": "Cartão de crédito"
-      },
-      {
-        "id": "offers",
-        "layout": "list",
-        "title": "Crédito"
-      },
-      {
-        "id": "coverage",
-        "layout": "list",
-        "title": "Seguros"
-      },
-      {
-        "id": "foryou",
-        "layout": "pager",
-        "title": "Para você"
-      }
+      { "id": "header", "layout": "fixed", "title": null },
+      { "id": "shortcuts", "layout": "shelf", "title": null },
+      { "id": "accounts", "layout": "list", "title": "Conta" },
+      { "id": "cards", "layout": "list", "title": "Cartão de crédito" },
+      { "id": "offers", "layout": "list", "title": "Crédito" },
+      { "id": "coverage", "layout": "list", "title": "Seguros" },
+      { "id": "foryou", "layout": "pager", "title": "Para você" }
     ]
   },
   "sections": [
@@ -489,7 +433,25 @@ $response | ConvertTo-Json -Depth 5
 
 ---
 
-### 2. Chamada Condicional com ETag (HTTP 304)
+### 2. Endpoint da Surface de Catálogo
+
+Para obter a tela de catálogo comercial (`catalog`, ADR-020):
+
+```bash
+curl -X GET http://localhost:8080/v1/surfaces/catalog \
+  -H "API-Version: 1" \
+  -H "UI-Schema-Version: 3" \
+  -H "Client-Platform: ios" \
+  -H "Client-Version: 8.10.0" \
+  -H "Client-Build: 1234" \
+  -H "Accept-Language: pt-BR" \
+  -H "Component-Capabilities: catalog_navigation@1,product_collection@1" \
+  -i
+```
+
+---
+
+### 3. Chamada Condicional com ETag (HTTP 304)
 
 Quando o cliente já possui a tela em cache, envia o cabeçalho `If-None-Match`:
 
@@ -505,9 +467,6 @@ curl -X GET http://localhost:8080/v1/surfaces/home \
   -i
 ```
 
-O sufixo do ETag é o prefixo do hash das capabilities efetivas: clientes que suportam conjuntos
-diferentes de componentes recebem árvores diferentes e não podem compartilhar validação de cache.
-
 **Resposta HTTP 304 Not Modified:**
 
 ```http
@@ -519,7 +478,7 @@ Vary: API-Version, UI-Schema-Version, Client-Platform, Client-Version, Client-Bu
 
 ---
 
-### 3. Validação Estrita de Headers (HTTP 400)
+### 4. Validação Estrita de Headers (HTTP 400)
 
 Se qualquer cabeçalho obrigatório faltar ou for inválido:
 
@@ -547,7 +506,7 @@ curl -X GET http://localhost:8080/v1/surfaces/home \
 
 ---
 
-### 4. Escada de Fallback e Resiliência (HTTP 503 e Degradação Graciosa)
+### 5. Escada de Fallback e Resiliência (HTTP 503 e Degradação Graciosa)
 
 Se ocorrer indisponibilidade temporária de dependências ou ausência de spec compatível, o serviço percorre a **Escada
 Determinística de Fallback**:
@@ -573,8 +532,7 @@ Content-Type: application/json
 
 > **Nota de Resiliência:** O valor de `Retry-After` aplica jitter pseudoaleatório de ±40% sobre a base
 > configurada (`sdui.retry-after-seconds`), dispersando as tentativas de retry das coortes móveis e impedindo o efeito
-> de
-> manada (*thundering herd*).
+> de manada (*thundering herd*).
 
 ---
 
@@ -701,7 +659,7 @@ O projeto adota política de **tolerância zero para warnings** (`allWarningsAsE
 
 ### Rodar Testes de Arquitetura (ArchUnit)
 
-Garante conformidade com o Clean Architecture, pureza do `sdui-core` e ausência de `@Transactional`:
+Garante conformidade com Clean Architecture, pureza do `sdui-core` e ausência de `@Transactional`:
 
 ```powershell
 .\gradlew.bat :sdui-integration-test:test --warning-mode=fail
@@ -713,68 +671,34 @@ Garante conformidade com o Clean Architecture, pureza do `sdui-core` e ausência
 .\gradlew.bat clean check --warning-mode=fail
 ```
 
-### Build Completo e Otimizado (Equivalência Maven vs Gradle)
-
-O `ms-sdui-composer` é um **serviço backend executável (BFF)** empacotado como jar executável do Spring Boot
-(`sdui-bootstrap.jar`) para Docker, e **não** uma biblioteca distribuída para outros projetos locais via
-`~/.m2/repository`. Por essa razão, **não** utilizamos `publishToMavenLocal`.
-
-Para desenvolvedores habituados ao Maven (ex.: `mvn clean install -T 14 -U`), o comando de compilação, validação
-integral de testes e empacotamento com máxima performance (aproveitando paralelismo multi-módulo entre `sdui-core`,
-`sdui-contract`, etc. e checagem de dependências) é:
-
-**PowerShell (Windows):**
-
-```powershell
-.\gradlew.bat clean build --parallel --max-workers=14 --refresh-dependencies --warning-mode=fail
-```
-
-**Bash / Zsh (Linux / macOS):**
-
-```bash
-./gradlew clean build --parallel --max-workers=14 --refresh-dependencies --warning-mode=fail
-```
-
-> **Para executar apenas o Quality Gate (validação e testes sem empacotar o JAR executável):**
-> Substitua `build` por `check`:
-> ```powershell
-> .\gradlew.bat clean check --parallel --max-workers=14 --refresh-dependencies --warning-mode=fail
-> ```
-
-#### Tabela de Correspondência Prática
-
-| Conceito / Flag Maven | Equivalente no Gradle         | Comportamento no ms-sdui-composer                                                                                                                           |
-|-----------------------|-------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `clean`               | `clean`                       | Limpa os diretórios de saída `build/`.                                                                                                                      |
-| `-T 14`               | `--parallel --max-workers=14` | Paraleliza tarefas entre subprojetos desacoplados com limite de 14 workers simultâneos (ideal para CPUs de 16 threads lógicas, reservando folga para o SO). |
-| `-U`                  | `--refresh-dependencies`      | Ignora o TTL de cache local e força checagem de metadados e atualizações nos repositórios remotos.                                                          |
-| `install`             | `build`                       | Compila, testa e gera o JAR executável em `sdui-bootstrap/build/libs/`. A publicação local (`publishToMavenLocal`) não é necessária para este serviço.      |
-
 ---
 
 ## 📚 Documentação Canônica de Referência
 
 A documentação técnica detalhada do projeto está versionada na pasta [`docs/`](docs/README.md):
 
-1. [`arquitetura-de-referencia.md`](docs/arquitetura-de-referencia.md) — Clean Architecture,
-   convenções de engenharia e decisões fundacionais.
-2. [`memoria-operacional-e-arquitetural.md`](docs/memoria-operacional-e-arquitetural.md) — Memória operacional viva,
-   regras inegociáveis, metas de SLO e consolidação arquitetural.
-3. [`guia-depreciacao-e-migracao.md`](docs/guia-depreciacao-e-migracao.md) — Padrão Strangler para
-   componentes, sunset de faixas de app e Expand/Contract no MongoDB.
+1. [`arquitetura-de-referencia.md`](docs/arquitetura-de-referencia.md) — Clean Architecture, convenções de engenharia,
+   concorrência com Virtual Threads, pipeline, observabilidade, governança, matriz consolidada de decisões (ADR-001 a
+   ADR-022) e histórico das histórias do MVP (H00–H18).
+2. [`guia-depreciacao-e-migracao.md`](docs/guia-depreciacao-e-migracao.md) — Padrão Strangler para componentes, sunset
+   de faixas de app e Expand/Contract no MongoDB.
+3. [`guia-criacao-telas-componentes.md`](docs/guia-criacao-telas-componentes.md) — Guia prático de criação de novas
+   telas, montagens e componentes via SDUI.
 
 ### Subdiretórios Estruturados
 
-- [`docs/adr/`](docs/adr/README.md) — Matriz consolidada de decisões arquiteturais do serviço.
+- [`docs/adr/`](docs/adr/README.md) — Matriz consolidada de decisões arquiteturais do serviço (ADR-001 a ADR-022).
+- [`docs/contratos/`](docs/contratos/transaction-summary-v1.md) — Contratos propostos de novos componentes
+  (`transaction_summary@1`, `catalog_navigation@1`, `product_collection@1`).
+- [`docs/examples/screens/`](docs/examples/screens/README.md) — Quatro composições de exemplo executáveis (skeleton,
+  spec e resposta esperada).
+- [`docs/images/`](docs/images/README.md) — Catálogo de compatibilidade visual de telas móveis reais.
 - [`docs/runbooks/`](docs/runbooks/) — Procedimentos operacionais para rollback de Canary
   ([iOS](docs/runbooks/ios-canary-rollback.md) e [Android](docs/runbooks/android-canary-rollback.md))
   e [Contrato de Retry para Clientes Móveis](docs/runbooks/contrato-de-retry-clientes-moveis.md).
 - [Histórico do MVP (`H00`–
-  `H18`)](docs/memoria-operacional-e-arquitetural.md#10-registro-consolidado-de-histórias-do-mvp-h00h18) — Matriz
-  consolidada de entrega das histórias do MVP (100% entregues e validadas).
-- [`docs/images/`](docs/images/README.md) — Catálogo de compatibilidade visual de telas móveis reais.
-- [`docs/examples/screens/`](docs/examples/screens/README.md) — Composições de exemplo executáveis (skeleton, spec e
-  resposta).
+  `H18`)](docs/arquitetura-de-referencia.md#12-histórico-consolidado-de-histórias-do-mvp-h00h18) — Matriz consolidada de
+  entrega das histórias do MVP (100% entregues e validadas).
 - Fixtures canônicas e contratos oficiais versionados em [
   `sdui-contract/src/test/resources/fixtures/`](sdui-contract/src/test/resources/fixtures/)
   (`contrato-sdui-home-definitivo.json` e `contrato-sdui-home-cards-first.json`).

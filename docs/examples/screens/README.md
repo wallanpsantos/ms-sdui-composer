@@ -5,7 +5,7 @@
 > canônica continua ausente e não foi inferida destes exemplos. Nenhum renderer foi validado.
 
 Decisões
-em [ADR-020](../../memoria-operacional-e-arquitetural.md#adr-020--múltiplas-surfaces-e-contratos-de-componente).
+em [ADR-020](../../arquitetura-de-referencia.md#adr-020--múltiplas-surfaces-e-contratos-de-componente).
 Contratos novos em [`transaction-summary-v1.md`](../../contratos/transaction-summary-v1.md) e
 [`componentes-comercio-v1.md`](../../contratos/componentes-comercio-v1.md). Tutorial completo em
 [`guia-criacao-telas-componentes.md`](../../guia-criacao-telas-componentes.md).
