@@ -57,8 +57,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.findFor
 import java.security.MessageDigest
 import java.time.Clock
 import java.time.Instant
-import java.util.HexFormat
-import java.util.UUID
+import java.util.*
 
 /** Leitura da trilha de auditoria para checker e auditor. Nao altera estado. */
 class AuditQueryService(

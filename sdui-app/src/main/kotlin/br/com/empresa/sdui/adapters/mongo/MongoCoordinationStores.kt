@@ -15,8 +15,7 @@ import org.bson.Document
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.Date
-import java.util.UUID
+import java.util.*
 
 /**
  * Registro de idempotencia no MongoDB (P06, ADR-021).

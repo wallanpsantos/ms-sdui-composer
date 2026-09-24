@@ -399,13 +399,41 @@ curl -X GET http://localhost:8080/v1/surfaces/home \
     "id": "home.default",
     "layout": "single_column_vertical",
     "slots": [
-      { "id": "header", "layout": "fixed", "title": null },
-      { "id": "shortcuts", "layout": "shelf", "title": null },
-      { "id": "accounts", "layout": "list", "title": "Conta" },
-      { "id": "cards", "layout": "list", "title": "Cartão de crédito" },
-      { "id": "offers", "layout": "list", "title": "Crédito" },
-      { "id": "coverage", "layout": "list", "title": "Seguros" },
-      { "id": "foryou", "layout": "pager", "title": "Para você" }
+      {
+        "id": "header",
+        "layout": "fixed",
+        "title": null
+      },
+      {
+        "id": "shortcuts",
+        "layout": "shelf",
+        "title": null
+      },
+      {
+        "id": "accounts",
+        "layout": "list",
+        "title": "Conta"
+      },
+      {
+        "id": "cards",
+        "layout": "list",
+        "title": "Cartão de crédito"
+      },
+      {
+        "id": "offers",
+        "layout": "list",
+        "title": "Crédito"
+      },
+      {
+        "id": "coverage",
+        "layout": "list",
+        "title": "Seguros"
+      },
+      {
+        "id": "foryou",
+        "layout": "pager",
+        "title": "Para você"
+      }
     ]
   },
   "sections": [
