@@ -4,7 +4,6 @@ import br.com.empresa.sdui.core.model.Capability
 import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.ComponentContracts
-import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.SemVer
 import br.com.empresa.sdui.core.model.VersionRange
 
@@ -18,15 +17,10 @@ import br.com.empresa.sdui.core.model.VersionRange
 class CapabilityMatrix(
     private val byPlatformVersion: Map<Pair<ClientPlatform, String>, Set<Capability>> = defaultMatrix(),
 ) {
-    private val fallbackAll: Set<Capability> = MvpCatalog.TYPES.toSet()
-
-    private val indexed: Map<ClientPlatform, Map<String, Set<Capability>>> = buildMap {
-        for ((key, value) in byPlatformVersion) {
-            val (platform, version) = key
-            val platformMap = getOrPut(platform) { mutableMapOf() } as MutableMap<String, Set<Capability>>
-            platformMap[version] = value
-        }
-    }
+    private val indexed: Map<ClientPlatform, Map<String, Set<Capability>>> =
+        byPlatformVersion.entries
+            .groupBy({ it.key.first }, { it.key.second to it.value })
+            .mapValues { (_, versions) -> versions.toMap() }
 
     /**
      * Universo finito de capabilities que o servidor reconhece. O delta declarado pelo cliente e
@@ -45,11 +39,12 @@ class CapabilityMatrix(
         return server + declared
     }
 
+    /** Faixa sem entrada na matriz fica com os types da Home, que o servidor presume em todo app atual. */
     fun serverCaps(platform: ClientPlatform, appVersion: SemVer): Set<Capability> {
-        val platformMap = indexed[platform] ?: return fallbackAll
+        val platformMap = indexed[platform] ?: return ComponentContracts.LEGACY_HOME
         return platformMap[appVersion.majorMinor]
             ?: platformMap["*"]
-            ?: fallbackAll
+            ?: ComponentContracts.LEGACY_HOME
     }
 
     /** Pontas e transicoes reais da matriz, sem fabricar minor + 50 e arriscar overflow. */
@@ -70,7 +65,7 @@ class CapabilityMatrix(
 
     companion object {
         fun defaultMatrix(): Map<Pair<ClientPlatform, String>, Set<Capability>> {
-            val all = MvpCatalog.TYPES.toSet()
+            val all = ComponentContracts.LEGACY_HOME
             val iosLegacy = setOf(
                 Capability("top_bar", 1),
                 Capability("shortcut_shelf", 1),

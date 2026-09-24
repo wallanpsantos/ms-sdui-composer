@@ -55,6 +55,19 @@ class InMemoryHydratedScreenCacheTest {
         assertThat(cache.get(canary)).isNotNull()
     }
 
+    @Test
+    fun `invalidate nao confunde a plataforma com trecho do specRevisionId`() {
+        val cache = InMemoryHydratedScreenCache()
+        val android = RedisKeys.tree(
+            MvpCatalog.SURFACE_HOME, ClientPlatform.ANDROID, "3", "rev:ios:1", "h1", Channel.STABLE,
+        )
+        cache.put(android, screen(), Duration.ofSeconds(60))
+
+        cache.invalidate(MvpCatalog.SURFACE_HOME, ClientPlatform.IOS, Channel.STABLE)
+
+        assertThat(cache.get(android)).isNotNull()
+    }
+
     private fun treeKey(
         capsHash: String,
         platform: ClientPlatform = ClientPlatform.IOS,

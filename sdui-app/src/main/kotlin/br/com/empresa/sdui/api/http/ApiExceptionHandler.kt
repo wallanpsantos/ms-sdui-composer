@@ -64,14 +64,14 @@ class ApiExceptionHandler(
         )
 
     /**
-     * Sem capacidade segura para admitir a operacao. 503 com `Retry-After`: a recusa preserva as
-     * reservas vivas em vez de expulsar uma delas.
+     * Sem capacidade segura para admitir a operacao. 503 com `Retry-After` sorteado, como na recusa
+     * do filtro administrativo: a recusa preserva as reservas vivas em vez de expulsar uma delas.
      */
     @ExceptionHandler(AdminUnavailable::class)
     fun unavailable(ex: AdminUnavailable): ResponseEntity<ApiErrorResponse> {
         metrics.increment(MetricNames.ADMIN_ERROR, mapOf("error" to "unavailable"))
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-            .header("Retry-After", ADMIN_RETRY_AFTER_SECONDS)
+            .header("Retry-After", adminRetryAfterSeconds())
             .body(ApiErrorResponse("ADMIN_UNAVAILABLE", ex.message ?: "indisponivel"))
     }
 
@@ -123,10 +123,6 @@ class ApiExceptionHandler(
     ): ResponseEntity<ApiErrorResponse> {
         metrics.increment(MetricNames.ADMIN_ERROR, mapOf("error" to error))
         return ResponseEntity.status(status).body(body)
-    }
-
-    private companion object {
-        const val ADMIN_RETRY_AFTER_SECONDS: String = "30"
     }
 }
 

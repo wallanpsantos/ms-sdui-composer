@@ -28,7 +28,7 @@ import br.com.empresa.sdui.orchestrator.port.outbound.TransactionalUnitOfWork
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.*
+import java.util.UUID
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 

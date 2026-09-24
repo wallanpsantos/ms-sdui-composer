@@ -72,11 +72,9 @@ class InMemoryHydratedScreenCache(
     }
 
     override fun invalidate(surface: String, platform: ClientPlatform, channel: Channel) {
-        removeWhere { key, _ ->
-            key.startsWith("sdui:tree:$surface:") &&
-                    key.contains(":${platform.wire()}:") &&
-                    key.endsWith(":${channel.wire()}")
-        }
+        val prefix = RedisKeys.treePrefix(surface, platform)
+        val suffix = ":${channel.wire()}"
+        removeWhere { key, _ -> key.startsWith(prefix) && key.endsWith(suffix) }
     }
 
     /** Quantas entradas o cache guarda agora. Serve a diagnostico e aos testes do teto. */
@@ -223,7 +221,7 @@ class InMemoryProjectionStore(
     override fun put(projection: String, id: String, props: Map<String, Any?>, ttl: Duration) {
         val now = clockMs()
         sweepIfDue(now)
-        if (items.size >= maxEntries) items.pruneToHalf(pruning, maxEntries, clockMs) { it.expiresAt }
+        if (items.size >= maxEntries) pruneToHalf()
         items[RedisKeys.section(projection, id)] = Entry(props, now + ttl.toMillis())
     }
 
@@ -234,35 +232,30 @@ class InMemoryProjectionStore(
         items.entries.removeIf { it.value.expiresAt < now }
     }
 
+    /**
+     * Descarta as entradas vencidas e, se ainda assim faltar folga, as que vencem primeiro, ate
+     * sobrar metade do teto. Uma unica thread poda por vez. O teto que resulta e aproximado: serve
+     * a projecoes, cujo volume e limitado pelo servidor, e nao a caches chaveados por header.
+     */
+    private fun pruneToHalf() {
+        if (!pruning.compareAndSet(false, true)) return
+        try {
+            val now = clockMs()
+            items.entries.removeIf { it.value.expiresAt < now }
+            val excess = items.size - maxEntries / 2
+            if (excess > 0) {
+                items.entries
+                    .sortedBy { it.value.expiresAt }
+                    .take(excess)
+                    .forEach { items.remove(it.key, it.value) }
+            }
+        } finally {
+            pruning.set(false)
+        }
+    }
+
     fun residentEntries(): Int = items.size
     fun clear() = items.clear()
-}
-
-/**
- * Descarta as entradas vencidas e, se ainda assim faltar folga, as que vencem primeiro, ate sobrar
- * metade do teto. Uma unica thread poda por vez. O teto que resulta e aproximado: serve a
- * projecoes, cujo volume e limitado pelo servidor, e nao a caches chaveados por header.
- */
-private fun <V : Any, T : Comparable<T>> ConcurrentHashMap<String, V>.pruneToHalf(
-    pruning: AtomicBoolean,
-    maxEntries: Int,
-    now: () -> T,
-    expiresAt: (V) -> T,
-) {
-    if (!pruning.compareAndSet(false, true)) return
-    try {
-        val instant = now()
-        entries.removeIf { expiresAt(it.value) < instant }
-        val excess = size - maxEntries / 2
-        if (excess > 0) {
-            entries
-                .sortedBy { expiresAt(it.value) }
-                .take(excess)
-                .forEach { remove(it.key, it.value) }
-        }
-    } finally {
-        pruning.set(false)
-    }
 }
 
 /**

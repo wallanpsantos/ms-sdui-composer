@@ -3,7 +3,6 @@ package br.com.empresa.sdui.core.select
 import br.com.empresa.sdui.core.model.Capability
 import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ClientContext
-import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecStatus
@@ -16,6 +15,9 @@ import java.time.Instant
  * publicadas a de maior prioridade e, no empate, a mais recente. Nunca cruza plataforma nem
  * surface. Devolver null e resultado legitimo — significa que nenhuma revisao atende este
  * cliente, e o chamador cai para a escada de fallback.
+ *
+ * A surface nao tem valor padrao: um chamador que a esquecesse selecionaria a Home para outra
+ * surface sem erro nenhum (ADR-020).
  */
 object Select {
     fun select(
@@ -24,10 +26,10 @@ object Select {
         context: ClientContext,
         effectiveCaps: Set<Capability>,
         channel: Channel,
-        surface: String = MvpCatalog.SURFACE_HOME,
+        surface: String,
     ): Spec? {
-        // `channel` is the request channel already bound by the pointer the caller loaded.
-        // Spec.channel is authorship metadata; promotion reuses a published revision as-is.
+        // `channel` e o canal da requisicao, ja vinculado ao pointer que o chamador carregou.
+        // Spec.channel e metadado de autoria: a promocao reaproveita a revisao publicada como esta.
         val published = candidates.filter { spec -> isEligible(spec, context, surface) }
         val pointed = pointedRevision(pointer, context, channel, surface)
             ?.let { id -> published.firstOrNull { it.specRevisionId == id } }

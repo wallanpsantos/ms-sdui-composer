@@ -57,7 +57,8 @@ import br.com.empresa.sdui.orchestrator.port.outbound.findFor
 import java.security.MessageDigest
 import java.time.Clock
 import java.time.Instant
-import java.util.*
+import java.util.HexFormat
+import java.util.UUID
 
 /** Leitura da trilha de auditoria para checker e auditor. Nao altera estado. */
 class AuditQueryService(
@@ -245,7 +246,7 @@ class PublishService(
             // do commit, entregariam aos leitores uma revisao que um rollback ainda pode desfazer.
             // O last good tambem guarda uma revisao; a lapide na versao nova do pointer e o que
             // impede o fallback de reintroduzir o que a publicacao acabou de substituir.
-            warm(outcome.spec)
+            specCache.warm(outcome.spec)
             invalidator.apply(outcome.invalidation)
             outcome.request
         }
@@ -264,11 +265,8 @@ class PublishService(
                 ?: throw AdminNotFound("spec")
             if (spec.status != SpecStatus.DRAFT) throw AdminConflict("revisao ja publicada")
             val skeleton = skeletonStore.findFor(spec) ?: throw AdminNotFound("skeleton")
-            if (open.reviewedContentHash == null || open.reviewedContentHash != publicationFingerprint.of(
-                    spec,
-                    skeleton
-                )
-            ) {
+            // Pedido sem hash revisado (anterior ao ADR-022) tambem cai aqui e precisa ser reaberto.
+            if (open.reviewedContentHash != publicationFingerprint.of(spec, skeleton)) {
                 throw AdminConflict("conteudo alterado desde a abertura; reabra o pedido")
             }
             val errors = SpecValidator.validateDraft(spec, skeleton, catalogStore.current(), matrix)
@@ -372,11 +370,6 @@ class PublishService(
             }
         }
     }
-
-    /** Aquece o cache de spec com a revisao recem-publicada. Falha aqui so custa uma leitura depois. */
-    private fun warm(spec: Spec) {
-        runCatching { specCache.put(spec) }
-    }
 }
 
 private data class PublishOutcome(
@@ -428,7 +421,7 @@ class RollbackService(
             // Mesma razao do approve: o cache so pode refletir o ponteiro depois que ele commitou.
             // A lapide do last good na versao nova impede a proxima falha de composicao de servir
             // de volta exatamente o que o rollback removeu.
-            runCatching { specCache.put(outcome.target) }
+            specCache.warm(outcome.target)
             invalidator.apply(outcome.invalidation)
             outcome.pointer
         }
@@ -505,6 +498,14 @@ private data class RollbackOutcome(
     val target: Spec,
     val invalidation: CacheInvalidation,
 )
+
+/**
+ * Aquece o cache de spec com a revisao que passou a vigorar, depois do commit. Falha aqui so custa
+ * uma leitura no store na proxima composicao.
+ */
+private fun SpecCache.warm(spec: Spec) {
+    runCatching { put(spec) }
+}
 
 /** A invalidacao devida pela mudanca de pointer: lapide na versao nova e revisao aposentada. */
 private fun invalidationFor(moved: Pointer, retiredRevisionId: String?, now: Instant): CacheInvalidation =

@@ -32,4 +32,20 @@ class CardinalityGuardMeterFilterTest {
         assertThat(registry.counter("compose.miss", "surface", "home").count()).isEqualTo(2.0)
         assertThat(registry.meters.count { it.id.name == "compose.miss" }).isEqualTo(1)
     }
+
+    @Test
+    fun `meter negado por uma tag nao ocupa vaga nas outras`() {
+        val filter = CardinalityGuardMeterFilter(prefixes = setOf("compose"), maxValuesPerTag = 2)
+        val registry = SimpleMeterRegistry().apply { config().meterFilter(filter) }
+
+        registry.counter("compose.hit", "a", "x", "b", "1").increment()
+        registry.counter("compose.hit", "a", "x", "b", "2").increment()
+        // `b` no teto: negado, e `y` nao pode ficar contado em `a`.
+        registry.counter("compose.hit", "a", "y", "b", "3").increment()
+        registry.counter("compose.hit", "a", "z", "b", "1").increment()
+
+        assertThat(filter.acceptedValues("compose.hit", "a")).isEqualTo(2)
+        assertThat(registry.meters.map { it.id.getTag("a") to it.id.getTag("b") })
+            .containsExactlyInAnyOrder("x" to "1", "x" to "2", "z" to "1")
+    }
 }

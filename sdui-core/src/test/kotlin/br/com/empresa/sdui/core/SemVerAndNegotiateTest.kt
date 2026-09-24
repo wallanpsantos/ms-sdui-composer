@@ -1,5 +1,6 @@
 package br.com.empresa.sdui.core
 
+import br.com.empresa.sdui.core.model.Channel
 import br.com.empresa.sdui.core.model.ContextValidation
 import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.SemVer
@@ -89,4 +90,16 @@ class SemVerAndNegotiateTest {
         assertThat(valid.context.copy(schemaVersion = "4").parsedSchemaVersion).isEqualTo(SemVer(4, 0, 0))
     }
 
+    @Test
+    fun `canal do cliente cai para stable e canal da governanca desconhecido e null`() {
+        assertThat(Channel.parse(" Canary ")).isEqualTo(Channel.CANARY)
+        assertThat(Channel.parse("qualquer")).isEqualTo(Channel.STABLE)
+        assertThat(Channel.parse(null)).isEqualTo(Channel.STABLE)
+
+        assertThat(Channel.parseOrNull(" INTERNAL ")).isEqualTo(Channel.INTERNAL)
+        assertThat(Channel.parseOrNull("stable")).isEqualTo(Channel.STABLE)
+        assertThat(Channel.parseOrNull("canry")).isNull()
+        assertThat(Channel.parseOrNull("")).isNull()
+        assertThat(Channel.parseOrNull(null)).isNull()
+    }
 }

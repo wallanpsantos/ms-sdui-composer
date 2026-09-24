@@ -301,8 +301,9 @@ indisponibilidade de stores:
    desde que sua idade não ultrapasse `sdui.max-fallback-age-seconds` (24h).
 4. **`503 Service Unavailable`:** Caso não haja last good válido, retorna corpo JSON estruturado (`COMPOSE_UNAVAILABLE`)
    acompanhado do cabeçalho `Retry-After`.
-  - **Jitter Pseudoaleatório:** O valor de `Retry-After` aplica variação de ±40% sobre a base
-    (`sdui.retry-after-seconds = 5s`), evitando que as coortes de clientes tentem reconectar simultaneamente.
+
+- **Jitter Pseudoaleatório:** O valor de `Retry-After` aplica variação de ±40% sobre a base
+  (`sdui.retry-after-seconds = 5s`), evitando que as coortes de clientes tentem reconectar simultaneamente.
 
 ---
 
@@ -409,13 +410,14 @@ A integridade do sistema é blindada por níveis claros de teste automatizado:
 3. **Testes de Casos de Uso (`sdui-app`):** Cobertura de Singleflight concorrente, escada de fallback, transações
    programáticas, isolamento de plataformas (iOS vs Android) e rate limiting.
 4. **Testes de Arquitetura ArchUnit (`sdui-integration-test`):** Regras arquiteturais executadas a cada build:
-  - `core` e `contract` não dependem de Spring, bancos, HTTP ou frameworks.
-  - `orchestrator` não acessa `contract`, adapters nem anotações Spring.
-  - Proibição absoluta de `@Transactional` em qualquer classe do projeto (transação exclusiva via
-    `TransactionalUnitOfWork`).
-  - Proibição de Coroutines (`kotlinx.coroutines..`, `kotlin.coroutines..`) e Reatividade (WebFlux, Reactor, RxJava).
-  - Ausência de ciclos entre pacotes (`slices().matching("br.com.empresa.sdui.(**)")`).
-  - Regras configuradas com `failOnEmptyShould` estrito (proibido `allowEmptyShould(true)`).
+
+- `core` e `contract` não dependem de Spring, bancos, HTTP ou frameworks.
+- `orchestrator` não acessa `contract`, adapters nem anotações Spring.
+- Proibição absoluta de `@Transactional` em qualquer classe do projeto (transação exclusiva via
+  `TransactionalUnitOfWork`).
+- Proibição de Coroutines (`kotlinx.coroutines..`, `kotlin.coroutines..`) e Reatividade (WebFlux, Reactor, RxJava).
+- Ausência de ciclos entre pacotes (`slices().matching("br.com.empresa.sdui.(**)")`).
+- Regras configuradas com `failOnEmptyShould` estrito (proibido `allowEmptyShould(true)`).
 
 ---
 

@@ -2,6 +2,7 @@ package br.com.empresa.sdui.core.validate
 
 import br.com.empresa.sdui.core.model.Catalog
 import br.com.empresa.sdui.core.model.ComponentContracts
+import br.com.empresa.sdui.core.model.ComponentType
 import br.com.empresa.sdui.core.model.MvpCatalog
 
 /**
@@ -17,25 +18,22 @@ import br.com.empresa.sdui.core.model.MvpCatalog
  * de negocio.
  */
 object CatalogValidator {
-    private const val ACTIVE: String = "ACTIVE"
-
     fun validate(catalog: Catalog): List<String> {
         val errors = mutableListOf<String>()
         for (component in catalog.components) {
             if (component.type.lowercase() in MvpCatalog.GENERIC_TYPE_NAMES) {
                 errors += "type generico recusado: ${component.type}"
             } else if (!ComponentContracts.isApproved(component.type, component.typeVersion)) {
-                errors += "componente sem contrato aprovado: ${component.type}@${component.typeVersion}"
+                errors += "componente sem contrato aprovado: ${component.wire()}"
             }
         }
-        val wires = catalog.components.map { "${it.type}@${it.typeVersion}" }
-        val duplicated = wires.groupBy { it }.filterValues { it.size > 1 }.keys
+        val duplicated = catalog.components.groupBy { it.wire() }.filterValues { it.size > 1 }.keys
         if (duplicated.isNotEmpty()) {
             errors += "componentes repetidos no catalogo: $duplicated"
         }
         val active = catalog.components
-            .filter { it.status.equals(ACTIVE, ignoreCase = true) }
-            .map { "${it.type}@${it.typeVersion}" }
+            .filter { it.status.equals(ComponentType.STATUS_ACTIVE, ignoreCase = true) }
+            .map { it.wire() }
             .toSet()
         val missingLegacy = ComponentContracts.LEGACY_HOME.map { it.wire() }.filterNot { it in active }
         if (missingLegacy.isNotEmpty()) {

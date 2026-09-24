@@ -13,17 +13,16 @@ import tools.jackson.databind.JsonNode
 object JsonMaps {
     const val MAX_DEPTH: Int = 32
 
-    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     fun toValue(node: JsonNode, depth: Int = 0): Any? {
         require(depth <= MAX_DEPTH) { "JSON aninhado alem de $MAX_DEPTH niveis" }
         return when {
             node.isNull -> null
             node.isBoolean -> node.asBoolean()
             node.isNumber -> if (node.isFloatingPointNumber) node.asDouble() else node.asLong()
-            node.isTextual -> node.asText()
+            node.isString -> node.asString()
             node.isArray -> (0 until node.size()).map { toValue(node.get(it), depth + 1) }
             node.isObject -> node.properties().associate { it.key to toValue(it.value, depth + 1) }
-            else -> node.asText()
+            else -> node.asString()
         }
     }
 

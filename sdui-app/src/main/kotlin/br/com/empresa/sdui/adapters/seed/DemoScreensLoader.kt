@@ -77,9 +77,9 @@ class DemoScreensLoader(
                         ComponentType(
                             capability.type,
                             capability.typeVersion,
-                            "ACTIVE",
+                            ComponentType.STATUS_ACTIVE,
                             MvpCatalog.SCHEMA_VERSION,
-                            emptyList()
+                            emptyList(),
                         ),
                     ),
                 )

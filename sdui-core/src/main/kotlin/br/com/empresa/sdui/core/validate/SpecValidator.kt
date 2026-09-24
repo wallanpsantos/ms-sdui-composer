@@ -3,12 +3,14 @@ package br.com.empresa.sdui.core.validate
 import br.com.empresa.sdui.core.compat.CapabilityMatrix
 import br.com.empresa.sdui.core.model.Capability
 import br.com.empresa.sdui.core.model.Catalog
-import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.RevisionIds
+import br.com.empresa.sdui.core.model.Section
 import br.com.empresa.sdui.core.model.Skeleton
+import br.com.empresa.sdui.core.model.SlotDefinition
 import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.Spec
+import br.com.empresa.sdui.core.model.SurfaceDefinition
 import br.com.empresa.sdui.core.model.Surfaces
 
 /**
@@ -36,79 +38,10 @@ object SpecValidator {
         catalog: Catalog,
         matrix: CapabilityMatrix,
     ): List<String> {
-        val errors = mutableListOf<String>()
-        if (!RevisionIds.isValid(spec.specRevisionId)) errors += "specRevisionId invalido para cache e ETag"
-        if (spec.revision < 1) errors += "revision deve ser positiva"
-        if (spec.skeletonRevision < 1 || spec.skeletonRevision != skeleton.revision) {
-            errors += "skeletonRevision divergente ou inexistente"
-        }
         val surface = Surfaces.find(spec.surface)
-        if (surface == null) {
-            errors += "surface desconhecida: '${spec.surface}' (permitidas: ${Surfaces.IDS})"
-        }
-        if (skeleton.skeletonId != spec.skeletonId) {
-            errors += "skeletonId divergente"
-        }
-        if (skeleton.surface != spec.surface) {
-            errors += "skeleton '${skeleton.skeletonId}' pertence a surface '${skeleton.surface}', spec a '${spec.surface}'"
-        }
-        if (skeleton.layout != (surface?.skeletonLayout ?: MvpCatalog.SKELETON_LAYOUT)) {
-            errors += "layout de skeleton invalido: ${skeleton.layout}"
-        }
-        if (!CHECKSUM.matches(spec.checksum)) {
-            errors += "checksum deve ser sha256:<hex>: '${spec.checksum}'"
-        }
-        val counts = mutableMapOf<String, Int>()
-        val sectionIds = spec.sections.map { it.id }.toSet()
-        if (sectionIds.size != spec.sections.size) {
-            val duplicates = spec.sections.groupBy { it.id }.filterValues { it.size > 1 }.keys
-            errors += "secoes com id duplicado: $duplicates"
-        }
-        for (section in spec.sections) {
-            val slot = skeleton.slot(section.slot)
-            if (slot == null) {
-                errors += "placement slot inexistente: ${section.slot}"
-                continue
-            }
-            if (section.type !in slot.allowedTypes) {
-                errors += "type ${section.type} nao permitido no slot ${section.slot}"
-            }
-            if (surface != null && section.type !in surface.types) {
-                errors += "type ${section.type} nao pertence a surface '${surface.id}'"
-            }
-            val currentCount = (counts[section.slot] ?: 0) + 1
-            counts[section.slot] = currentCount
-            if (currentCount > slot.maxInstances) {
-                errors += "slot ${section.slot} excede maxInstances ${slot.maxInstances}"
-            }
-            if (catalog.find(section.type, section.typeVersion) == null) {
-                errors += "type ${section.type}@${section.typeVersion} fora do catalogo"
-            }
-            if (section.type.lowercase() in MvpCatalog.GENERIC_TYPE_NAMES) {
-                errors += "type generico recusado: ${section.type}"
-            }
-            if (PropWalk.exceedsDepth(section.props)) {
-                errors += "section ${section.id} excede ${PropWalk.MAX_PROPS_DEPTH} niveis de props"
-                continue
-            }
-            errors += VisualGuard.violations(section.props)
-            errors += PiiGuard.violations(section.props)
-            errors += ActionGuard.validate(section.id, section.actions, section.props)
-            errors += ComponentPropsValidator.validate(section)
-            if (section.layout != null && SlotLayout.parse(section.layout) == null) {
-                errors += "layout invalido na section ${section.id}: ${section.layout}"
-            }
-            if (PropWalk.referencesForeignSection(section.props, section.id, sectionIds)) {
-                errors += "section ${section.id} referencia outra section"
-            }
-        }
-        for (slot in skeleton.slots) {
-            if (SlotLayout.parse(slot.layout.wire()) == null) {
-                errors += "layout invalido no slot ${slot.id}"
-            }
-        }
-        errors += requiredSlotErrors(spec, skeleton, matrix)
-        return errors
+        return identityErrors(spec, skeleton, surface) +
+                sectionErrors(spec, skeleton, catalog, surface) +
+                requiredSlotErrors(spec, skeleton, matrix)
     }
 
     fun requiredSlotErrors(
@@ -131,6 +64,91 @@ object SpecValidator {
         return errors
     }
 
+    /** Identidade do spec e coerencia dele com o skeleton que referencia e com a surface. */
+    private fun identityErrors(spec: Spec, skeleton: Skeleton, surface: SurfaceDefinition?): List<String> =
+        buildList {
+            if (!RevisionIds.isValid(spec.specRevisionId)) add("specRevisionId invalido para cache e ETag")
+            if (spec.revision < 1) add("revision deve ser positiva")
+            if (spec.skeletonRevision < 1 || spec.skeletonRevision != skeleton.revision) {
+                add("skeletonRevision divergente ou inexistente")
+            }
+            if (surface == null) add("surface desconhecida: '${spec.surface}' (permitidas: ${Surfaces.IDS})")
+            if (skeleton.skeletonId != spec.skeletonId) add("skeletonId divergente")
+            if (skeleton.surface != spec.surface) {
+                add("skeleton '${skeleton.skeletonId}' pertence a surface '${skeleton.surface}', spec a '${spec.surface}'")
+            }
+            if (skeleton.layout != (surface?.skeletonLayout ?: MvpCatalog.SKELETON_LAYOUT)) {
+                add("layout de skeleton invalido: ${skeleton.layout}")
+            }
+            if (!CHECKSUM.matches(spec.checksum)) add("checksum deve ser sha256:<hex>: '${spec.checksum}'")
+        }
+
+    /**
+     * Ids unicos e, section a section, placement e conteudo. O conteudo so e varrido dentro do
+     * teto de profundidade: as guardas descem recursivamente pelas props.
+     */
+    private fun sectionErrors(
+        spec: Spec,
+        skeleton: Skeleton,
+        catalog: Catalog,
+        surface: SurfaceDefinition?,
+    ): List<String> = buildList {
+        val sectionIds = spec.sections.map { it.id }.toSet()
+        if (sectionIds.size != spec.sections.size) {
+            val duplicates = spec.sections.groupBy { it.id }.filterValues { it.size > 1 }.keys
+            add("secoes com id duplicado: $duplicates")
+        }
+        val counts = mutableMapOf<String, Int>()
+        for (section in spec.sections) {
+            val slot = skeleton.slot(section.slot)
+            if (slot == null) {
+                add("placement slot inexistente: ${section.slot}")
+                continue
+            }
+            val count = (counts[section.slot] ?: 0) + 1
+            counts[section.slot] = count
+            addAll(placementErrors(section, slot, count, surface, catalog))
+            if (PropWalk.exceedsDepth(section.props)) {
+                add("section ${section.id} excede ${PropWalk.MAX_PROPS_DEPTH} niveis de props")
+                continue
+            }
+            addAll(contentErrors(section, sectionIds))
+        }
+    }
+
+    /** O type cabe no slot, na surface e no catalogo, e o slot nao passa do teto de instancias. */
+    private fun placementErrors(
+        section: Section,
+        slot: SlotDefinition,
+        count: Int,
+        surface: SurfaceDefinition?,
+        catalog: Catalog,
+    ): List<String> = buildList {
+        if (section.type !in slot.allowedTypes) add("type ${section.type} nao permitido no slot ${section.slot}")
+        if (surface != null && section.type !in surface.types) {
+            add("type ${section.type} nao pertence a surface '${surface.id}'")
+        }
+        if (count > slot.maxInstances) add("slot ${section.slot} excede maxInstances ${slot.maxInstances}")
+        if (catalog.find(section.type, section.typeVersion) == null) {
+            add("type ${section.type}@${section.typeVersion} fora do catalogo")
+        }
+        if (section.type.lowercase() in MvpCatalog.GENERIC_TYPE_NAMES) add("type generico recusado: ${section.type}")
+    }
+
+    /** Props, actions e layout da section, e que ela nao referencia nenhuma outra. */
+    private fun contentErrors(section: Section, sectionIds: Set<String>): List<String> = buildList {
+        addAll(VisualGuard.violations(section.props))
+        addAll(PiiGuard.violations(section.props))
+        addAll(ActionGuard.validate(section.id, section.actions, section.props))
+        addAll(ComponentPropsValidator.validate(section))
+        if (section.layout != null && SlotLayout.parse(section.layout) == null) {
+            add("layout invalido na section ${section.id}: ${section.layout}")
+        }
+        if (PropWalk.referencesForeignSection(section.props, section.id, sectionIds)) {
+            add("section ${section.id} referencia outra section")
+        }
+    }
+
     private data class Combo(val label: String, val caps: Set<Capability>)
 
     /**
@@ -142,24 +160,12 @@ object SpecValidator {
      * a nenhuma faixa de app, sem que a validacao aponte um vazio que nunca vai acontecer.
      */
     private fun targetingCombos(spec: Spec, matrix: CapabilityMatrix): List<Combo> {
-        val samples = matrix.versionSamples(spec.platform, spec.targeting.appVersion)
-        val schemaVersion = spec.targeting.schemaVersion.min.major.toString()
         val required = spec.targeting.requiredCapabilities.toSet()
-        return samples.map { version ->
-            val context = ClientContext(
-                platform = spec.platform,
-                appVersion = version,
-                build = "1",
-                osVersion = spec.targeting.osVersion?.min,
-                schemaVersion = schemaVersion,
-                locale = "pt-BR",
-                apiVersion = "1",
-                headerCapabilities = emptyList(),
-            )
-            val effective = matrix.effective(context) + required
+        return matrix.versionSamples(spec.platform, spec.targeting.appVersion).map { version ->
+            val caps = matrix.serverCaps(spec.platform, version) + required
             Combo(
-                label = "${spec.platform.wire()} $version caps=${effective.joinToString { it.wire() }}",
-                caps = effective,
+                label = "${spec.platform.wire()} $version caps=${caps.joinToString { it.wire() }}",
+                caps = caps,
             )
         }
     }

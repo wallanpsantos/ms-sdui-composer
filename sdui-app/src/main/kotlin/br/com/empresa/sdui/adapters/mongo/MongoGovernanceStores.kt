@@ -414,7 +414,12 @@ class MongoAuditLogStore(
     /** Os mais recentes ate o teto de listagem, em ordem cronologica; nunca a colecao inteira. */
     override fun list(): List<AuditEvent> = recent(PageRequest.MAX_LIMIT).asReversed()
 
-    override fun recent(limit: Int): List<AuditEvent> =
-        events.allMatching(sessions, Filters.empty(), Sorts.descending("tsMillis"), limit = limit)
+    override fun recent(limit: Int): List<AuditEvent> {
+        // No driver, limit 0 quer dizer sem limite: sem este atalho a colecao inteira viria para o
+        // heap. Aqui quer dizer nenhum, como no adapter em memoria.
+        require(limit >= 0) { "limit deve ser >= 0" }
+        if (limit == 0) return emptyList()
+        return events.allMatching(sessions, Filters.empty(), Sorts.descending("tsMillis"), limit = limit)
             .map { DomainJson.read(it.json(), AuditEvent::class.java) }
+    }
 }

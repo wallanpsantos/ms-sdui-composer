@@ -112,13 +112,19 @@ class ComposeScreenService(
             is ContextValidation.Valid -> negotiated.context
         }
         val tags = MetricTags.compose(surface, context)
-        if (!rateLimiter.tryConsume(RateLimitKey(request.identity, context.platform))) {
+        // A coorte sai do contexto validado: build de ate dez digitos e plataforma do enum. Com o
+        // texto cru dos headers, variar caixa ou espaco abriria um bucket novo por variacao, com
+        // chave do tamanho do header.
+        if (!rateLimiter.tryConsume(RateLimitKey(context.build, context.platform))) {
             metrics.increment(MetricNames.COMPOSE_RATE_LIMITED, tags)
             return ComposeResult.RateLimited(fallbackCoordinator.retryAfter(budgets.rateLimitRetryAfterSeconds))
         }
         val channel = canaryPolicy.channelFor(context.platform, context.build, context.channelHint)
         val caps = matrix.effective(context)
         val capsHash = CapsHash.sha256(caps)
+
+        fun degrade(reason: FallbackReason): ComposeResult =
+            fallbackCoordinator.fallbackOrUnavailable(surface, context, channel, reason, tags)
 
         // A selecao vem antes do cache porque o targeting discrimina por versao completa do app e
         // por versao de SO. Uma chave montada a partir do contexto teria de carregar essas duas
@@ -133,37 +139,19 @@ class ComposeScreenService(
             ) {
                 is BulkheadOutcome.Rejected -> {
                     metrics.increment(MetricNames.COMPOSE_BULKHEAD_REJECTED, tags + (TAG_STAGE to STAGE_SELECT))
-                    return fallbackCoordinator.fallbackOrUnavailable(
-                        surface,
-                        context,
-                        channel,
-                        FallbackReason.REDIS_UNAVAILABLE,
-                        tags,
-                    )
+                    return degrade(FallbackReason.REDIS_UNAVAILABLE)
                 }
 
                 is BulkheadOutcome.Executed -> outcome.value
             }
         } catch (error: Exception) {
             fallbackCoordinator.reportStoreFailure(STAGE_SELECT, error)
-            return fallbackCoordinator.fallbackOrUnavailable(
-                surface,
-                context,
-                channel,
-                FallbackReason.REDIS_UNAVAILABLE,
-                tags
-            )
+            return degrade(FallbackReason.REDIS_UNAVAILABLE)
         }
         val selected = selection.spec
         if (selected == null || !RevisionIds.isValid(selected.specRevisionId)) {
             metrics.increment(MetricNames.SELECT_NO_CANDIDATE, tags)
-            return fallbackCoordinator.fallbackOrUnavailable(
-                surface,
-                context,
-                channel,
-                FallbackReason.NO_COMPATIBLE_SPEC,
-                tags
-            )
+            return degrade(FallbackReason.NO_COMPATIBLE_SPEC)
         }
 
         // Com a revisao em maos o ETag ja e conhecido: uma revalidacao termina aqui, sem tocar no
@@ -229,13 +217,7 @@ class ComposeScreenService(
             }
         } catch (error: Exception) {
             fallbackCoordinator.reportStoreFailure(STAGE_SINGLEFLIGHT, error)
-            return fallbackCoordinator.fallbackOrUnavailable(
-                surface,
-                context,
-                channel,
-                FallbackReason.DEPENDENCY_TIMEOUT,
-                tags
-            )
+            return degrade(FallbackReason.DEPENDENCY_TIMEOUT)
         }
         return when (outcome) {
             is SingleflightOutcome.Leader -> outcome.value
@@ -249,13 +231,7 @@ class ComposeScreenService(
             is SingleflightOutcome.WaitTimeout -> {
                 metrics.increment(MetricNames.COMPOSE_SINGLEFLIGHT_WAIT, tags)
                 metrics.increment(MetricNames.COMPOSE_DEADLINE_EXCEEDED, tags + (TAG_STAGE to STAGE_SINGLEFLIGHT))
-                fallbackCoordinator.fallbackOrUnavailable(
-                    surface,
-                    context,
-                    channel,
-                    FallbackReason.DEPENDENCY_TIMEOUT,
-                    tags
-                )
+                degrade(FallbackReason.DEPENDENCY_TIMEOUT)
             }
         }
     }
@@ -334,14 +310,11 @@ class ComposeScreenService(
         // de dependencia. Tratar em um ponto so evita que parte das leituras caia aqui e o
         // restante suba ate o catch do singleflight, onde seria reportada como DEPENDENCY_TIMEOUT.
         fallbackCoordinator.reportStoreFailure(STAGE_COMPOSE, error)
-        fallbackCoordinator.fallbackOrUnavailable(
-            input.surface,
-            input.context,
-            input.channel,
-            FallbackReason.REDIS_UNAVAILABLE,
-            input.tags,
-        )
+        input.degrade(FallbackReason.REDIS_UNAVAILABLE)
     }
+
+    private fun ComposeInput.degrade(reason: FallbackReason): ComposeResult =
+        fallbackCoordinator.fallbackOrUnavailable(surface, context, channel, reason, tags)
 
     private fun composeFromStores(input: ComposeInput, budget: TimeBudget): ComposeResult {
         val (surface, context, channel, caps, spec) = input
@@ -353,23 +326,11 @@ class ComposeScreenService(
         ) {
             is BulkheadOutcome.Rejected -> {
                 metrics.increment(MetricNames.COMPOSE_BULKHEAD_REJECTED, input.tags + (TAG_STAGE to STAGE_COMPOSE))
-                return fallbackCoordinator.fallbackOrUnavailable(
-                    surface,
-                    context,
-                    channel,
-                    FallbackReason.REDIS_UNAVAILABLE,
-                    input.tags,
-                )
+                return input.degrade(FallbackReason.REDIS_UNAVAILABLE)
             }
 
             is BulkheadOutcome.Executed -> outcome.value
-        } ?: return fallbackCoordinator.fallbackOrUnavailable(
-            surface,
-            context,
-            channel,
-            FallbackReason.NO_COMPATIBLE_SPEC,
-            input.tags,
-        )
+        } ?: return input.degrade(FallbackReason.NO_COMPATIBLE_SPEC)
 
         val filtered = Filter.filter(spec.sections, skeleton, caps)
         for (omitted in filtered.omitted) {
@@ -397,13 +358,7 @@ class ComposeScreenService(
         )
         val presentSlots = hydrated.sections.map { it.slot }.toSet()
         if (hydrated.requiredSlotFailed || !skeleton.requiredSlotIds.all { it in presentSlots }) {
-            return fallbackCoordinator.fallbackOrUnavailable(
-                surface,
-                context,
-                channel,
-                FallbackReason.REQUIRED_SLOT_EMPTY,
-                input.tags,
-            )
+            return input.degrade(FallbackReason.REQUIRED_SLOT_EMPTY)
         }
         val screen = ComposedScreen(
             surface = surface.id,

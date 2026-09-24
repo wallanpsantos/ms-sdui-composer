@@ -76,9 +76,9 @@ na ordem de `skeleton.slots` e saber cada layout token.
    com `status: ACTIVE`. Sem contrato aprovado, o validador recusa — inclusive inativo.
 4. **Compatibilidade.** A matriz do servidor **não** concede o type a nenhuma faixa de app. Ele só
    chega a quem declara `Component-Capabilities: <type>@<v>`. Decida por slot:
-   - slot opcional → sem a capability, a section é omitida (`unsupported_type`) e a tela segue;
-   - slot portante → coloque a capability em `requiredCapabilities` do spec; cliente sem ela não
-     seleciona o spec e cai no fallback da surface (nunca na árvore de outra surface).
+    - slot opcional → sem a capability, a section é omitida (`unsupported_type`) e a tela segue;
+    - slot portante → coloque a capability em `requiredCapabilities` do spec; cliente sem ela não
+      seleciona o spec e cai no fallback da surface (nunca na árvore de outra surface).
 5. **Homologação móvel.** Só depois de o renderer existir nos apps e declarar a capability o
    componente aparece para usuários. Quando os apps homologarem, uma faixa pode passar a recebê-lo
    pela matriz do servidor — decisão registrada, não automática.
@@ -96,7 +96,9 @@ evento de analytics, locale do conteúdo) e um mapeamento literal em `SurfaceCon
   → `503` com `Retry-After` com jitter.
 - **Rollback:** `POST /admin/v1/pointers/{surface}/{platform}/{channel}:rollback` com ator
   `CHECKER`. Sem corpo, volta para a revisão anterior; com `targetSpecRevisionId`, para uma
-  publicada específica da mesma surface e plataforma. Surface desconhecida: 404.
+  publicada específica da mesma surface e plataforma. Surface, plataforma ou canal desconhecidos
+  no path: 404 — o canal nunca cai para `stable` no plano administrativo. No corpo do pedido de
+  publicação e nos filtros de listagem, canal ou plataforma desconhecidos são `400`.
 - **Depois da publicação ou rollback**, a árvore antiga não é mais servida (chave por revisão) e o
   last good ganha lápide na versão nova do pointer — o fallback não reintroduz o que saiu.
 

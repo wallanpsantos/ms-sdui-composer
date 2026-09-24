@@ -15,7 +15,8 @@ import org.bson.Document
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.util.*
+import java.util.Date
+import java.util.UUID
 
 /**
  * Registro de idempotencia no MongoDB (P06, ADR-021).
@@ -115,7 +116,7 @@ class MongoIdempotencyStore(
 
     private fun document(record: IdempotencyRecord, state: String, expiresAt: Instant, token: String): Document =
         Document(MongoFields.ID, record.key)
-            .append(MongoFields.FORMAT, 2)
+            .append(MongoFields.FORMAT, FORMAT_VERSION)
             .append(FIELD_OWNER, token)
             .append("operation", record.operation)
             .append("fingerprint", record.fingerprint)
@@ -133,6 +134,8 @@ class MongoIdempotencyStore(
     private fun Document.expiresAt(): Instant = getDate(FIELD_EXPIRES_AT).toInstant()
 
     private companion object {
+        /** Formato deste documento, versionado a parte de [MongoFields.FORMAT_VERSION]. */
+        const val FORMAT_VERSION: Int = 2
         const val FIELD_OWNER: String = "owner"
         const val FIELD_STATE: String = "state"
         const val FIELD_EXPIRES_AT: String = "expiresAt"
@@ -164,9 +167,13 @@ class MongoCacheInvalidationOutbox(
         )
     }
 
-    override fun pending(limit: Int): List<CacheInvalidation> =
-        invalidations.allMatching(sessions, Filters.empty(), Sorts.ascending("createdAtMillis"), limit = limit)
+    override fun pending(limit: Int): List<CacheInvalidation> {
+        // No driver, limit 0 quer dizer sem limite. Aqui quer dizer nenhum, como no adapter em memoria.
+        require(limit >= 0) { "limit deve ser >= 0" }
+        if (limit == 0) return emptyList()
+        return invalidations.allMatching(sessions, Filters.empty(), Sorts.ascending("createdAtMillis"), limit = limit)
             .map { DomainJson.read(it.getString(MongoFields.JSON), CacheInvalidation::class.java) }
+    }
 
     override fun markApplied(id: String) {
         invalidations.remove(sessions, Filters.eq(MongoFields.ID, id))

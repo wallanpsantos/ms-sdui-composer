@@ -9,7 +9,7 @@ import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
-import java.util.*
+import java.util.UUID
 
 /**
  * Filtro HTTP que estabelece o identificador de correlacao para cada requisicao.
@@ -76,7 +76,6 @@ class CorrelationIdFilter : OncePerRequestFilter() {
         const val ENTRY_POINT_ADMIN: String = "admin"
         const val ENTRY_POINT_ACTUATOR: String = "actuator"
         const val ENTRY_POINT_HTTP: String = "http"
-        const val ENTRY_POINT_SEED: String = "seed"
 
         private val REQUEST_ID_REGEX = Regex("^[A-Za-z0-9_-]{1,64}$")
     }

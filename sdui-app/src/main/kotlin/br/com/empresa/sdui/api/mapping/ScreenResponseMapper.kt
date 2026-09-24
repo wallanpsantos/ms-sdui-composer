@@ -18,6 +18,8 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.databind.node.ArrayNode
 import tools.jackson.databind.node.ObjectNode
+import java.math.BigDecimal
+import java.math.BigInteger
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
@@ -138,6 +140,10 @@ class ScreenResponseMapper(
             is Long -> mapper.nodeFactory.numberNode(value)
             is Double -> mapper.nodeFactory.numberNode(value)
             is Float -> mapper.nodeFactory.numberNode(value)
+            // Inteiro alem de Long e decimal exato chegam assim pelo Jackson do admin e do adapter
+            // persistente; no ramo generico virariam texto e o cliente receberia outro tipo.
+            is BigInteger -> mapper.nodeFactory.numberNode(value)
+            is BigDecimal -> mapper.nodeFactory.numberNode(value)
             is List<*> -> {
                 val array: ArrayNode = mapper.nodeFactory.arrayNode()
                 value.forEach { array.add(toNode(it, depth + 1)) }
@@ -155,7 +161,7 @@ class ScreenResponseMapper(
     }
 
     private companion object {
-        private val BRASIL_OFFSET: ZoneOffset = ZoneOffset.of("-03:00")
-        private const val MAX_RECURSION_DEPTH: Int = 32
+        val BRASIL_OFFSET: ZoneOffset = ZoneOffset.of("-03:00")
+        const val MAX_RECURSION_DEPTH: Int = 32
     }
 }

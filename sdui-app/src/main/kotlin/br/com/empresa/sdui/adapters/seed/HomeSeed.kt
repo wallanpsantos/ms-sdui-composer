@@ -67,7 +67,7 @@ class HomeSeed(
                     ComponentType(
                         type = cap.type,
                         typeVersion = cap.typeVersion,
-                        status = "ACTIVE",
+                        status = ComponentType.STATUS_ACTIVE,
                         sinceSchema = MvpCatalog.SCHEMA_VERSION,
                         requiredProps = emptyList(),
                     )
@@ -130,16 +130,16 @@ class HomeSeed(
         ifAbsent({ specStore.findBySpecIdAndRevision(spec.specId, spec.revision) }) { specStore.save(spec) }
     }
 
-    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     private fun seedIosCurrent(root: JsonNode, skeleton: Skeleton) {
         val envelope = root.get("envelope")
         val sectionsNode = root.get("sections")
         val sections = (0 until sectionsNode.size()).map { index -> toSection(sectionsNode.get(index)) }
         val targeting = envelope.get("targeting")
+        val schema = requireNotNull(SemVer.parse(MvpCatalog.SCHEMA_VERSION)) { "SCHEMA_VERSION inválido no catálogo" }
         val spec = Spec(
             specId = IOS_CURRENT_SPEC_ID,
             revision = 1,
-            specRevisionId = envelope.get("specRevisionId").asText(),
+            specRevisionId = envelope.get("specRevisionId").asString(),
             parentRevision = null,
             status = SpecStatus.PUBLISHED,
             surface = MvpCatalog.SURFACE_HOME,
@@ -151,34 +151,30 @@ class HomeSeed(
                 platform = ClientPlatform.IOS,
                 appVersion = VersionRange(
                     requiredVersion(targeting, "appVersionMin"),
-                    SemVer.parse(targeting.get("appVersionMax").asText()),
+                    SemVer.parse(targeting.get("appVersionMax").asString()),
                 ),
                 osVersion = VersionRange(requiredVersion(targeting, "osVersionMin"), null),
-                schemaVersion = VersionRange(
-                    requireNotNull(SemVer.parse(MvpCatalog.SCHEMA_VERSION)) { "SCHEMA_VERSION inválido no catálogo" },
-                    SemVer.parse(MvpCatalog.SCHEMA_VERSION),
-                ),
+                schemaVersion = VersionRange(schema, schema),
                 requiredCapabilities = MvpCatalog.TYPES,
                 priority = 100,
-                band = targeting.get("band").asText(),
+                band = targeting.get("band").asString(),
             ),
             sections = sections,
-            checksum = envelope.get("skeletonHash").asText(),
+            checksum = envelope.get("skeletonHash").asString(),
             publishedAt = Instant.parse("2026-09-09T20:00:00Z"),
             publishedBy = "seed.checker",
             madeBy = "seed.maker",
-            experience = envelope.get("analytics").get("experience").asText(),
+            experience = envelope.get("analytics").get("experience").asString(),
         )
         saveSpecIfAbsent(spec)
     }
 
-    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     private fun toSection(node: JsonNode): Section {
         val actions = node.get("actions")
         return Section(
-            id = node.get("id").asText(),
-            slot = node.get("slot").asText(),
-            type = node.get("type").asText(),
+            id = node.get("id").asString(),
+            slot = node.get("slot").asString(),
+            type = node.get("type").asString(),
             typeVersion = node.get("typeVersion").asInt(),
             layout = node.get("layout").textOrNull(),
             props = JsonMaps.toMap(node.get("props")),
@@ -186,10 +182,9 @@ class HomeSeed(
         )
     }
 
-    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     private fun toAction(node: JsonNode): Action = Action(
-        id = node.get("id").asText(),
-        type = node.get("type").asText(),
+        id = node.get("id").asString(),
+        type = node.get("type").asString(),
         label = node.get("label").textOrNull(),
         payload = node.get("payload")?.takeIf { it.isObject }?.let { payload ->
             ActionPayload(
@@ -199,9 +194,8 @@ class HomeSeed(
         },
     )
 
-    @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
     private fun requiredVersion(targeting: JsonNode, field: String): SemVer =
-        requireNotNull(SemVer.parse(targeting.get(field).asText())) { "$field inválido na fixture seed" }
+        requireNotNull(SemVer.parse(targeting.get(field).asString())) { "$field inválido na fixture seed" }
 
     private fun seedIosLegacy() {
         val current = iosCurrent()
@@ -245,9 +239,12 @@ class HomeSeed(
     private fun iosCurrent(): Spec =
         checkNotNull(specStore.findBySpecIdAndRevision(IOS_CURRENT_SPEC_ID, 1)) { "spec corrente do seed ausente" }
 
-    /** Pointers iniciais, so onde ainda nao ha pointer: nunca desfaz uma publicacao ou rollback. */
+    /**
+     * Pointers iniciais, so onde ainda nao ha pointer: nunca desfaz uma publicacao ou rollback. O
+     * iOS aponta para a revisao corrente semeada, qualquer que seja o specRevisionId da fixture.
+     */
     fun seedPointers() {
-        val iosCurrent = specStore.findByRevisionId("rev_01K8HOMEMAIN")
+        val iosCurrent = specStore.findBySpecIdAndRevision(IOS_CURRENT_SPEC_ID, 1)
         for (channel in Channel.entries) {
             savePointerIfAbsent(initialPointer(ClientPlatform.IOS, channel, iosCurrent))
             savePointerIfAbsent(initialPointer(ClientPlatform.ANDROID, channel, null))
@@ -291,7 +288,6 @@ class HomeSeed(
             SlotDefinition("shortcuts", layout, null, 1, listOf("shortcut_shelf"), required = false)
 
         /** Texto de um campo opcional da fixture; ausente ou de outro tipo vira null. */
-        @Suppress("DEPRECATION") // Jackson 3 depreciou isTextual/asText; migrar para isString/asString
-        fun JsonNode?.textOrNull(): String? = this?.takeIf { it.isTextual }?.asText()
+        fun JsonNode?.textOrNull(): String? = this?.takeIf { it.isString }?.asString()
     }
 }

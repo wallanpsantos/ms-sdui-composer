@@ -74,7 +74,6 @@ class DurableModeBootIT {
                     "3", "ios", "8.14.2", "81420", "pt-BR", "1", "18.1",
                     "catalog_navigation@1,product_collection@1",
                 ),
-                identity = "ios:81420",
                 surface = Surfaces.CATALOG,
             ),
         )

@@ -15,6 +15,14 @@ data class ComponentType(
     val requiredProps: List<String>,
 ) {
     fun capability(): Capability = Capability(type, typeVersion)
+
+    /** `type@typeVersion` sem validar: serve a mensagens sobre entrada que ainda pode ser recusada. */
+    fun wire(): String = "$type@$typeVersion"
+
+    companion object {
+        /** Status de componente em uso; a validacao do catalogo compara sem diferenciar maiusculas. */
+        const val STATUS_ACTIVE: String = "ACTIVE"
+    }
 }
 
 /**

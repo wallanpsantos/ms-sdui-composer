@@ -16,7 +16,6 @@ import br.com.empresa.sdui.core.model.Skeleton
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecDiff
 import br.com.empresa.sdui.core.model.SurfaceDefinition
-import br.com.empresa.sdui.core.model.Surfaces
 import br.com.empresa.sdui.orchestrator.port.outbound.PageRequest
 
 /** Porta de entrada da composicao. A borda HTTP depende desta interface, nunca da implementacao. */
@@ -25,17 +24,19 @@ fun interface ComposeScreenUseCase {
 }
 
 /**
- * Entrada do pipeline: a surface pedida, headers de negociacao, o ETag que o cliente ja tem e a
- * identidade limitada.
+ * Entrada do pipeline: a surface pedida, headers de negociacao e o ETag que o cliente ja tem.
  *
  * [surface] ja chega resolvida da allowlist: uma surface desconhecida nao tem como chegar aqui, e
- * por isso nunca vira chave de cache, chave de singleflight nem tag de metrica.
+ * por isso nunca vira chave de cache, chave de singleflight nem tag de metrica. Nao tem valor
+ * padrao, para nenhum chamador compor a Home por omissao.
+ *
+ * Nao ha campo de identidade: a coorte do limitador (plataforma e build) sai do contexto ja
+ * validado pela negociacao, e nao do texto cru dos headers.
  */
 data class ComposeRequest(
     val headers: NegotiateHeaders,
     val ifNoneMatch: String? = null,
-    val identity: String,
-    val surface: SurfaceDefinition = Surfaces.HOME,
+    val surface: SurfaceDefinition,
 )
 
 /**

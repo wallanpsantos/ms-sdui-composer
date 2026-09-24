@@ -18,6 +18,7 @@ import br.com.empresa.sdui.core.model.SlotDefinition
 import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecStatus
+import br.com.empresa.sdui.core.model.Surfaces
 import br.com.empresa.sdui.core.model.Targeting
 import br.com.empresa.sdui.core.model.VersionRange
 import br.com.empresa.sdui.core.select.Select
@@ -32,12 +33,22 @@ class SelectFilterKeysTest {
         val android = spec(ClientPlatform.ANDROID, "rev_and", 200)
         val ctx = context(ClientPlatform.IOS)
         val caps = MvpCatalog.TYPES.toSet()
-        val selected = Select.select(null, listOf(ios, android), ctx, caps, Channel.STABLE)
+        val selected = Select.select(null, listOf(ios, android), ctx, caps, Channel.STABLE, Surfaces.HOME_ID)
         assertThat(selected?.specRevisionId).isEqualTo("rev_ios")
-        assertThat(Select.select(null, listOf(ios, android), ctx, caps, Channel.STABLE)?.specRevisionId)
+        assertThat(
+            Select.select(
+                null,
+                listOf(ios, android),
+                ctx,
+                caps,
+                Channel.STABLE,
+                Surfaces.HOME_ID
+            )?.specRevisionId
+        )
             .isEqualTo(selected?.specRevisionId)
-        val androidSelected =
-            Select.select(null, listOf(ios, android), context(ClientPlatform.ANDROID), caps, Channel.STABLE)
+        val androidSelected = Select.select(
+            null, listOf(ios, android), context(ClientPlatform.ANDROID), caps, Channel.STABLE, Surfaces.HOME_ID,
+        )
         assertThat(androidSelected?.specRevisionId).isEqualTo("rev_and")
         assertThat(androidSelected?.specRevisionId).isNotEqualTo("rev_ios")
     }
@@ -60,6 +71,7 @@ class SelectFilterKeysTest {
             context(ClientPlatform.IOS),
             MvpCatalog.TYPES.toSet(),
             Channel.CANARY,
+            Surfaces.HOME_ID,
         )
         assertThat(selected?.specRevisionId).isEqualTo("rev_01K8HOMEMAIN")
         assertThat(selected?.channel).isEqualTo(Channel.STABLE)
@@ -83,6 +95,7 @@ class SelectFilterKeysTest {
             context(ClientPlatform.IOS),
             MvpCatalog.TYPES.toSet(),
             Channel.STABLE,
+            Surfaces.HOME_ID,
         )
         assertThat(selected?.specRevisionId).isEqualTo("rev_canary_ok")
         assertThat(selected?.channel).isEqualTo(Channel.CANARY)
