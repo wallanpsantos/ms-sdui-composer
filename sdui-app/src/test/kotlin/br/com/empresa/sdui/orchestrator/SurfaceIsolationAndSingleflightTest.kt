@@ -129,7 +129,6 @@ class SurfaceIsolationAndSingleflightTest {
         ): ComposeResult = service.compose(
             ComposeRequest(
                 headers = NegotiateHeaders(schema, "ios", version, build, "pt-BR", "1", "18.1", null),
-                identity = "ios:$build",
                 surface = surface,
             ),
         )

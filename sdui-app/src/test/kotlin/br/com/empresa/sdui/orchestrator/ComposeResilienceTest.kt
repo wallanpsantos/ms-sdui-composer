@@ -18,6 +18,7 @@ import br.com.empresa.sdui.core.model.ClientPlatform
 import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.Spec
+import br.com.empresa.sdui.core.model.Surfaces
 import br.com.empresa.sdui.orchestrator.compose.ComposeBudgets
 import br.com.empresa.sdui.orchestrator.compose.ComposeScreenService
 import br.com.empresa.sdui.orchestrator.compose.DefaultCanaryPolicy
@@ -93,6 +94,7 @@ class ComposeResilienceTest {
         bulkhead: Bulkhead = Bulkhead(8),
         randomFraction: () -> Double = { 0.5 },
         nanos: List<Long> = listOf(0L),
+        rateLimiter: TokenBucketRateLimiter = TokenBucketRateLimiter(capacity = 10_000, refillPerSecond = 10_000),
     ) {
         val clock = MutableClock(Instant.parse("2026-09-20T12:00:00Z"))
         val metrics = RecordingMetrics()
@@ -125,7 +127,7 @@ class ComposeResilienceTest {
             ),
             matrix = CapabilityMatrix(),
             canaryPolicy = DefaultCanaryPolicy,
-            rateLimiter = TokenBucketRateLimiter(capacity = 10_000, refillPerSecond = 10_000),
+            rateLimiter = rateLimiter,
             readBulkhead = bulkhead,
             metrics = metrics,
             clock = clock,
@@ -143,19 +145,19 @@ class ComposeResilienceTest {
                 .seedFromCanonicalFixture(json)
         }
 
-        fun compose(): ComposeResult = service.compose(
+        fun compose(platform: String = "ios", build: String = "81420"): ComposeResult = service.compose(
             ComposeRequest(
                 headers = NegotiateHeaders(
                     uiSchemaVersion = "3",
-                    clientPlatform = "ios",
+                    clientPlatform = platform,
                     clientVersion = "8.14.2",
-                    clientBuild = "81420",
+                    clientBuild = build,
                     acceptLanguage = "pt-BR",
                     apiVersion = "1",
                     osVersion = "18.1",
                     componentCapabilities = null,
                 ),
-                identity = "ios:81420",
+                surface = Surfaces.HOME,
             ),
         )
 
@@ -293,4 +295,17 @@ class ComposeResilienceTest {
         assertThat(harness.names()).contains("compose.unavailable")
     }
 
+    @Test
+    fun `limitador conta a coorte normalizada e nao o texto cru dos headers`() {
+        val harness = Harness(rateLimiter = TokenBucketRateLimiter(capacity = 1, refillPerSecond = 0))
+
+        // O primeiro consome o unico token da coorte ios:81420; sem seed, cai no 503 depois dele.
+        assertThat(harness.compose(platform = "ios")).isInstanceOf(ComposeResult.Unavailable::class.java)
+        // Mesma coorte com caixa e espacos diferentes: nao ganha bucket novo.
+        assertThat(harness.compose(platform = " IOS ", build = " 81420 "))
+            .isInstanceOf(ComposeResult.RateLimited::class.java)
+        // Outro build e outra coorte.
+        assertThat(harness.compose(build = "81421")).isInstanceOf(ComposeResult.Unavailable::class.java)
+        assertThat(harness.names()).containsOnlyOnce("compose.rate_limited")
+    }
 }

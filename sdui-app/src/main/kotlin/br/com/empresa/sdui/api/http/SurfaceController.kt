@@ -13,6 +13,7 @@ import br.com.empresa.sdui.orchestrator.port.inbound.ComposeScreenUseCase
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricNames
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricTags
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -29,7 +30,11 @@ import tools.jackson.databind.json.JsonMapper
  * mesmo caminho, headers e corpo. Um caminho fora da lista recebe 404 do proprio roteamento, sem
  * criar chave de cache nem tag.
  *
- * Le os headers de negociacao, delega ao caso de uso e traduz cada desfecho ao status certo.
+ * Le os headers de negociacao (UI-Schema-Version, Client-Platform, Client-Version, Client-Build,
+ * Accept-Language, API-Version, OS-Version, Component-Capabilities, SDUI-Channel e If-None-Match),
+ * delega ao caso de uso e traduz cada desfecho ao status certo. Nenhum e obrigatorio no binding:
+ * a ausencia e caso de validacao do Negotiate, que responde 400 com a lista completa.
+ *
  * Responde com o JSON ja serializado em bytes, sem devolver objeto para o Spring serializar de
  * novo, e instrumenta tempo total, montagem do DTO, serializacao e tamanho do payload. ETag e
  * Cache-Control permitem ao cliente revalidar com If-None-Match e receber 304, e o Vary declara de
@@ -45,53 +50,14 @@ class SurfaceController(
     private val trace: ComposeTraceContext,
 ) {
     @GetMapping(path = ["/v1/surfaces/home"], version = "1")
-    fun home(
-        @RequestHeader(name = "UI-Schema-Version", required = false) uiSchemaVersion: String?,
-        @RequestHeader(name = "Client-Platform", required = false) clientPlatform: String?,
-        @RequestHeader(name = "Client-Version", required = false) clientVersion: String?,
-        @RequestHeader(name = "Client-Build", required = false) clientBuild: String?,
-        @RequestHeader(name = "Accept-Language", required = false) acceptLanguage: String?,
-        @RequestHeader(name = "API-Version", required = false) apiVersion: String?,
-        @RequestHeader(name = "OS-Version", required = false) osVersion: String?,
-        @RequestHeader(name = "Component-Capabilities", required = false) capabilities: String?,
-        @RequestHeader(name = "SDUI-Channel", required = false) channel: String?,
-        @RequestHeader(name = "If-None-Match", required = false) ifNoneMatch: String?,
-    ): ResponseEntity<*> = serve(
-        Surfaces.HOME,
-        NegotiateHeaders(
-            uiSchemaVersion, clientPlatform, clientVersion, clientBuild, acceptLanguage,
-            apiVersion, osVersion, capabilities, channel,
-        ),
-        ifNoneMatch,
-    )
+    fun home(@RequestHeader headers: HttpHeaders): ResponseEntity<*> = serve(Surfaces.HOME, headers)
 
     @GetMapping(path = ["/v1/surfaces/catalog"], version = "1")
-    fun catalog(
-        @RequestHeader(name = "UI-Schema-Version", required = false) uiSchemaVersion: String?,
-        @RequestHeader(name = "Client-Platform", required = false) clientPlatform: String?,
-        @RequestHeader(name = "Client-Version", required = false) clientVersion: String?,
-        @RequestHeader(name = "Client-Build", required = false) clientBuild: String?,
-        @RequestHeader(name = "Accept-Language", required = false) acceptLanguage: String?,
-        @RequestHeader(name = "API-Version", required = false) apiVersion: String?,
-        @RequestHeader(name = "OS-Version", required = false) osVersion: String?,
-        @RequestHeader(name = "Component-Capabilities", required = false) capabilities: String?,
-        @RequestHeader(name = "SDUI-Channel", required = false) channel: String?,
-        @RequestHeader(name = "If-None-Match", required = false) ifNoneMatch: String?,
-    ): ResponseEntity<*> = serve(
-        Surfaces.CATALOG,
-        NegotiateHeaders(
-            uiSchemaVersion, clientPlatform, clientVersion, clientBuild, acceptLanguage,
-            apiVersion, osVersion, capabilities, channel,
-        ),
-        ifNoneMatch,
-    )
+    fun catalog(@RequestHeader headers: HttpHeaders): ResponseEntity<*> = serve(Surfaces.CATALOG, headers)
 
-    private fun serve(
-        surface: SurfaceDefinition,
-        headers: NegotiateHeaders,
-        ifNoneMatch: String?,
-    ): ResponseEntity<*> {
+    private fun serve(surface: SurfaceDefinition, httpHeaders: HttpHeaders): ResponseEntity<*> {
         val started = System.nanoTime()
+        val headers = negotiateHeaders(httpHeaders)
         // Versao exata do app vai para o contexto de log, nunca para tag de metrica. Os valores
         // ainda nao foram validados pelo Negotiate: entram truncados.
         trace.open(
@@ -109,11 +75,7 @@ class SurfaceController(
             val result = compose.compose(
                 ComposeRequest(
                     headers = headers,
-                    ifNoneMatch = ifNoneMatch,
-                    // Identidade nao autenticada: serve para repartir a capacidade entre chamadores
-                    // bem-comportados, nao para conter um cliente que troque os headers. O teto por
-                    // cliente depende de autenticacao no gateway.
-                    identity = "${headers.clientPlatform.orEmpty()}:${headers.clientBuild.orEmpty()}",
+                    ifNoneMatch = httpHeaders.joined(HttpHeaders.IF_NONE_MATCH),
                     surface = surface,
                 ),
             )
@@ -222,5 +184,24 @@ class SurfaceController(
         const val OUTCOME_RATE_LIMITED: String = "rate_limited"
         const val OUTCOME_UNAVAILABLE: String = "unavailable"
         const val OUTCOME_ERROR: String = "error"
+
+        /** Os headers de negociacao como chegaram, iguais para toda surface. */
+        fun negotiateHeaders(headers: HttpHeaders): NegotiateHeaders = NegotiateHeaders(
+            uiSchemaVersion = headers.joined("UI-Schema-Version"),
+            clientPlatform = headers.joined("Client-Platform"),
+            clientVersion = headers.joined("Client-Version"),
+            clientBuild = headers.joined("Client-Build"),
+            acceptLanguage = headers.joined(HttpHeaders.ACCEPT_LANGUAGE),
+            apiVersion = headers.joined("API-Version"),
+            osVersion = headers.joined("OS-Version"),
+            componentCapabilities = headers.joined("Component-Capabilities"),
+            channel = headers.joined("SDUI-Channel"),
+        )
+
+        /**
+         * O valor do header, ou null se ausente. Linhas repetidas saem unidas por virgula, como o
+         * binding de `@RequestHeader` num parametro String fazia.
+         */
+        fun HttpHeaders.joined(name: String): String? = get(name)?.joinToString(",")
     }
 }

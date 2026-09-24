@@ -58,7 +58,14 @@ object RedisKeys {
         specRevisionId: String,
         capsHash: String,
         channel: Channel,
-    ): String = "sdui:tree:$surface:${platform.wire()}:$schema:$specRevisionId:$capsHash:${channel.wire()}"
+    ): String = "${treePrefix(surface, platform)}$schema:$specRevisionId:$capsHash:${channel.wire()}"
+
+    /**
+     * Inicio comum das chaves de arvore de uma surface e plataforma. Quem varre chaves casa por ele
+     * e pelo canal no fim: procurar `:ios:` no meio da chave confundiria a plataforma com um
+     * specRevisionId que contenha o mesmo trecho.
+     */
+    fun treePrefix(surface: String, platform: ClientPlatform): String = "sdui:tree:$surface:${platform.wire()}:"
 
     fun section(projection: String, id: String): String = "sdui:section:$projection:$id"
 

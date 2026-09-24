@@ -1,7 +1,6 @@
 package br.com.empresa.sdui.core.validate
 
 import br.com.empresa.sdui.core.model.Skeleton
-import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.SurfaceDefinition
 import br.com.empresa.sdui.core.model.Surfaces
 
@@ -17,7 +16,10 @@ import br.com.empresa.sdui.core.model.Surfaces
  * - Slots portantes da surface presentes e marcados como required;
  * - Layout do slot dentro de allowedLayouts, e allowedLayouts contido na regra da surface;
  * - Tipos permitidos (allowedTypes) contidos nos types da surface;
- * - Ausencia de atributo visual ou PII ate no titulo.
+ * - Ausencia de PII no titulo.
+ *
+ * Atributo visual nao tem onde aparecer: o skeleton e tipado, o layout e um enum semantico e o
+ * titulo e texto. A guarda visual, que procura chave proibida em mapa livre, fica com as props.
  */
 object SkeletonValidator {
     fun validate(skeleton: Skeleton): List<String> {
@@ -57,9 +59,6 @@ object SkeletonValidator {
         }
 
         for (slot in slots) {
-            if (SlotLayout.parse(slot.layout.wire()) == null) {
-                errors += "layout de slot invalido: ${slot.id}"
-            }
             if (slot.layout !in slot.allowedLayouts) {
                 errors += "layout '${slot.layout.wire()}' nao permitido para o slot '${slot.id}'. Permitidos: ${slot.allowedLayouts.map { it.wire() }}"
             }
@@ -70,7 +69,6 @@ object SkeletonValidator {
                     errors += "allowedLayouts do slot '${slot.id}' excedem a regra da surface: ${beyondRule.map { it.wire() }}"
                 }
             }
-            errors += VisualGuard.violations(mapOf("layout" to slot.layout.wire(), "title" to slot.title))
             errors += PiiGuard.violations(mapOf("title" to slot.title))
             if (slot.id in surface.requiredSlots && !slot.required) {
                 errors += "slot portante ${slot.id} deve ser required"

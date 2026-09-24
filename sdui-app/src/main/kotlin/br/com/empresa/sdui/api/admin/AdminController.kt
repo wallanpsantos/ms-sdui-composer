@@ -32,7 +32,6 @@ import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import br.com.empresa.sdui.orchestrator.port.outbound.PageRequest
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
-import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -53,6 +52,10 @@ import org.springframework.web.bind.annotation.RestController
  * As listagens sao paginadas por `offset` e `limit` (padrao 100, teto 500). Toda tag de metrica
  * vem de valor ja validado — type aprovado, surface da allowlist, plataforma e canal normalizados
  * —, nunca do texto cru do path ou do corpo.
+ *
+ * Plataforma e canal sao lidos sem valor padrao: desconhecido no path e 404, no corpo ou na query
+ * e 400. Cair em stable, como o header do cliente faz, deixaria um erro de digitacao abrir pedido
+ * ou fazer rollback no canal de producao, e um filtro invalido listar tudo.
  */
 @RestController
 @RequestMapping("/admin/v1")
@@ -121,8 +124,8 @@ class AdminController(
     ): List<Spec> {
         actor(headers)
         return catalogQuery.specs(
-            platform?.let { ClientPlatform.parse(it) },
-            channel?.let { Channel.parse(it) },
+            platform?.let { ClientPlatform.parse(it) ?: throw unknown("platform") },
+            channel?.let { Channel.parseOrNull(it) ?: throw unknown("channel") },
             page(offset, limit),
         )
     }
@@ -139,12 +142,14 @@ class AdminController(
             MetricNames.ADMIN_SPEC_DRAFT,
             mapOf("surface" to created.surface, "platform" to created.platform.wire()),
         )
+        // Valores do rascunho gravado: sem revisao existente, o servico atribui a proxima, e o
+        // corpo traria outra.
         logger.info(
             "spec draft created: specId={}, revision={}, surface={}, platform={}, actor={}",
-            spec.specId,
-            spec.revision,
-            spec.surface,
-            spec.platform.wire(),
+            created.specId,
+            created.revision,
+            created.surface,
+            created.platform.wire(),
             currentActor.id,
         )
         return created
@@ -184,19 +189,19 @@ class AdminController(
                 actor = currentActor,
                 specId = body.specId,
                 revision = body.revision,
-                channel = Channel.parse(body.channel),
+                channel = Channel.parseOrNull(body.channel) ?: throw unknown("channel"),
                 idempotencyKey = idempotencyKey,
             ),
         )
-        // Tag vem do pedido persistido, e nao do corpo: Channel.parse aceita qualquer texto e cai
-        // em stable, entao o valor cru abriria uma serie de metrica por string enviada.
+        // Tag e log vem do pedido persistido, e nao do corpo: o texto cru varia em caixa e espaco,
+        // e cada grafia abriria uma serie de metrica.
         metrics.increment(MetricNames.ADMIN_PUBLISH_OPEN, mapOf("channel" to created.channel.wire()))
         logger.info(
             "publish request opened: id={}, specId={}, revision={}, channel={}, actor={}",
             created.requestId,
-            body.specId,
-            body.revision,
-            body.channel,
+            created.specId,
+            created.revision,
+            created.channel.wire(),
             currentActor.id,
         )
         return created
@@ -249,38 +254,39 @@ class AdminController(
         @RequestBody(required = false) body: RollbackBody?,
         @RequestHeader headers: HttpHeaders,
         @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
-    ): ResponseEntity<Pointer> {
+    ): Pointer {
         val currentActor = actor(headers)
+        // O path identifica o pointer: segmento desconhecido e pointer inexistente.
         val knownSurface = Surfaces.find(surface) ?: throw AdminNotFound("surface desconhecida")
-        val clientPlatform = ClientPlatform.parse(platform) ?: throw AdminDenied("plataforma invalida")
-        val parsedChannel = Channel.parse(channel)
+        val knownPlatform = ClientPlatform.parse(platform) ?: throw AdminNotFound("plataforma desconhecida")
+        val knownChannel = Channel.parseOrNull(channel) ?: throw AdminNotFound("canal desconhecido")
         val moved = rollback.rollback(
             RollbackCommand(
                 actor = currentActor,
                 surface = knownSurface.id,
-                platform = clientPlatform,
-                channel = parsedChannel,
+                platform = knownPlatform,
+                channel = knownChannel,
                 targetSpecRevisionId = body?.targetSpecRevisionId,
                 idempotencyKey = idempotencyKey,
                 reason = body?.reason ?: "rollback",
             ),
         )
-        // Tags do pointer movido, e nao do path: plataforma e canal chegam como texto livre e so o
-        // valor normalizado mantem a cardinalidade fechada.
+        // Tags e log do pointer movido, e nao do path: plataforma e canal chegam como texto livre e
+        // so o valor normalizado mantem a cardinalidade fechada.
         metrics.increment(
             MetricNames.ADMIN_ROLLBACK,
             mapOf("surface" to moved.surface, "platform" to moved.platform.wire(), "channel" to moved.channel.wire()),
         )
         logger.warn(
             "pointer rollback executed: surface={}, platform={}, channel={}, actor={}, targetSpecRevisionId={}, reason={}",
-            surface,
-            platform,
-            channel,
+            moved.surface,
+            moved.platform.wire(),
+            moved.channel.wire(),
             currentActor.id,
             body?.targetSpecRevisionId,
             body?.reason,
         )
-        return ResponseEntity.ok(moved)
+        return moved
     }
 
     /** Os eventos mais recentes, do mais novo para o mais antigo, ate `limit` (padrao 100). */
@@ -303,6 +309,9 @@ class AdminController(
         }
         return PageRequest(resolvedOffset, resolvedLimit)
     }
+
+    /** Valor fora do vocabulario no corpo ou na query: erro do chamador, nunca um valor padrao. */
+    private fun unknown(field: String): AdminValidation = AdminValidation(listOf("$field desconhecido"))
 
     private fun actor(headers: HttpHeaders): Actor {
         val id = headers.getFirst("Actor-Id") ?: throw AdminDenied("Actor-Id ausente")

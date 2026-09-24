@@ -130,7 +130,6 @@ class ScreenExamplesTest {
             service.compose(
                 ComposeRequest(
                     headers = NegotiateHeaders("3", platform, "8.14.2", "81420", "pt-BR", "1", "18.1", capabilities),
-                    identity = "$platform:81420",
                     surface = surface,
                 ),
             )

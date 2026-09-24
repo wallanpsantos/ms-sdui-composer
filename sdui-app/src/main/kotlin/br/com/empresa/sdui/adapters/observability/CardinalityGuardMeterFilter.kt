@@ -28,6 +28,9 @@ class CardinalityGuardMeterFilter(
 
     override fun accept(id: Meter.Id): MeterFilterReply {
         if (id.name.substringBefore('.') !in prefixes) return MeterFilterReply.NEUTRAL
+        // Confere todas as tags antes de registrar qualquer valor: um meter negado por uma tag nao
+        // pode ocupar vaga nas outras, senao o teto de uma tag esgotaria o das demais.
+        val admitted = ArrayList<Pair<MutableSet<String>, String>>(id.tags.size)
         for (tag in id.tags) {
             val slot = "${id.name}|${tag.key}"
             val values = seen.computeIfAbsent(slot) { ConcurrentHashMap.newKeySet() }
@@ -41,8 +44,9 @@ class CardinalityGuardMeterFilter(
                 }
                 return MeterFilterReply.DENY
             }
-            values += tag.value
+            admitted += values to tag.value
         }
+        for ((values, value) in admitted) values += value
         return MeterFilterReply.NEUTRAL
     }
 

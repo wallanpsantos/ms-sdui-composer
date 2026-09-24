@@ -58,7 +58,7 @@ data class Capability(
  */
 object MvpCatalog {
     const val SCHEMA_VERSION: String = "3"
-    const val SURFACE_HOME: String = "home"
+    const val SURFACE_HOME: String = Surfaces.HOME_ID
     const val SKELETON_HOME_DEFAULT: String = "home.default"
     const val SKELETON_HOME_CARDS_FIRST: String = "home.cards_first"
     const val SKELETON_LAYOUT: String = "vertical_scroll"

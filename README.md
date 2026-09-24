@@ -237,6 +237,7 @@ curl http://localhost:8080/actuator/health
 O arquivo `compose.yaml` disponibiliza **MongoDB 8.3** (em replica set `rs0` na porta 27017) e **Redis 8** (na porta
 
 6379)
+
 para execução local de infraestrutura:
 
 ```bash

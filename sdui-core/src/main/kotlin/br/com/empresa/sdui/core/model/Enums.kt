@@ -23,8 +23,12 @@ enum class ClientPlatform {
 
 /**
  * Canal de entrega. Cada canal tem pointer e cache proprios, o que permite expor uma revisao a
- * builds de canary sem tocar em stable. [parse] cai para STABLE em entrada desconhecida: canal
- * invalido nao deve virar erro de requisicao, so ausencia de canary.
+ * builds de canary sem tocar em stable.
+ *
+ * Dois parsers, porque a mesma entrada errada pede respostas opostas conforme a origem. No header
+ * do cliente, [parse] cai para STABLE: canal invalido nao deve virar erro de requisicao, so
+ * ausencia de canary. Na governanca, [parseOrNull] devolve null para a borda recusar: assumir
+ * stable ali faria um erro de digitacao publicar ou desfazer uma publicacao em producao.
  */
 enum class Channel {
     STABLE,
@@ -35,12 +39,11 @@ enum class Channel {
     fun wire(): String = name.lowercase()
 
     companion object {
-        fun parse(raw: String?): Channel =
-            when (raw?.trim()?.lowercase()) {
-                "canary" -> CANARY
-                "internal" -> INTERNAL
-                else -> STABLE
-            }
+        private val BY_WIRE: Map<String, Channel> = entries.associateBy { it.wire() }
+
+        fun parse(raw: String?): Channel = parseOrNull(raw) ?: STABLE
+
+        fun parseOrNull(raw: String?): Channel? = raw?.trim()?.lowercase()?.let { BY_WIRE[it] }
     }
 }
 

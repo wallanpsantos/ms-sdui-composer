@@ -29,6 +29,7 @@ import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.Section
 import br.com.empresa.sdui.core.model.SemVer
 import br.com.empresa.sdui.core.model.SpecStatus
+import br.com.empresa.sdui.core.model.Surfaces
 import br.com.empresa.sdui.core.model.VersionRange
 import br.com.empresa.sdui.orchestrator.admin.DraftService
 import br.com.empresa.sdui.orchestrator.compose.ComposeBudgets
@@ -186,7 +187,7 @@ private class Harness(
         ComposeRequest(
             headers = NegotiateHeaders(schema, "ios", version, build, "pt-BR", "1", "18.1", null),
             ifNoneMatch = ifNoneMatch,
-            identity = "ios:$build",
+            surface = Surfaces.HOME,
         ),
     )
 }

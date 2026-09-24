@@ -55,7 +55,7 @@ class AdminRequestLimitFilter(
             return
         }
         if (!permits.tryAcquire()) {
-            response.setHeader("Retry-After", ThreadLocalRandom.current().nextLong(15, 31).toString())
+            response.setHeader("Retry-After", adminRetryAfterSeconds())
             reject(response, 503, "ADMIN_UNAVAILABLE", "limite de requisicoes administrativas", "unavailable")
             return
         }
@@ -81,6 +81,12 @@ class AdminRequestLimitFilter(
         response.writer.write("{\"code\":\"$code\",\"message\":\"$message\",\"details\":[]}")
     }
 }
+
+/**
+ * `Retry-After` das recusas 503 do plano administrativo, sorteado entre 15 e 30 segundos. Um valor
+ * fixo devolveria juntos os operadores recusados juntos (AGENTS.md 20.4).
+ */
+internal fun adminRetryAfterSeconds(): String = ThreadLocalRandom.current().nextLong(15, 31).toString()
 
 private class BufferedAdminRequest(request: HttpServletRequest, private val bytes: ByteArray) :
     HttpServletRequestWrapper(request) {
