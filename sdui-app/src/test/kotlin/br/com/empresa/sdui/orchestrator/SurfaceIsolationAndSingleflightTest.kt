@@ -32,6 +32,7 @@ import br.com.empresa.sdui.orchestrator.hydration.SectionHydrator
 import br.com.empresa.sdui.orchestrator.port.inbound.ComposeRequest
 import br.com.empresa.sdui.orchestrator.port.inbound.ComposeResult
 import br.com.empresa.sdui.orchestrator.port.outbound.HydratedScreenCache
+import br.com.empresa.sdui.orchestrator.port.outbound.MetricTags
 import br.com.empresa.sdui.orchestrator.port.outbound.MetricsRecorder
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
@@ -200,7 +201,8 @@ class SurfaceIsolationAndSingleflightTest {
         val schemas =
             registry.meters.flatMap { meter -> meter.id.tags.filter { it.key == "schemaVersion" }.map { it.value } }
                 .toSet()
-        assertThat(schemas).containsExactlyInAnyOrder("3", "other")
+        assertThat(schemas).containsExactly("3")
+        assertThat(MetricTags.schema("4")).isEqualTo(MetricTags.OTHER)
         assertThat(registry.meters.size).isLessThan(20)
     }
 }

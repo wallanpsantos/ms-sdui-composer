@@ -465,7 +465,8 @@ class AdminIdempotencyTest {
         val linked = gov.drafts.createSpecDraft(DraftSpecCommand(maker, draft.copy(skeletonId = skeleton.skeletonId)))
         val open =
             gov.publish.open(OpenPublishCommand(maker, linked.specId, linked.revision, Channel.STABLE, "open-skeleton"))
-        gov.drafts.createSkeletonDraft(DraftSkeletonCommand(maker, skeleton.copy(slots = skeleton.slots.reversed())))
+        val alteredSlots = listOf(skeleton.slots.first()) + skeleton.slots.drop(1).reversed()
+        gov.drafts.createSkeletonDraft(DraftSkeletonCommand(maker, skeleton.copy(slots = alteredSlots)))
         assertThatThrownBy {
             gov.publish.approve(
                 DecidePublishCommand(
