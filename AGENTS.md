@@ -23,12 +23,11 @@ Regras deste modo:
 - Qualquer alteração pontual deve manter estritamente a conformidade com as regras de pureza do `sdui-core`, o
   isolamento
   de camadas do ArchUnit e a ausência de warnings (`allWarningsAsErrors = true`).
-- **Não** executar `gradlew`, `gradlew.bat`, `clean`, `build`, `test`, `check` nem qualquer tarefa Gradle de forma
-  repetitiva.
 - **Não** interromper a escrita para esperar compilação ou resultado de testes.
+- Após todas implementação roda a suite de testes e verificar build.
 - Papel padrão: `sdui-implementer`. Os demais papéis só entram quando o operador pedir explicitamente.
-- Gradle, `clean build` ou suíte de testes só correm se o operador humano pedir, e nesse caso **uma única vez, no
-  final**, sem repetir o ciclo.
+- Gradle, `clean build` ou suíte de testes só correm se o operador humano pedir OU se for correção de erros e falhas, e
+  nesse caso **uma única vez, no final**, sem repetir o ciclo.
 
 Os comandos da seção 16 são registro histórico do bootstrap. Não reexecutá-los como rotina de implementação.
 
