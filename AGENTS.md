@@ -189,8 +189,7 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 ## 11. Lacunas Documentais Registradas
 
-- ADRs canônicos (ADR-001 a ADR-022) estão unificados e narrados em `docs/arquitetura-de-referencia.md` (matriz
-  consolidada em `docs/adr/README.md`).
+- ADRs canônicos (ADR-001 a ADR-022) estão unificados e narrados na Seção 11 de `docs/arquitetura-de-referencia.md`.
 - Presente: `docs/README.md` — catálogo da documentação canônica em 3 arquivos (`arquitetura-de-referencia.md`,
   `guia-depreciacao-e-migracao.md`, `guia-criacao-telas-componentes.md`).
 - Presente: `sdui-contract/src/test/resources/fixtures/contrato-sdui-home-definitivo.json`. Fonte de verdade do contrato
@@ -202,9 +201,9 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
   bloqueia o que já está especificado nas histórias, no plano, na pré-arquitetura, nos ADRs e no contrato.
 - Presente: catálogo das histórias concluídas do MVP (`H00`–`H18`) consolidado na Seção 12 de
   `docs/arquitetura-de-referencia.md`.
-- Presente: ADRs 020 a 022 consolidados na Seção 11 de `docs/arquitetura-de-referencia.md` (matriz unificada
-  em `docs/adr/README.md`); `docs/contratos/` com os contratos propostos; `docs/examples/screens/` com os quatro
-  exemplos (skeleton, spec, resposta, matriz de rastreabilidade); `docs/guia-criacao-telas-componentes.md`.
+- Presente: ADRs 020 a 022 consolidados na Seção 11 de `docs/arquitetura-de-referencia.md`; `docs/contratos/` com os
+  contratos propostos; `docs/examples/screens/` com os quatro exemplos (skeleton, spec, resposta, matriz de
+  rastreabilidade); `docs/guia-criacao-telas-componentes.md`.
 - Pendente de terceiros: homologação móvel dos contratos novos e ensaio operacional da persistência.
 
 ## 12. Decisões Provisórias
@@ -219,8 +218,8 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 ## 14. Regra para ADRs
 
-Novas decisões estruturais exigem ADR em `docs/adr/ADR-XXX-<slug>.md` seguindo o padrão documentado em
-`docs/adr/README.md`.
+Novas decisões estruturais exigem ADR em `docs/adr/ADR-XXX-<slug>.md` seguindo o padrão consolidado na Seção 11 de
+`docs/arquitetura-de-referencia.md`.
 
 ## 15. Papéis especializados
 
@@ -337,9 +336,8 @@ Regras inegociáveis resultantes da revisão multidimensional de 2026-09-20 (`co
 
 ## 20. Política de Resiliência de Integração (ADR-014)
 
-Regras inegociáveis do ciclo de resiliência de integração, consolidadas na Seção 6 de
-`docs/arquitetura-de-referencia.md` e em `docs/adr/README.md`; o contrato para os apps está em
-`docs/runbooks/contrato-de-retry-clientes-moveis.md`.
+Regras inegociáveis do ciclo de resiliência de integração, consolidadas na Seção 6 e Seção 11 (ADR-014) de
+`docs/arquitetura-de-referencia.md`.
 
 1. **Sem Retry de Dependência no Servidor:** a escada de fallback (ADR-007) é a política de degradação.
    Acrescentar retry sobre store multiplicaria a carga exatamente quando a dependência está fraca.
