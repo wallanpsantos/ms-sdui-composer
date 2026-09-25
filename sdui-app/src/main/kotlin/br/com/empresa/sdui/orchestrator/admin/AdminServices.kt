@@ -59,39 +59,181 @@ import java.time.Clock
 import java.time.Instant
 import java.util.*
 
-/** Leitura da trilha de auditoria para checker e auditor. Nao altera estado. */
+/**
+ * Serviço de consulta somente-leitura da trilha de auditoria append-only de governança.
+ *
+ * ### 1. O que faz
+ * Recupera os eventos recentes da trilha de auditoria para usuários autorizados.
+ *
+ * ### 2. Para que serve
+ * Permite que usuários com papéis de conferente ([ActorRole.CHECKER]) ou auditor ([ActorRole.AUDITOR])
+ * inspecionem as ações de publicação, aprovação, rejeição e rollback realizadas na plataforma.
+ *
+ * ### 3. Como funciona
+ * Exige estritamente papéis autorizados via [requireRole] e consulta os registros mais recentes no [auditLog].
+ *
+ * @property auditLog Porta de armazenamento para a trilha append-only de auditoria.
+ */
 class AuditQueryService(
     private val auditLog: AuditLogStore,
 ) : AuditQueryUseCase {
+    /**
+     * Recupera os eventos de auditoria mais recentes até o limite especificado.
+     *
+     * ### 1. O que faz
+     * Lista os registros cronológicos inversos de ações de governança realizadas.
+     *
+     * ### 2. Para que serve
+     * Fornece transparência operacional e rastreabilidade para conformidade regulatória.
+     *
+     * ### 3. Como funciona
+     * Valida a permissão do ator via [requireRole] e consulta os eventos no repositório de auditoria.
+     *
+     * @param actor Usuário solicitante da consulta com suas credenciais e papéis.
+     * @param limit Quantidade máxima de registros a retornar.
+     * @return Lista de instâncias de [AuditEvent].
+     */
     override fun recent(actor: Actor, limit: Int): List<AuditEvent> {
         requireRole(actor.role, ActorRole.CHECKER, ActorRole.AUDITOR)
         return auditLog.recent(limit)
     }
 }
 
-/** Leitura da governanca: catalogo, skeleton, revisoes e diff. Nao altera estado. */
+/**
+ * Serviço de consulta de governança para o catálogo de componentes, esqueletos, especificações e diffs visuais.
+ *
+ * ### 1. O que faz
+ * Provê métodos de leitura sobre todas as definições estruturais do ecossistema Server-Driven UI.
+ *
+ * ### 2. Para que serve
+ * Permite a inspeção de componentes homologados, layouts ativos, histórico de versões de tela e
+ * diferenças estruturais entre revisões sem alterar o estado do sistema.
+ *
+ * ### 3. Como funciona
+ * Delega as leituras aos respectivos repositórios persistentes ([catalogStore], [skeletonStore], [specStore] e [diffStore]).
+ *
+ * @property catalogStore Porta de consulta do catálogo de componentes.
+ * @property skeletonStore Porta de consulta de esqueletos de layout.
+ * @property specStore Porta de consulta de especificações de tela.
+ * @property diffStore Porta de consulta de diferenças estruturais entre revisões de especificações.
+ */
 class CatalogQueryService(
     private val catalogStore: CatalogStore,
     private val skeletonStore: SkeletonStore,
     private val specStore: SpecStore,
     private val diffStore: DiffStore,
 ) : CatalogQueryUseCase {
+    /**
+     * Obtém a versão vigente do catálogo de componentes.
+     *
+     * ### 1. O que faz
+     * Retorna a entidade agregada [Catalog] contendo todos os componentes registrados.
+     *
+     * ### 2. Para que serve
+     * Permite que editores e ferramentas de governança visualizem componentes homologados e suas capacidades.
+     *
+     * ### 3. Como funciona
+     * Consulta a versão corrente do catálogo via [CatalogStore.current].
+     *
+     * @return Instância de [Catalog].
+     */
     override fun catalog(): Catalog = catalogStore.current()
+
+    /**
+     * Busca um esqueleto de layout pelo seu identificador.
+     *
+     * ### 1. O que faz
+     * Retorna o esqueleto de layout correspondente ao identificador fornecido.
+     *
+     * ### 2. Para que serve
+     * Permite inspecionar a estrutura de slots e restrições de uma surface.
+     *
+     * ### 3. Como funciona
+     * Consulta o esqueleto via [SkeletonStore.current] pelo identificador.
+     *
+     * @param id Identificador do esqueleto.
+     * @return O [Skeleton] correspondente ou `null` se inexistente.
+     */
     override fun skeleton(id: String): Skeleton? = skeletonStore.current(id)
 
+    /**
+     * Lista especificações de tela filtradas por plataforma e canal com suporte a paginação.
+     *
+     * ### 1. O que faz
+     * Recupera páginas de especificações de acordo com os filtros fornecidos.
+     *
+     * ### 2. Para que serve
+     * Alimenta interfaces de administração e governança para navegação do catálogo de telas.
+     *
+     * ### 3. Como funciona
+     * Executa consulta paginada via [SpecStore.list].
+     *
+     * @param platform Filtro opcional por plataforma.
+     * @param channel Filtro opcional por canal.
+     * @param page Configuração de paginação solicitada.
+     * @return Lista paginada de [Spec].
+     */
     override fun specs(platform: ClientPlatform?, channel: Channel?, page: PageRequest): List<Spec> =
         specStore.list(platform, channel, page)
 
+    /**
+     * Lista todas as revisões cadastradas para um mesmo identificador de especificação (`specId`).
+     *
+     * ### 1. O que faz
+     * Retorna o histórico de revisões de uma tela em ordem decrescente.
+     *
+     * ### 2. Para que serve
+     * Permite acompanhar a evolução e o ciclo de vida de uma tela ao longo do tempo.
+     *
+     * ### 3. Como funciona
+     * Recupera as revisões de forma paginada via [SpecStore.listBySpecId].
+     *
+     * @param specId Identificador lógico da especificação.
+     * @param page Parâmetros de paginação.
+     * @return Lista paginada de revisões de [Spec].
+     */
     override fun revisions(specId: String, page: PageRequest): List<Spec> = specStore.listBySpecId(specId, page)
+
+    /**
+     * Recupera a diferença estrutural pré-calculada entre duas revisões de uma mesma especificação.
+     *
+     * ### 1. O que faz
+     * Obtém o objeto [SpecDiff] comparando a revisão de origem e a revisão de destino.
+     *
+     * ### 2. Para que serve
+     * Subsidia a revisão técnica do checker antes de aprovar a publicação de uma nova revisão.
+     *
+     * ### 3. Como funciona
+     * Consulta a diferença estrutural pré-calculada via [DiffStore.find].
+     *
+     * @param specId Identificador lógico da especificação.
+     * @param from Número da revisão base.
+     * @param to Número da revisão de destino.
+     * @return O [SpecDiff] correspondente ou `null` se não encontrado.
+     */
     override fun diff(specId: String, from: Int, to: Int): SpecDiff? = diffStore.find(specId, from, to)
 }
 
 /**
- * Autoria de rascunhos de spec, skeleton e catalogo.
+ * Serviço de autoria e edição de rascunhos de especificação, esqueleto e catálogo.
  *
- * Valida antes de gravar, para o autor ver o erro enquanto edita. Recusa tocar em revisao ja
- * publicada: a correcao de algo publicado e sempre uma revisao nova. A surface do rascunho
- * precisa estar na allowlist — os validadores recusam qualquer outra antes de ela virar dado.
+ * ### 1. O que faz
+ * Cria e atualiza versões em estado de rascunho ([SpecStatus.DRAFT]), validando as entidades
+ * contra as regras estruturais e de governança antes da persistência.
+ *
+ * ### 2. Para que serve
+ * Permite que autores (makers) trabalhem em novas telas ou alterações sem afetar versões já
+ * publicadas em produção, garantindo feedback imediato de validação.
+ *
+ * ### 3. Como funciona
+ * Valida estritamente cada rascunho com os validadores correspondentes ([SpecValidator],
+ * [SkeletonValidator], [CatalogValidator]). Proíbe edições em entidades já publicadas,
+ * forçando a evolução através de novas revisões imutáveis.
+ *
+ * @property specStore Porta de persistência de especificações.
+ * @property skeletonStore Porta de persistência de esqueletos.
+ * @property catalogStore Porta de persistência do catálogo.
+ * @property matrix Matriz de compatibilidade utilizada para validação de capacidades no rascunho.
  */
 class DraftService(
     private val specStore: SpecStore,
@@ -99,6 +241,23 @@ class DraftService(
     private val catalogStore: CatalogStore,
     private val matrix: CapabilityMatrix,
 ) : DraftUseCase {
+    /**
+     * Cria ou atualiza um rascunho de especificação de tela.
+     *
+     * ### 1. O que faz
+     * Valida e grava uma nova revisão de [Spec] com status [SpecStatus.DRAFT].
+     *
+     * ### 2. Para que serve
+     * Permite a preparação de layouts e componentes para submissão posterior ao fluxo maker-checker.
+     *
+     * ### 3. Como funciona
+     * Exige papel de [ActorRole.MAKER] ou [ActorRole.CHECKER], verifica imutabilidade se já publicada,
+     * atribui a próxima revisão caso seja nova, valida contra o esqueleto e catálogo e persiste via
+     * compare-and-set atômico.
+     *
+     * @param command Comando contendo a especificação e metadados do autor.
+     * @return A [Spec] persistida em status de rascunho.
+     */
     override fun createSpecDraft(command: DraftSpecCommand): Spec {
         requireRole(command.actor.role, ActorRole.MAKER, ActorRole.CHECKER)
         val existing = specStore.findBySpecIdAndRevision(command.spec.specId, command.spec.revision)
@@ -119,6 +278,22 @@ class DraftService(
         return specStore.compareAndSet(existing, draft)
     }
 
+    /**
+     * Cria ou atualiza um rascunho de esqueleto de layout.
+     *
+     * ### 1. O que faz
+     * Valida e persiste um [Skeleton] em status de rascunho.
+     *
+     * ### 2. Para que serve
+     * Permite definir e evoluir os slots e a estrutura base de uma surface.
+     *
+     * ### 3. Como funciona
+     * Exige papéis autorizados, recusa alterações caso já publicado, valida a coerência dos slots via
+     * [SkeletonValidator.validate] e persiste por compare-and-set.
+     *
+     * @param command Comando contendo a definição do esqueleto.
+     * @return O [Skeleton] persistido.
+     */
     override fun createSkeletonDraft(command: DraftSkeletonCommand): Skeleton {
         requireRole(command.actor.role, ActorRole.MAKER, ActorRole.CHECKER)
         val existing = skeletonStore.find(command.skeleton.skeletonId, command.skeleton.revision)
@@ -130,6 +305,22 @@ class DraftService(
         return skeletonStore.compareAndSet(existing, command.skeleton.copy(status = SpecStatus.DRAFT))
     }
 
+    /**
+     * Adiciona ou atualiza a definição de um componente no catálogo homologado.
+     *
+     * ### 1. O que faz
+     * Insere ou substitui um componente no catálogo geral.
+     *
+     * ### 2. Para que serve
+     * Expande os tipos de seções disponíveis para uso na construção de telas Server-Driven UI.
+     *
+     * ### 3. Como funciona
+     * Exige papéis autorizados, substitui o componente anterior pelo par `(type, typeVersion)`,
+     * valida a integridade do catálogo com [CatalogValidator.validate] e salva a nova versão.
+     *
+     * @param command Comando com a definição do componente.
+     * @return O [Catalog] atualizado.
+     */
     override fun upsertComponent(command: DraftCatalogCommand): Catalog {
         requireRole(command.actor.role, ActorRole.MAKER, ActorRole.CHECKER)
         val current = catalogStore.current()
@@ -144,12 +335,39 @@ class DraftService(
 }
 
 /**
- * O fluxo maker-checker: abrir, aprovar e rejeitar publicacao.
+ * Serviço responsável pelo fluxo de governança maker-checker de publicações (ADR-008).
  *
- * Quem abre nao aprova, fora do canal interno. A aprovacao revalida o spec antes de publicar —
- * o catalogo pode ter mudado desde a abertura — e so entao move o pointer, por compare-and-set,
- * dentro da transacao junto com auditoria, idempotencia e o registro da invalidacao de cache no
- * outbox. A invalidacao em si acontece do lado de fora, depois do commit (ADR-021).
+ * ### 1. O que faz
+ * Orquestra as etapas de abertura, aprovação e rejeição de pedidos de publicação de telas,
+ * garantindo a movimentação atômica do ponteiro de versão e registro de auditoria.
+ *
+ * ### 2. Para que serve
+ * Impõe o princípio da segregação de funções: o autor (maker) que propõe uma alteração não pode
+ * aprová-la em canais de produção ([Channel.CANARY] e [Channel.STABLE]), garantindo que toda mudança
+ * seja auditada e validada tecnicamente por um conferente independente ([ActorRole.CHECKER]).
+ *
+ * ### 3. Como funciona
+ * - **Abertura ([open]):** Valida o rascunho, calcula diff e hash de conteúdo revisado ([PublicationFingerprint.of]).
+ * - **Aprovação ([approve]):** Checker valida integridade, confere se o conteúdo não foi alterado desde a abertura
+ *   (ADR-022), move o ponteiro de versão via compare-and-set atômico no banco, registra auditoria e outbox de cache.
+ *   Após o commit, aquece o cache de spec e dispara a invalidação assíncrona (ADR-021).
+ * - **Rejeição ([reject]):** Checker recusa a publicação registrando justificativa formal e auditoria.
+ *
+ * @property specStore Porta de persistência de especificações.
+ * @property skeletonStore Porta de persistência de esqueletos.
+ * @property catalogStore Porta de persistência do catálogo.
+ * @property pointerStore Porta de persistência e compare-and-set do ponteiro.
+ * @property publishStore Porta de persistência de pedidos de publicação.
+ * @property diffStore Porta de persistência de diffs de especificação.
+ * @property auditLog Porta de gravação da trilha de auditoria.
+ * @property idempotency Porta de controle e reserva de idempotência.
+ * @property specCache Cache de especificações.
+ * @property outbox Outbox transacional de invalidações de cache.
+ * @property invalidator Executor das invalidações de cache.
+ * @property tx Unidade transacional de trabalho.
+ * @property matrix Matriz de capacidades para validação técnica.
+ * @property clock Relógio do sistema.
+ * @property publicationFingerprint Provedor de assinatura de conteúdo revisado.
  */
 class PublishService(
     private val specStore: SpecStore,
@@ -169,6 +387,21 @@ class PublishService(
     private val publicationFingerprint: PublicationFingerprint,
 ) : PublishUseCase {
 
+    /**
+     * Abre um pedido formal de publicação para um rascunho de especificação.
+     *
+     * ### 1. O que faz
+     * Cria e registra um [PublishRequest] com status [PublishRequestStatus.OPEN].
+     *
+     * ### 2. Para que serve
+     * Submete a proposta de tela para a fila de revisão de conferentes (checkers).
+     *
+     * ### 3. Como funciona
+     * Exige papel [ActorRole.MAKER], gera a chave de idempotência e executa [openReserved] dentro de transação.
+     *
+     * @param command Comando contendo os dados da especificação e o canal desejado.
+     * @return O [PublishRequest] aberto.
+     */
     override fun open(command: OpenPublishCommand): PublishRequest {
         requireRole(command.actor.role, ActorRole.MAKER)
         val fingerprint = fingerprintOf(
@@ -182,6 +415,24 @@ class PublishService(
         }
     }
 
+    /**
+     * Executa a lógica transacional de abertura de pedido de publicação sob chave reservada.
+     *
+     * ### 1. O que faz
+     * Valida rascunho, esqueleto e catálogo, calcula o diff e gera a assinatura de conteúdo.
+     *
+     * ### 2. Para que serve
+     * Congela os dados revisados para garantir que alterações posteriores invalidem o pedido.
+     *
+     * ### 3. Como funciona
+     * Valida as entidades, gera o diff via [SpecDiffFactory.diff], calcula o hash com [publicationFingerprint],
+     * salva o pedido no [publishStore] e fecha a chave de idempotência.
+     *
+     * @param command Comando de abertura.
+     * @param fingerprint Resumo dos parâmetros.
+     * @param token Token de reserva de idempotência.
+     * @return O [PublishRequest] persistido.
+     */
     private fun openReserved(command: OpenPublishCommand, fingerprint: String, token: String): PublishRequest =
         tx.execute {
             val spec = specStore.findBySpecIdAndRevision(command.specId, command.revision)
@@ -221,16 +472,41 @@ class PublishService(
         }
 
     /**
-     * Devolve o resultado ja produzido para uma chave, ou recusa se ela ainda estiver em voo.
+     * Reproduz o resultado de uma operação idempotente anterior a partir do identificador salvo.
      *
-     * Reserva em voo nao tem resultado para devolver, e responder o estado atual do pedido seria
-     * afirmar um desfecho que ainda nao aconteceu.
+     * ### 1. O que faz
+     * Recupera e retorna o [PublishRequest] associado ao registro de idempotência.
+     *
+     * ### 2. Para que serve
+     * Garante que retries idênticos recebam a resposta correta sem reexecutar transações no banco.
+     *
+     * ### 3. Como funciona
+     * Inspeciona `record.resultRef` e consulta o pedido no [publishStore].
+     *
+     * @param record Registro de idempotência prévio.
+     * @return O [PublishRequest] previamente persistido.
      */
     private fun replayPublish(record: IdempotencyRecord): PublishRequest {
         val ref = record.resultRef ?: throw AdminInFlight(record.key)
         return publishStore.find(ref) ?: throw AdminNotFound("publish $ref")
     }
 
+    /**
+     * Aprova formalmente a publicação de uma especificação de tela.
+     *
+     * ### 1. O que faz
+     * Transiciona o pedido para aprovado, promove a especificação a publicada e avança o ponteiro de versão.
+     *
+     * ### 2. Para que serve
+     * Efetiva a entrega da nova versão de tela para o canal especificado de forma segura e auditável.
+     *
+     * ### 3. Como funciona
+     * Exige papel [ActorRole.CHECKER], executa [approveReserved] dentro de transação no banco e,
+     * estritamente após o commit, aquece o cache de spec e dispara a invalidação assíncrona.
+     *
+     * @param command Comando de decisão contendo identificador do pedido e do checker.
+     * @return O [PublishRequest] aprovado.
+     */
     override fun approve(command: DecidePublishCommand): PublishRequest {
         requireRole(command.actor.role, ActorRole.CHECKER)
         val fingerprint = fingerprintOf(OPERATION_APPROVE, command.requestId)
@@ -251,6 +527,29 @@ class PublishService(
         }
     }
 
+    /**
+     * Executa as operações transacionais de aprovação no banco de dados.
+     *
+     * ### 1. O que faz
+     * Realiza a validação cruzada, altera status, avança o ponteiro e registra auditoria e outbox.
+     *
+     * ### 2. Para que serve
+     * Garante atomicidade: se qualquer etapa falhar, nenhuma alteração em ponteiro ou spec persiste.
+     *
+     * ### 3. Como funciona
+     * 1. Confere se o checker não é o próprio maker (salvo em canal interno).
+     * 2. Confere se o conteúdo não foi alterado desde a revisão via [publicationFingerprint] (ADR-022).
+     * 3. Confere presença de diff obrigatório se houver revisão pai.
+     * 4. Altera o status da spec e do esqueleto para publicado.
+     * 5. Move o ponteiro via compare-and-set monotônico.
+     * 6. Registra evento na trilha append-only de auditoria.
+     * 7. Agenda a invalidação de cache no outbox transacional.
+     *
+     * @param command Comando de decisão.
+     * @param fingerprint Resumo dos parâmetros.
+     * @param token Token de reserva de idempotência.
+     * @return [PublishOutcome] com as entidades geradas.
+     */
     private fun approveReserved(command: DecidePublishCommand, fingerprint: String, token: String): PublishOutcome =
         tx.execute {
             val open = publishStore.find(command.requestId) ?: throw AdminNotFound("publish ${command.requestId}")
@@ -329,6 +628,23 @@ class PublishService(
             PublishOutcome(won, published, invalidation)
         }
 
+    /**
+     * Rejeita um pedido de publicação com justificativa técnica ou operacional.
+     *
+     * ### 1. O que faz
+     * Transiciona o status do pedido para [PublishRequestStatus.REJECTED] e registra a justificativa.
+     *
+     * ### 2. Para que serve
+     * Permite ao checker recusar pedidos incorretos ou que violem diretrizes de design e arquitetura.
+     *
+     * ### 3. Como funciona
+     * Exige papel [ActorRole.CHECKER], impede auto-rejeição sem papel apropriado, atualiza o status via
+     * compare-and-set, grava o evento na trilha de auditoria e fecha o registro de idempotência no mesmo commit.
+     *
+     * @param command Comando de decisão contendo a identificação do checker e do pedido.
+     * @param reason Justificativa formal para a recusa.
+     * @return O [PublishRequest] atualizado.
+     */
     override fun reject(command: DecidePublishCommand, reason: String): PublishRequest {
         requireRole(command.actor.role, ActorRole.CHECKER)
         val fingerprint = fingerprintOf(OPERATION_REJECT, command.requestId)
@@ -371,6 +687,22 @@ class PublishService(
     }
 }
 
+/**
+ * Entidade de transporte interno com os resultados da transação de aprovação.
+ *
+ * ### 1. O que faz
+ * Encapsula o pedido aprovado, a especificação publicada e os dados de invalidação gerados no commit.
+ *
+ * ### 2. Para que serve
+ * Permite que o aquecimento de cache e a execução das invalidações ocorram estritamente fora da transação.
+ *
+ * ### 3. Como funciona
+ * Reúne [request], [spec] e [invalidation] imutáveis.
+ *
+ * @property request Pedido com status aprovado.
+ * @property spec Especificação publicada.
+ * @property invalidation Intenção de invalidação de cache.
+ */
 private data class PublishOutcome(
     val request: PublishRequest,
     val spec: Spec,
@@ -378,11 +710,28 @@ private data class PublishOutcome(
 )
 
 /**
- * Devolve o pointer a uma revisao publicada anterior.
+ * Serviço de reversão atômica de versão de tela (Rollback).
  *
- * O caminho de reacao a uma publicacao ruim: nao apaga nem altera revisao nenhuma, so muda qual
- * esta em vigor, e por isso e seguro de executar sob pressao. Nunca cruza plataforma nem surface,
- * e so aceita surface da allowlist.
+ * ### 1. O que faz
+ * Reverte o ponteiro de exibição para uma revisão publicada anterior sem destruir histórico.
+ *
+ * ### 2. Para que serve
+ * Permite restaurar instantaneamente a estabilidade de uma surface diante de incidentes em produção.
+ *
+ * ### 3. Como funciona
+ * Valida se a revisão de destino é compatível e está publicada ([SpecStatus.PUBLISHED]), incrementa a
+ * versão do [Pointer] via compare-and-set atômico no banco, registra auditoria e outbox e, após o
+ * commit, aquece a spec e invalida o cache de árvore e last-good.
+ *
+ * @property pointerStore Porta de persistência de ponteiros.
+ * @property specStore Porta de persistência de especificações.
+ * @property auditLog Porta de gravação da trilha de auditoria.
+ * @property idempotency Porta de controle de idempotência.
+ * @property specCache Cache de especificações.
+ * @property outbox Outbox transacional de invalidações.
+ * @property invalidator Executor das invalidações de cache.
+ * @property tx Unidade transacional de trabalho.
+ * @property clock Relógio do sistema.
  */
 class RollbackService(
     private val pointerStore: PointerStore,
@@ -395,6 +744,22 @@ class RollbackService(
     private val tx: TransactionalUnitOfWork,
     private val clock: Clock,
 ) : RollbackPointerUseCase {
+    /**
+     * Executa a reversão do ponteiro de exibição para uma versão anterior estável.
+     *
+     * ### 1. O que faz
+     * Aponta a surface e canal para a revisão anterior preservando o histórico imutável.
+     *
+     * ### 2. Para que serve
+     * Resposta rápida a incidentes de UI sem necessidade de deploy de código.
+     *
+     * ### 3. Como funciona
+     * Exige papel [ActorRole.CHECKER], verifica a allowlist de surfaces via [Surfaces.find], executa
+     * sob idempotência, atualiza o ponteiro na transação e aplica invalidações pós-commit.
+     *
+     * @param command Comando de reversão contendo surface, plataforma, canal e revisão alvo opcional.
+     * @return O [Pointer] atualizado.
+     */
     override fun rollback(command: RollbackCommand): Pointer {
         requireRole(command.actor.role, ActorRole.CHECKER)
         if (Surfaces.find(command.surface) == null) throw AdminNotFound("surface ${command.surface}")
@@ -426,6 +791,25 @@ class RollbackService(
         }
     }
 
+    /**
+     * Executa a lógica transacional do rollback no banco de dados.
+     *
+     * ### 1. O que faz
+     * Valida os critérios de destino e atualiza atomicamente o ponteiro, auditoria e outbox.
+     *
+     * ### 2. Para que serve
+     * Garante que o rollback seja atômico e imune a condições de corrida com aprovações simultâneas.
+     *
+     * ### 3. Como funciona
+     * Carrega o ponteiro atual, resolve a revisão alvo (específica ou `previousSpecRevisionId`),
+     * valida compatibilidade de plataforma e surface, avança a versão do ponteiro, registra [AuditEvent]
+     * e salva no outbox.
+     *
+     * @param command Comando de reversão.
+     * @param fingerprint Resumo dos parâmetros.
+     * @param token Token de reserva.
+     * @return [RollbackOutcome] contendo os dados gerados.
+     */
     private fun rollbackReserved(command: RollbackCommand, fingerprint: String, token: String): RollbackOutcome {
         val pointer = pointerStore.find(command.surface, command.platform, command.channel)
             ?: throw AdminNotFound("pointer")
@@ -486,11 +870,20 @@ class RollbackService(
 }
 
 /**
- * O que um rollback produziu: o pointer movido, a revisao que voltou a vigorar e a invalidacao
- * registrada no outbox.
+ * Entidade de transporte interno com os resultados da transação de rollback.
  *
- * Existe para que as invalidacoes de cache acontecam depois do commit e ainda assim saibam qual
- * revisao foi aposentada — dentro da transacao elas publicariam estado que um erro ainda desfaz.
+ * ### 1. O que faz
+ * Encapsula o ponteiro revertido, a especificação restaurada e a invalidação de cache gerada.
+ *
+ * ### 2. Para que serve
+ * Permite realizar ações pós-commit de cache sem comprometer a transação de banco de dados.
+ *
+ * ### 3. Como funciona
+ * Reúne [pointer], [target] e [invalidation].
+ *
+ * @property pointer Instância do ponteiro atualizada.
+ * @property target Especificação restaurada.
+ * @property invalidation Intenção de invalidação a ser despachada.
  */
 private data class RollbackOutcome(
     val pointer: Pointer,
@@ -499,14 +892,40 @@ private data class RollbackOutcome(
 )
 
 /**
- * Aquece o cache de spec com a revisao que passou a vigorar, depois do commit. Falha aqui so custa
- * uma leitura no store na proxima composicao.
+ * Aquece o cache de especificações com a revisão que passou a vigorar, após o commit.
+ *
+ * ### 1. O que faz
+ * Insere a [Spec] no cache de especificações de forma assíncrona/não bloqueante.
+ *
+ * ### 2. Para que serve
+ * Evita miss no cache na primeira requisição que acessar a nova versão da tela.
+ *
+ * ### 3. Como funciona
+ * Executa [SpecCache.put] protegido por `runCatching` para que falhas de cache não interrompam a resposta.
+ *
+ * @param spec Especificação a ser memorizada em cache.
  */
 private fun SpecCache.warm(spec: Spec) {
     runCatching { put(spec) }
 }
 
-/** A invalidacao devida pela mudanca de pointer: lapide na versao nova e revisao aposentada. */
+/**
+ * Constrói o registro de invalidação de cache derivado da movimentação de um ponteiro.
+ *
+ * ### 1. O que faz
+ * Produz a entidade [CacheInvalidation] com as coordenadas de chave a serem limpas nos caches.
+ *
+ * ### 2. Para que serve
+ * Garante que a árvore hidratada antiga e o last-good da revisão anterior sejam removidos ou invalidados.
+ *
+ * ### 3. Como funciona
+ * Instancia [CacheInvalidation] preenchendo surface, plataforma, canal, nova versão do ponteiro e revisão aposentada.
+ *
+ * @param moved Ponteiro recém-atualizado.
+ * @param retiredRevisionId Identificador da revisão substituída.
+ * @param now Carimbo de tempo da operação.
+ * @return Instância de [CacheInvalidation].
+ */
 private fun invalidationFor(moved: Pointer, retiredRevisionId: String?, now: Instant): CacheInvalidation =
     CacheInvalidation(
         id = UUID.randomUUID().toString(),
@@ -519,11 +938,24 @@ private fun invalidationFor(moved: Pointer, retiredRevisionId: String?, now: Ins
     )
 
 /**
- * Executa [execute] sob a chave de idempotencia, ou devolve o replay do resultado ja produzido.
+ * Executa uma operação garantindo semântica estrita de idempotência (at-most-once execution).
  *
- * O registro existente so vale como replay da mesma operacao com os mesmos parametros; qualquer
- * outro uso da chave e recusado. Sem capacidade segura para reservar, a operacao e recusada em vez
- * de arriscar a garantia das reservas vivas.
+ * ### 1. O que faz
+ * Gerencia o ciclo de reserva, execução e replay sob uma chave de idempotência.
+ *
+ * ### 2. Para que serve
+ * Evita execução duplicada de operações administrativas críticas diante de retries de rede.
+ *
+ * ### 3. Como funciona
+ * Tenta reservar a chave via [IdempotencyStore.reserve]. Se reservada, executa [execute] liberando em falha;
+ * se já existir com os mesmos parâmetros, chama [replay]; se houver divergência, acusa erro.
+ *
+ * @param key Chave única de idempotência.
+ * @param operation Nome da operação executada.
+ * @param fingerprint Resumo dos parâmetros.
+ * @param replay Função de reprodução de resultado anterior.
+ * @param execute Bloco de código a executar caso a chave seja reservada com sucesso.
+ * @return O resultado retornado pela execução ou replay.
  */
 private inline fun <T> IdempotencyStore.idempotent(
     key: String,
@@ -545,11 +977,22 @@ private inline fun <T> IdempotencyStore.idempotent(
 }
 
 /**
- * Executa [work] sobre uma chave ja reservada e a devolve ao pool se a operacao falhar sem efeito.
+ * Executa um bloco de código garantindo a liberação da reserva de idempotência caso ocorra falha.
  *
- * Devolver a chave permite ao operador corrigir o rascunho e reenviar com a mesma chave, em vez de
- * ter de inventar outra — sem isso um 400 de validacao queimaria a chave para sempre. Se a falha
- * vier depois do commit, o registro ja esta fechado e o release nao o desfaz.
+ * ### 1. O que faz
+ * Devolve a chave ao pool de idempotência caso o bloco lance exceção.
+ *
+ * ### 2. Para que serve
+ * Permite ao operador reenviar a requisição corrigida utilizando a mesma chave após um erro de validação (HTTP 400).
+ *
+ * ### 3. Como funciona
+ * Envolve a execução de [work] em bloco `try-catch`. Em caso de erro, invoca [IdempotencyStore.release]
+ * suprimindo eventuais exceções de liberação antes de propagar o erro original.
+ *
+ * @param key Chave de idempotência.
+ * @param token Token da reserva.
+ * @param work Ação a ser executada sob a reserva.
+ * @return O resultado gerado por [work].
  */
 private inline fun <T> IdempotencyStore.releasingOnFailure(key: String, token: String, work: () -> T): T =
     try {
@@ -559,21 +1002,50 @@ private inline fun <T> IdempotencyStore.releasingOnFailure(key: String, token: S
         throw error
     }
 
-/** Resumo estavel dos parametros de uma operacao idempotente. */
+/**
+ * Gera um resumo estável SHA-256 a partir dos parâmetros de uma operação idempotente.
+ *
+ * ### 1. O que faz
+ * Concatena as partes fornecidas e calcula o hash hexadecimal SHA-256.
+ *
+ * ### 2. Para que serve
+ * Garante que uma mesma chave de idempotência não seja reaproveitada com parâmetros diferentes.
+ *
+ * ### 3. Como funciona
+ * Junta os textos com o caractere separador `|`, calcula o digest SHA-256 e formata em hexadecimal via [HexFormat].
+ *
+ * @param parts Parâmetros que caracterizam univocamente a requisição.
+ * @return String hexadecimal contendo o hash calculado.
+ */
 private fun fingerprintOf(vararg parts: String): String {
     val digest = MessageDigest.getInstance("SHA-256").digest(parts.joinToString("|").toByteArray(Charsets.UTF_8))
     return HexFormat.of().formatHex(digest)
 }
 
+/**
+ * Assegura que o ator possui um dos papéis de segurança requeridos.
+ *
+ * ### 1. O que faz
+ * Valida o papel do usuário contra a lista de papéis permitidos.
+ *
+ * ### 2. Para que serve
+ * Impõe controle de acesso baseado em papéis (RBAC) na camada de administração.
+ *
+ * ### 3. Como funciona
+ * Lança [AdminDenied] caso [actual] não conste no conjunto [allowed].
+ *
+ * @param actual Papel do ator na requisição.
+ * @param allowed Papéis autorizados para a ação.
+ */
 private fun requireRole(actual: ActorRole, vararg allowed: ActorRole) {
     if (actual !in allowed) throw AdminDenied("papel $actual insuficiente")
 }
 
 /**
- * Nomes das operacoes idempotentes, iguais aos da trilha de auditoria.
+ * Constantes com os identificadores padronizados das operações administrativas idempotentes.
  *
- * Um literal solto em cada chamada deixaria "approve" e "publish.approve" conviverem no mesmo
- * store, e a operacao gravada na chave deixaria de casar com a acao auditada.
+ * Coincidem rigorosamente com os nomes das ações registradas na trilha de auditoria para garantir
+ * consistência e rastreabilidade nos repositórios.
  */
 private const val OPERATION_OPEN: String = "publish.open"
 private const val OPERATION_APPROVE: String = "publish.approve"
