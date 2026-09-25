@@ -1,0 +1,100 @@
+name: Build and Test - Java CI with Gradle
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*.*.*' ]
+  pull_request:
+    branches: [ main, develop ]
+
+# Default seguro: nenhum token de escrita; jobs elevam permissão quando necessário.
+permissions:
+  contents: read
+
+# Cancela execuções anteriores do mesmo ref.
+concurrency:
+  group: gradle-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Build & Test ────────────────────────────────────────────────
+  build_and_test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      # Gerencia o cache do Gradle e valida o gradle-wrapper.jar (validate-wrappers: true por padrão).
+      # Cache somente leitura fora de main/develop para branches temporárias não poluírem o cache.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/develop' }}
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      # `clean` apenas em tag/main para artefato 100% limpo; nos demais refs o build cache reaproveita.
+      # Removido `-x nativeCompile`: o projeto não aplica o plugin GraalVM, e excluir
+      # uma task inexistente derruba o build na fase de configuração.
+      - name: Build with Gradle
+        run: >-
+          ./gradlew
+          ${{ (startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main') && 'clean ' || '' }}build
+          --stacktrace
+
+      # Relatórios de teste de todos os módulos, só quando algo falha.
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/'
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # Projeto multi-módulo: o único executável é o bootJar do sdui-bootstrap.
+      - name: Archive bootJar
+        if: success()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: sdui-bootstrap-jar
+          path: |
+            sdui-bootstrap/build/libs/*.jar
+            !sdui-bootstrap/build/libs/*-plain.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  # ── Dependency Graph ────────────────────────────────────────────
+  # Só em pushes (não em PRs) para não submeter grafos duplicados.
+  dependency-submission:
+    name: Dependency Submission
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'push'
+    permissions:
+      contents: write # necessário para submeter o grafo de dependências
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      # https://github.com/gradle/actions/blob/main/docs/dependency-submission.md
+      - name: Generate and submit dependency graph
+        uses: gradle/actions/dependency-submission@v6

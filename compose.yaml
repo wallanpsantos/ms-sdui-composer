@@ -1,0 +1,91 @@
+# Ambiente local do ms-sdui-composer.
+#
+#   docker compose up --build              sobe apenas o servico
+#   docker compose --profile infra up -d   sobe tambem MongoDB e Redis
+#
+# Por padrao o servico sobe em memoria (sdui.persistence.store=memory, cache=memory): nada
+# sobrevive a restart e so vale uma instancia (AGENTS.md secao 17). MongoDB e Redis ficam atras do
+# profile `infra` e so sao usados quando o modo persistente e ligado explicitamente (ADR-021):
+#
+#   SDUI_PERSISTENCE_STORE=mongo
+#   SDUI_PERSISTENCE_MONGO_URI=mongodb://mongo:27017/?replicaSet=rs0&directConnection=true
+#   SDUI_PERSISTENCE_CACHE=redis
+#   SDUI_PERSISTENCE_REDIS_URL=redis://redis:6379
+#
+# O MongoDB sobe como replica set de um membro (rs0): standalone nao tem transacao
+# multi-documento, e a publicacao depende dela. Este compose e ambiente local, nao evidencia de
+# topologia de producao nem ensaio de homologacao.
+
+services:
+  # sdui-composer:
+  #   build:
+  #     context: .
+  #   image: ms-sdui-composer:local
+  #   container_name: sdui-composer
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     # Estado em memoria: uma instancia so. Publicar ou fazer rollback em uma replica nao afeta
+  #     # as demais, entao escalar este compose horizontalmente daria divergencia de pointer.
+  #     SPRING_APPLICATION_NAME: ms-sdui-composer
+  #     JAVA_OPTS: "-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+  #     # Limites operacionais — os mesmos nomes de application.yaml, em SCREAMING_SNAKE_CASE.
+  #     SDUI_SEED_IOS: "true"
+  #     SDUI_RATE_LIMIT_CAPACITY: "10000"
+  #     SDUI_RATE_LIMIT_REFILL_PER_SECOND: "10000"
+  #     SDUI_RATE_LIMIT_MAX_KEYS: "100000"
+  #     SDUI_TREE_TTL_SECONDS: "60"
+  #     SDUI_TREE_CACHE_MAX_ENTRIES: "10000"
+  #     SDUI_HYDRATION_TIMEOUT_MS: "80"
+  #     SDUI_HYDRATION_FANOUT: "8"
+  #   healthcheck:
+  #     test: [ "CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health/readiness" ]
+  #     interval: 15s
+  #     timeout: 3s
+  #     start_period: 40s
+  #     retries: 3
+  #   restart: unless-stopped
+  #   # O plano administrativo (/admin/v1) nao tem autenticacao: o papel do ator vem de um header.
+  #   # Enquanto for assim, este container nao pode ser exposto fora da maquina local.
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 1g
+
+  mongo:
+    # profiles: [ "infra" ]
+    image: mongo:8.3
+    container_name: sdui-mongo
+    command: [ "mongod", "--replSet", "rs0", "--bind_ip_all" ]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    # O healthcheck inicia o replica set na primeira execucao e depois so confirma que ha primario.
+    healthcheck:
+      test: [ "CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]}).ok }" ]
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+
+  redis:
+    # profiles: [ "infra" ]
+    image: redis:8-alpine
+    container_name: sdui-redis
+    ports:
+      - "6379:6379"
+    # Cache, nao fonte de verdade: sem persistencia em disco e com teto de memoria. Toda chave
+    # gravada pelo servico tem TTL, entao volatile-lru so expulsa entradas de cache.
+    command: [ "redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru" ]
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

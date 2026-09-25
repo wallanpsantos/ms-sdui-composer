@@ -1,0 +1,71 @@
+# ==============================================================================
+# ms-sdui-composer :: .gitignore
+# Gradle 9.7.1 + Kotlin DSL, Java 25, IntelliJ IDEA, VS Code, Eclipse e SO
+# ==============================================================================
+
+# Gradle Build Artifacts
+.gradle/
+build/
+.kotlin/
+local.properties
+.env
+
+# Manter os arquivos do Gradle Wrapper versionados
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!gradlew
+!gradlew.bat
+
+# Java / JVM
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Eclipse
+.apt_generated/
+.apt_generated_test/
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+bin/
+
+# Logs e arquivos temporários
+*.log
+logs/
+temp/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~
+
+# Arquivos de Sistema Operacional
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini

@@ -1,0 +1,55 @@
+{
+  "skeleton": {
+    "id": "home.default",
+    "layout": "two_pane",
+    "slots": [
+      {
+        "id": "header",
+        "layout": "fixed"
+      },
+      {
+        "id": "shortcuts",
+        "layout": "shelf"
+      },
+      {
+        "id": "accounts",
+        "layout": "list",
+        "title": "Conta"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "sec_header_1",
+      "slot": "header",
+      "type": "top_bar",
+      "typeVersion": 1,
+      "layout": "fixed",
+      "props": {
+        "greetingName": "Mariana Silva"
+      }
+    },
+    {
+      "id": "sec_category_grid",
+      "slot": "shortcuts",
+      "type": "category_grid",
+      "layout": "two_pane",
+      "props": {
+        "columns": 3,
+        "orientation": "horizontal"
+      },
+      "actions": [
+        {
+          "id": "act_call_api",
+          "type": "callApi",
+          "label": "Executar chamada remota de API"
+        },
+        {
+          "id": "act_add_cart",
+          "type": "addToCart",
+          "label": "Adicionar ao carrinho"
+        }
+      ]
+    }
+  ]
+}
