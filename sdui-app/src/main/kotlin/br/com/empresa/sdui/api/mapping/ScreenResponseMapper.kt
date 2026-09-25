@@ -24,15 +24,51 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 /**
- * Converte a arvore do dominio no contrato JSON publicado, para qualquer surface da allowlist.
+ * Mapeador de fronteira responsavel por traduzir a arvore de dominio no contrato JSON publicado.
  *
- * A fronteira que mantem o modelo interno livre para evoluir sem mexer no que iOS e Android
- * consomem: qualquer renomeacao ou reorganizacao de dominio para aqui. Tambem e onde as props,
- * que sao mapa livre, viram JsonNode preservando os tipos originais.
+ * ### 1. O que faz
+ * Converte a entidade de dominio [ComposedScreen] no envelope formal [ScreenResponse], mapeando
+ * propriedades de rastreamento, envelope, metadados do cliente, targeting, skeleton e colecao de secoes.
+ *
+ * ### 2. Para que serve
+ * Funciona como a fronteira de isolamento anti-corrupcao que preserva o contrato estrito consumido
+ * pelos clientes moveis iOS e Android, permitindo que as entidades e regras internas do `sdui-core`
+ * evoluam livremente sem quebrar a serializacao Jackson 3 da camada externa.
+ *
+ * ### 3. Como funciona
+ * - **Formatacao de Data Canônica:** Formata o instante [ComposedScreen.generatedAt] em ISO-8601 com
+ *   o deslocamento de fuso horario fixo `-03:00` ([BRASIL_OFFSET]), atendendo rigorosamente a fixture
+ *   canônica sem depender de horario de verao.
+ * - **Projecao Segura de Props:** Transforma mapas heterogeneos de propriedades de componentes em arvores
+ *   [JsonNode] Jackson tipadas via [toNode], com protecao contra estouro de pilha por recursao excessiva.
+ * - **Telemetria de Superficie:** Vincula o evento analitico padronizado da surface correspondente via [analyticsEvent].
+ *
+ * @property mapper Instancia de [JsonMapper] utilizada para a criacao de nos e navegacao no grafo JSON.
  */
 class ScreenResponseMapper(
     private val mapper: JsonMapper,
 ) {
+    /**
+     * Converte o modelo de tela do dominio no DTO de resposta contratual.
+     *
+     * ### 1. O que faz
+     * Traduz uma instancia de [ComposedScreen] no DTO [ScreenResponse], desmembrando suas estruturas
+     * em envelope, skeleton e secoes.
+     *
+     * ### 2. Para que serve
+     * Produz o objeto contratual definitivo compativel com a especificacao JSON Server-Driven UI v3.
+     *
+     * ### 3. Como funciona
+     * 1. Formata a data de geracao para o formato ISO com timezone `-03:00`.
+     * 2. Monta o [ScreenEnvelope] agregando identificadores, versoes, fallback, itens omitidos,
+     *    contexto do cliente, targeting aplicado e evento analitico da surface.
+     * 3. Mapeia o [SkeletonResponse] com a lista ordenada de slots e seus respectivos layouts.
+     * 4. Mapeia a lista de [SectionResponse], convertendo propriedades dinâmicas com [toNode], acoes
+     *    interativas em [ActionResponse] e evento analitico de impressao da secao (`sdui_section_shown`).
+     *
+     * @param screen Objeto de dominio contendo a tela composta pelo pipeline.
+     * @return O DTO [ScreenResponse] pronto para serializacao JSON.
+     */
     fun toResponse(screen: ComposedScreen): ScreenResponse {
         // Offset fixo por exigencia do contrato: a fixture canonica publica generatedAt em
         // -03:00 (ver fixture contrato-sdui-home-definitivo.json). O Brasil nao observa
@@ -123,12 +159,45 @@ class ScreenResponseMapper(
     }
 
     /**
-     * Evento de composicao da surface. A Home mantem `sdui_home_composed` do contrato v3; cada
-     * surface nova declara o seu em [Surfaces], e uma arvore de surface fora da lista nao existe.
+     * Determina o nome do evento analitico padrao disparado na exibicao da surface.
+     *
+     * ### 1. O que faz
+     * Recupera o identificador do evento de composicao associado a surface informada.
+     *
+     * ### 2. Para que serve
+     * Garante que eventos analiticos de tela (`sdui_home_composed`, etc.) sejam emitidos de forma consistente.
+     *
+     * ### 3. Como funciona
+     * Consulta a allowlist [Surfaces] pelo identificador da [surface]. Se a surface nao for encontrada,
+     * lanca um erro de estado ilegal, ja que nenhuma surface desconhecida deve ultrapassar a selecao.
+     *
+     * @param surface Identificador da surface (ex: `home`, `catalog`).
+     * @return Nome padronizado do evento analitico no contrato.
      */
     private fun analyticsEvent(surface: String): String =
         Surfaces.find(surface)?.analyticsEvent ?: error("surface fora da allowlist: $surface")
 
+    /**
+     * Converte recursivamente qualquer valor primitivo, mapa ou colecao Kotlin em um [JsonNode] do Jackson.
+     *
+     * ### 1. O que faz
+     * Percorre estruturas de dados aninhadas e produz os nos JSON tipados correspondentes.
+     *
+     * ### 2. Para que serve
+     * Permite mapear as propriedades dinâmicas (`props`) dos componentes preservando rigorosamente
+     * os tipos numericos, booleanos e textuais exigidos pelos clientes moveis.
+     *
+     * ### 3. Como funciona
+     * - Trata valores nulos com [tools.jackson.databind.node.NullNode].
+     * - Controla a profundidade de recursao via [depth]; caso exceda [MAX_RECURSION_DEPTH], interrompe e
+     *   insere uma string marcadora `[truncated]` para blindar contra estouro de pilha (StackOverflowError).
+     * - Preserva tipos numericos especiais como [BigInteger] e [BigDecimal] para evitar perdas de precisao.
+     * - Mapeia [List] para [ArrayNode] e [Map] para [ObjectNode], processando recursivamente cada elemento.
+     *
+     * @param value Objeto de origem a ser convertido em no JSON.
+     * @param depth Nivel de profundidade recursiva atual (iniciado em 0).
+     * @return Instancia correspondente de [JsonNode].
+     */
     private fun toNode(value: Any?, depth: Int = 0): JsonNode {
         if (value == null) return mapper.nodeFactory.nullNode()
         if (depth > MAX_RECURSION_DEPTH) return mapper.nodeFactory.stringNode("[truncated]")
@@ -160,8 +229,23 @@ class ScreenResponseMapper(
         }
     }
 
+    /**
+     * Constantes estaticas de configuracao do mapeador de respostas.
+     *
+     * ### 1. O que faz
+     * Centraliza o deslocamento de fuso horario canônico e o limite de profundidade de parsing de props.
+     *
+     * ### 2. Para que serve
+     * Padroniza restricoes de contrato e de protecao de memoria em um ponto unico.
+     *
+     * ### 3. Como funciona
+     * Define [BRASIL_OFFSET] como constante `-03:00` e [MAX_RECURSION_DEPTH] como teto de 32 niveis.
+     */
     private companion object {
+        /** Deslocamento fixo de fuso horario do Brasil (-03:00) exigido pelo contrato das fixtures. */
         val BRASIL_OFFSET: ZoneOffset = ZoneOffset.of("-03:00")
+
+        /** Profundidade maxima de recursao para prevencao de loops ciclicos ou estouro de pilha em props. */
         const val MAX_RECURSION_DEPTH: Int = 32
     }
 }
