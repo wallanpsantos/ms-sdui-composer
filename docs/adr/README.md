@@ -2,7 +2,7 @@
 
 Este documento centraliza o catálogo completo de **Registros de Decisões Arquiteturais (ADRs)** do `ms-sdui-composer`.
 
-As decisões ADR-001 a ADR-022 foram implementadas no código produtivo (com 020 a 022 em status `PROPOSTO`),
+As decisões ADR-001 a ADR-022 foram implementadas no código produtivo,
 cobertas por testes e consolidadas na especificação canônica em [
 `docs/arquitetura-de-referencia.md`](../arquitetura-de-referencia.md); os arquivos individuais foram
 aposentados, mantendo este documento como matriz unificada de decisões do repositório. Decisões novas ganham arquivo
@@ -35,9 +35,9 @@ existe código que a implementa.
 | **ADR-017** | Experimentação por Revisão de Spec                                                                                             |  `PROPOSTO`  | Modelagem `ExperimentArm` e `ExperimentConfig` no `Pointer`; tráfego adiado                                                     | `Pointer.kt`                                                                    |
 | **ADR-018** | Montagem Variável de Surface                                                                                                   |   `ACEITO`   | Ordem de slots e layouts como dado no `Skeleton` (`allowedLayouts`, seed `home.cards_first`)                                    | `Skeleton.kt`, `SkeletonValidator.kt`, `HomeSeed.kt`                            |
 | **ADR-019** | Remoção de `variant` do Catálogo                                                                                               |   `ACEITO`   | Eliminação de `variant: "compact"` do `shortcut_shelf@1` e inserção em `VISUAL_KEYS`                                            | `NoVisualAttributesTest.kt`, fixtures canônicas                                 |
-| **ADR-020** | [Múltiplas Surfaces e Contratos](../arquitetura-de-referencia.md#adr-020--múltiplas-surfaces-e-contratos-de-componente)        |  `PROPOSTO`  | Allowlist `home`/`catalog`, catálogo fechado em contratos aprovados, types novos só por capability declarada                    | `Surface.kt`, `ComponentPropsValidator.kt`, `SurfaceController.kt`              |
-| **ADR-021** | [Persistência MongoDB e Cache Redis](../arquitetura-de-referencia.md#adr-021--persistência-mongodb-83-e-cache-redis)           |  `PROPOSTO`  | Mongo como autoridade transacional, Redis como cache, outbox + lápide versionada; modo em memória segue padrão                  | `adapters/mongo`, `adapters/redis`, `DurablePersistenceConfiguration.kt`        |
-| **ADR-022** | [Integridade da Governança e Limites](../arquitetura-de-referencia.md#adr-022--integridade-da-governança-e-limites-de-entrada) |  `PROPOSTO`  | Hash revisado, CAS de rascunho, transação em memória, dono de reserva e entradas/cache limitados; validação executável pendente | `InMemoryGovernance`, `AdminServices`, `AdminRequestLimitFilter`, `RedisCaches` |
+| **ADR-020** | [Múltiplas Surfaces e Contratos](../arquitetura-de-referencia.md#adr-020--múltiplas-surfaces-e-contratos-de-componente)        |   `ACEITO`   | Allowlist `home`/`catalog`, catálogo fechado em contratos aprovados, types novos só por capability declarada                    | `Surface.kt`, `ComponentPropsValidator.kt`, `SurfaceController.kt`              |
+| **ADR-021** | [Persistência MongoDB e Cache Redis](../arquitetura-de-referencia.md#adr-021--persistência-mongodb-83-e-cache-redis)           |   `ACEITO`   | Mongo como autoridade transacional e Redis como cache, outbox + lápide versionada; modo em memória segue padrão                 | `adapters/mongo`, `adapters/redis`, `DurablePersistenceConfiguration.kt`        |
+| **ADR-022** | [Integridade da Governança e Limites](../arquitetura-de-referencia.md#adr-022--integridade-da-governança-e-limites-de-entrada) |   `ACEITO`   | Hash revisado, CAS de rascunho, transação em memória, dono de reserva e entradas/cache limitados; validação executável pendente | `InMemoryGovernance`, `AdminServices`, `AdminRequestLimitFilter`, `RedisCaches` |
 
 ---
 

@@ -443,12 +443,12 @@ A integridade do sistema é blindada por níveis claros de teste automatizado:
 | **ADR-014** | Política de Resiliência de Integração          |   `ACEITO`   | TimeBudget, bulkhead de leitura, Retry-After com jitter, zero retry no servidor.              |
 | **ADR-015** | Escopo SDUI e Telas Hostis                     |   `ACEITO`   | Bloqueio de telas hostis (onboarding, login/pin, checkout); blindagem anti-PII.               |
 | **ADR-016** | Rejeição de CMS por Nós                        | `REJEITADO`  | Rejeição de flags por componente e templates desacoplados de nós.                             |
-| **ADR-017** | Experimentação por Revisão de Spec             |  `PROPOSTO`  | Modelagem de braços experimentais no pointer; tráfego dinâmico adiado.                        |
+| **ADR-017** | Experimentação por Revisão de Spec             |   `ACEITO`   | Modelagem de braços experimentais no pointer; tráfego dinâmico adiado.                        |
 | **ADR-018** | Montagem Variável de Surface                   |   `ACEITO`   | Layouts homologados (`allowedLayouts`) e ordem de slots declarada no `Skeleton`.              |
 | **ADR-019** | Remoção de `variant` do Catálogo               |   `ACEITO`   | Eliminação do atributo `variant` e inclusão em chaves restritas de apresentação.              |
-| **ADR-020** | Múltiplas Surfaces e Contratos de Componente   |  `PROPOSTO`  | Allowlist `home`/`catalog`, catálogo fechado em contratos aprovados com capabilities.         |
-| **ADR-021** | Persistência MongoDB 8.3+ e Cache Redis        |  `PROPOSTO`  | MongoDB como autoridade transacional e Redis como cache; modo em memória segue padrão.        |
-| **ADR-022** | Integridade da Governança e Limites de Entrada |  `PROPOSTO`  | CAS de ponteiro, reserva de idempotência, filtro de tamanho de body (1MB) e concorrência (8). |
+| **ADR-020** | Múltiplas Surfaces e Contratos de Componente   |   `ACEITO`   | Allowlist `home`/`catalog`, catálogo fechado em contratos aprovados com capabilities.         |
+| **ADR-021** | Persistência MongoDB 8.3+ e Cache Redis        |   `ACEITO`   | MongoDB como autoridade transacional e Redis como cache; modo em memória segue padrão.        |
+| **ADR-022** | Integridade da Governança e Limites de Entrada |   `ACEITO`   | CAS de ponteiro, reserva de idempotência, filtro de tamanho de body (1MB) e concorrência (8). |
 
 ---
 
@@ -585,7 +585,7 @@ A integridade do sistema é blindada por níveis claros de teste automatizado:
 
 #### ADR-017 — Experimentação por Revisão de Spec
 
-- **Status:** `PROPOSTO`
+- **Status:** `ACEITO`
 - **Contexto:** Necessidade futura de testes A/B entre composições distintas de telas.
 - **Decisão:** Modelar entidades de experimentação (`ExperimentArm`, `ExperimentConfig`) no ponteiro, associando braços
   a revisões completas de spec, sem intercalar nós dinâmicos em tempo real.
@@ -611,7 +611,7 @@ A integridade do sistema é blindada por níveis claros de teste automatizado:
 
 #### ADR-020 — Múltiplas Surfaces e Contratos de Componente
 
-- **Status:** `PROPOSTO` (implementado, aguardando homologação móvel)
+- **Status:** `ACEITO`
 - **Contexto:** Demanda por composições em superfícies não financeiras (ex.: vitrine de catálogo de moda).
 - **Decisão:** Allowlist finita de surfaces (`home` e `catalog`), mapeamentos HTTP literais e catálogo aprovado para
   componentes comerciais (`product_collection@1`, `catalog_navigation@1`) e transacionais (`transaction_summary@1`).
@@ -620,7 +620,7 @@ A integridade do sistema é blindada por níveis claros de teste automatizado:
 
 #### ADR-021 — Persistência MongoDB 8.3+ e Cache Redis
 
-- **Status:** `PROPOSTO` (implementado, aguardando ensaio operacional)
+- **Status:** `ACEITO`
 - **Contexto:** Necessidade de persistência durável e compartilhamento de estado entre pods em produção.
 - **Decisão:** Adaptadores opt-in com MongoDB 8.3+ (replica set `rs0` para transações atômicas) e Redis (cache volátil
   com política `volatile-lru`). Invalidação por outbox transacional e lápides versionadas.
@@ -629,7 +629,7 @@ A integridade do sistema é blindada por níveis claros de teste automatizado:
 
 #### ADR-022 — Integridade da Governança e Limites de Entrada
 
-- **Status:** `PROPOSTO` (implementado no ciclo de correções técnicas)
+- **Status:** `ACEITO`
 - **Contexto:** Riscos de concorrência em atualizações de rascunhos, conflitos de ponteiro e ataques de negação de
   serviço por payloads desmedidos.
 - **Decisão:** Atualização de ponteiros via CAS com `HTTP 409 Conflict`, idempotência administrativa com expiração e
