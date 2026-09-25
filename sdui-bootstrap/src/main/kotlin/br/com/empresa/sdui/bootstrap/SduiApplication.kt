@@ -1,5 +1,6 @@
 package br.com.empresa.sdui.bootstrap
 
+import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 /**
@@ -13,8 +14,8 @@ import org.springframework.boot.runApplication
  * ### 2. Para que serve
  * Inicializa o contexto Spring Boot 4.1, ativa o runtime de alta escalabilidade I/O bound em Virtual
  * Threads do Java 25 (`spring.threads.virtual.enabled: true`) e orquestra a subida do servidor web
- * embutido para exposicao dos endpoints REST de composicao de telas (`/v1/surfaces/*`) e governanca
- * (`/admin/v1/*`).
+ * embutido para exposicao dos endpoints REST de composicao de telas (`/v1/surfaces`) e governanca
+ * (`/admin/v1`).
  *
  * ### 3. Como funciona
  * A anotacao `@SpringBootApplication(scanBasePackages = ["br.com.empresa.sdui"])` realiza a varredura
@@ -29,17 +30,17 @@ import org.springframework.boot.runApplication
  * configurados e gerenciados manualmente com prazos de timeout, pooling de conexoes e politicas
  * de resiliencia especificas declaradas em `DurablePersistenceConfiguration`, sem dependencia de
  * defaults genericos de autoconfiguracao.
-*/
+ */
 @SpringBootApplication(
-scanBasePackages = ["br.com.empresa.sdui"],
-excludeName = [
-"org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration",
-"org.springframework.boot.mongodb.autoconfigure.MongoReactiveAutoConfiguration",
-"org.springframework.boot.data.mongodb.autoconfigure.MongoDataAutoConfiguration",
-"org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration",
-"org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration",
-"org.springframework.boot.health.autoconfigure.mongo.MongoHealthContributorAutoConfiguration",
-],
+    scanBasePackages = ["br.com.empresa.sdui"],
+    excludeName = [
+        "org.springframework.boot.mongodb.autoconfigure.MongoAutoConfiguration",
+        "org.springframework.boot.mongodb.autoconfigure.MongoReactiveAutoConfiguration",
+        "org.springframework.boot.data.mongodb.autoconfigure.MongoDataAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration",
+        "org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration",
+        "org.springframework.boot.health.autoconfigure.mongo.MongoHealthContributorAutoConfiguration",
+    ],
 )
 class SduiApplication
 
@@ -60,7 +61,7 @@ class SduiApplication
  * servidor HTTP com Virtual Threads habilitadas.
  *
  * @param args Argumentos de linha de comando fornecidos durante a inicializacao da JVM.
-*/
+ */
 fun main(args: Array<String>) {
-runApplication<SduiApplication>(*args)
+    runApplication<SduiApplication>(*args)
 }
