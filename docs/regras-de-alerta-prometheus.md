@@ -21,15 +21,15 @@ Seguindo as diretrizes da disciplina de observabilidade:
 
 ## 2. Catálogo de Alertas Operacionais
 
-| Alerta                         | Severidade | Condição (PromQL)                                                   | Janela | Runbook Vinculado                                                                                               |
-|--------------------------------|:----------:|---------------------------------------------------------------------|:------:|-----------------------------------------------------------------------------------------------------------------|
-| `SDUIHomeHighLatencyP99`       |   `page`   | P99 de `compose.duration` (hit) > 400ms                             |   5m   | [`ios-canary-rollback.md`](ios-canary-rollback.md)                                                              |
-| `SDUIHomeHighUnavailability`   |   `page`   | Taxa de HTTP 503 (`compose.unavailable`) > 0.5%                     |   3m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
-| `SDUIReadBulkheadShedding`     |  `ticket`  | Rejeições no bulkhead de leitura > 0                                |   2m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
-| `SDUIRollbackTriggered`        |   `page`   | Execução de rollback administrativo > 0                             |   1m   | [`ios-canary-rollback.md`](ios-canary-rollback.md) / [`android-canary-rollback.md`](android-canary-rollback.md) |
-| `SDUIRateLimitSpike`           |  `ticket`  | Taxa de HTTP 429 (`compose.rate_limited`) > 5%                      |   5m   | [`contrato-de-retry-clientes-moveis.md`](contrato-de-retry-clientes-moveis.md)                                  |
-| `SDUIStoreFailures`            |  `ticket`  | Falhas de dependência de dados (`store.failure`) > 0                |   5m   | [`arquitetura-de-referencia.md §8`](../arquitetura-de-referencia.md#8-persistência-e-cache)                     |
-| `SDUICacheInvalidationPending` |  `ticket`  | Invalidações pendentes no outbox (`cache.invalidation.pending`) > 0 |  10m   | [`arquitetura-de-referencia.md §8`](../arquitetura-de-referencia.md#8-persistência-e-cache)                     |
+| Alerta                         | Severidade | Condição (PromQL)                                                   | Janela | Runbook Vinculado                                                                                                                                    |
+|--------------------------------|:----------:|---------------------------------------------------------------------|:------:|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `SDUIHomeHighLatencyP99`       |   `page`   | P99 de `compose.duration` (hit) > 400ms                             |   5m   | [`arquitetura-de-referencia.md §6`](arquitetura-de-referencia.md#6-concorrência-resiliência-e-estratégia-de-fallback) (Rollback Canary ADR-008/013)  |
+| `SDUIHomeHighUnavailability`   |   `page`   | Taxa de HTTP 503 (`compose.unavailable`) > 0.5%                     |   3m   | [`arquitetura-de-referencia.md §6`](arquitetura-de-referencia.md#6-concorrência-resiliência-e-estratégia-de-fallback) (Retry Mobile ADR-014)         |
+| `SDUIReadBulkheadShedding`     |  `ticket`  | Rejeições no bulkhead de leitura > 0                                |   2m   | [`arquitetura-de-referencia.md §6`](arquitetura-de-referencia.md#6-concorrência-resiliência-e-estratégia-de-fallback) (Backpressure ADR-007)         |
+| `SDUIRollbackTriggered`        |   `page`   | Execução de rollback administrativo > 0                             |   1m   | [`arquitetura-de-referencia.md §11`](arquitetura-de-referencia.md#11-catálogo-consolidado-de-decisões-arquiteturais-adr-001-a-adr-022) (ADR-008/013) |
+| `SDUIRateLimitSpike`           |  `ticket`  | Taxa de HTTP 429 (`compose.rate_limited`) > 5%                      |   5m   | [`arquitetura-de-referencia.md §6`](arquitetura-de-referencia.md#6-concorrência-resiliência-e-estratégia-de-fallback) (Rate Limit ADR-014)           |
+| `SDUIStoreFailures`            |  `ticket`  | Falhas de dependência de dados (`store.failure`) > 0                |   5m   | [`arquitetura-de-referencia.md §8`](arquitetura-de-referencia.md#8-persistência-e-cache)                                                             |
+| `SDUICacheInvalidationPending` |  `ticket`  | Invalidações pendentes no outbox (`cache.invalidation.pending`) > 0 |  10m   | [`arquitetura-de-referencia.md §8`](arquitetura-de-referencia.md#8-persistência-e-cache)                                                             |
 
 As regras de latência, indisponibilidade e 429 filtram `surface="home"`: todas as métricas do
 pipeline carregam a tag `surface` (valores `home` e `catalog`), e o SLO desta tabela é o da Home.
@@ -52,7 +52,7 @@ groups:
         annotations:
           summary: "Violação de SLO de latência P99 no hot path da Home (cache hit > 400ms)"
           description: "O percentil P99 de composição da Home em cache hit atingiu {{ $value }}s (SLO: <= 0.4s / 400ms) durante 5 minutos."
-          runbook_url: "docs/runbooks/ios-canary-rollback.md"
+          runbook_url: "docs/arquitetura-de-referencia.md#6-concorrência-resiliência-e-estratégia-de-fallback"
 
       - alert: SDUIHomeHighUnavailability
         expr: (sum(rate(compose_unavailable_total{surface="home"}[5m])) / sum(rate(compose_duration_seconds_count{surface="home"}[5m]))) > 0.005
@@ -63,7 +63,7 @@ groups:
         annotations:
           summary: "Taxa de HTTP 503 Service Unavailable acima de 0.5%"
           description: "A composição da Home está falhando e devolvendo 503 para mais de 0.5% das requisições (taxa atual: {{ $value | humanizePercentage }})."
-          runbook_url: "docs/runbooks/contrato-de-retry-clientes-moveis.md"
+          runbook_url: "docs/arquitetura-de-referencia.md#6-concorrência-resiliência-e-estratégia-de-fallback"
 
       - alert: SDUIReadBulkheadShedding
         expr: sum(rate(compose_bulkhead_rejected_total[2m])) > 0
@@ -74,7 +74,7 @@ groups:
         annotations:
           summary: "Bulkhead do plano de leitura rejeitando requisições"
           description: "O semáforo de concorrência do plano de leitura saturou e rejeitou chamadas na etapa de seleção ou composição."
-          runbook_url: "docs/runbooks/contrato-de-retry-clientes-moveis.md"
+          runbook_url: "docs/arquitetura-de-referencia.md#6-concorrência-resiliência-e-estratégia-de-fallback"
 
       - alert: SDUIRollbackTriggered
         expr: sum(rate(admin_rollback_total[5m])) > 0
@@ -85,7 +85,7 @@ groups:
         annotations:
           summary: "Rollback operacional de especificação acionado no plano de administração"
           description: "Um operador disparou rollback de ponteiro de spec (canal/plataforma afetados disponíveis nas tags da métrica)."
-          runbook_url: "docs/runbooks/ios-canary-rollback.md"
+          runbook_url: "docs/arquitetura-de-referencia.md#11-catálogo-consolidado-de-decisões-arquiteturais-adr-001-a-adr-022"
 
       - alert: SDUIRateLimitSpike
         expr: (sum(rate(compose_rate_limited_total{surface="home"}[5m])) / sum(rate(compose_duration_seconds_count{surface="home"}[5m]))) > 0.05
@@ -96,7 +96,7 @@ groups:
         annotations:
           summary: "Spike de HTTP 429 Rate Limited na Home (> 5%)"
           description: "Mais de 5% das requisições da Home estão sendo limitadas pelo Token Bucket."
-          runbook_url: "docs/runbooks/contrato-de-retry-clientes-moveis.md"
+          runbook_url: "docs/arquitetura-de-referencia.md#6-concorrência-resiliência-e-estratégia-de-fallback"
 
       - alert: SDUIStoreFailures
         expr: sum(rate(store_failure_total[5m])) by (stage) > 0

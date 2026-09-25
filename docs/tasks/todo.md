@@ -24,8 +24,9 @@ As tarefas ativas e itens em aberto restantes no projeto estão agrupados a segu
 ### 2. Infraestrutura e Persistência Operacional (ADR-021)
 
 - [ ] **Ensaio Operacional P13:** Executar o ensaio de resiliência e failover com infraestrutura real
-  (`docker compose up -d` com replica set `rs0` e Redis) conforme roteiro em [
-  `docs/runbooks/persistencia-mongodb-redis.md`](../runbooks/persistencia-mongodb-redis.md):
+  (`docker compose up -d` com replica set `rs0` e Redis) conforme especificado em [
+  `docs/arquitetura-de-referencia.md`](../arquitetura-de-referencia.md#82-modo-persistente-opt-in-mongodb-83-e-cache-redis-adr-021)
+  e ADR-021:
   - Restart de pods sob carga.
   - Comportamento de degradação sob perda temporária do Redis.
   - Indisponibilidade e recuperação de nó primário do MongoDB.

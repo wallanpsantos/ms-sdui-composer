@@ -1,9 +1,10 @@
 # Plano — linguagem de UI do backend: temas por segmento, blocos de composição e campanhas
 
 Status: **PROPOSTO em 2026-09-24 e revisado com o operador ao longo do dia. Nada implementado.** As fases 2 a 7
-dependem da aprovação dos ADR-023 a ADR-026 (T00); a fase 1 não depende. Plano separado de [plan.md](plan.md) e
-[todo.md](todo.md), que registram outra entrega. A execução segue o AGENTS.md: sem Gradle por tarefa, suíte uma única
-vez no checkpoint final e só se o operador autorizar.
+dependem da aprovação dos ADR-023 a ADR-026 (T00); a fase 1 não depende. Este plano complementa as entregas
+consolidadas em [docs/arquitetura-de-referencia.md](../arquitetura-de-referencia.md), com pendências operacionais em
+[todo.md](todo.md). A execução segue o AGENTS.md: sem Gradle por tarefa, suíte uma única vez no checkpoint final e
+só se o operador autorizar.
 
 ## Contexto confirmado com o operador
 
@@ -328,8 +329,8 @@ Exemplo de campanha (trecho, valores ilustrativos):
 - **Verificação:** revisão humana. Nenhuma execução.
 - **Dependências:** nenhuma.
 - **Arquivos:** `docs/adr/ADR-023-temas-por-segmento.md`, `docs/adr/ADR-024-blocos-de-composicao.md`,
-  `docs/adr/ADR-025-campanhas.md`, `docs/adr/ADR-026-identidade-administrativa.md`, os três contratos,
-  `docs/adr/README.md`, `docs/arquitetura-de-referencia.md`.
+  `docs/adr/ADR-025-campanhas.md`, `docs/adr/ADR-026-identidade-administrativa.md`, os três contratos e
+  `docs/arquitetura-de-referencia.md` (§11).
 - **Escopo:** M (documentação).
 
 ### Fase 1 — Endurecimento (vale mesmo se os ADRs forem recusados)

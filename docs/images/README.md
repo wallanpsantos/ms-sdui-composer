@@ -17,18 +17,20 @@ Em caso de conflito sobre o **estado atual**, vence o item mais alto:
 1. Código de validação em `sdui-core`: `MvpCatalog.kt`, `Guards.kt`, `SkeletonValidator.kt`, `SpecValidator.kt`.
 2. Fixture canônica `sdui-contract/src/test/resources/fixtures/contrato-sdui-home-definitivo.json` e os testes de
    `sdui-contract`.
-3. ADRs `ACEITO` (`docs/arquitetura-de-referencia.md` §16 e `docs/adr/README.md`).
+3. ADRs `ACEITO` ([
+   `docs/arquitetura-de-referencia.md`](../arquitetura-de-referencia.md#11-catálogo-consolidado-de-decisões-arquiteturais-adr-001-a-adr-022)
+   §11).
 4. Este documento.
 
 ADRs `PROPOSTO` indicam o **rumo**, não o estado. Neste documento eles aparecem marcados com **[proposto]**:
 
-| ADR     | Tema                                       | Status     | Efeito neste documento                                                        |
-|---------|--------------------------------------------|------------|-------------------------------------------------------------------------------|
-| ADR-015 | Escopo de uso do SDUI                      | `ACEITO`   | Quais imagens retratam fluxos que ficam fora                                  |
-| ADR-017 | Experimentação por revisão de spec         | `PROPOSTO` | Braços de experimento podem diferir em conteúdo e montagem                    |
-| ADR-018 | Montagem variável da surface               | `ACEITO`   | Ordem dos slots é dado do skeleton; cada slot declara layouts permitidos      |
-| ADR-019 | Remoção de `variant` do `shortcut_shelf@1` | `ACEITO`   | `variant` saiu da fixture e está no `VisualGuard`                             |
-| ADR-020 | Múltiplas surfaces e contratos novos       | `PROPOSTO` | Surface `catalog` e três contratos implementados no servidor, não homologados |
+| ADR     | Tema                                       | Status   | Efeito neste documento                                                                     |
+|---------|--------------------------------------------|----------|--------------------------------------------------------------------------------------------|
+| ADR-015 | Escopo de uso do SDUI                      | `ACEITO` | Quais imagens retratam fluxos que ficam fora                                               |
+| ADR-017 | Experimentação por revisão de spec         | `ACEITO` | Braços de experimento podem diferir em conteúdo e montagem                                 |
+| ADR-018 | Montagem variável da surface               | `ACEITO` | Ordem dos slots é dado do skeleton; cada slot declara layouts permitidos                   |
+| ADR-019 | Remoção de `variant` do `shortcut_shelf@1` | `ACEITO` | `variant` saiu da fixture e está no `VisualGuard`                                          |
+| ADR-020 | Múltiplas surfaces e contratos novos       | `ACEITO` | Surface `catalog` e três contratos implementados no servidor, aguardando homologação móvel |
 
 Três regras de leitura que atravessam o documento:
 
@@ -533,8 +535,9 @@ Priorizado pelo custo de adiar: numa fase de desenvolvimento, o que mexe no mode
 
 ## 13. Referências
 
-- ADRs do projeto: ADR-001 a ADR-022 (consolidados em `docs/arquitetura-de-referencia.md` §11 e
-  `docs/adr/README.md`).
+- ADRs do projeto: ADR-001 a ADR-022 (consolidados em [
+  `docs/arquitetura-de-referencia.md`](../arquitetura-de-referencia.md#11-catálogo-consolidado-de-decisões-arquiteturais-adr-001-a-adr-022)
+  §11).
 - Martin
   Fowler — [Presentation and Application Controller](https://martinfowler.com/eaaCatalog/applicationController.html).
 - Airbnb

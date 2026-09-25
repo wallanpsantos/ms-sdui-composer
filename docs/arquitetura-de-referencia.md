@@ -681,7 +681,30 @@ por suítes de testes com status `ACEITO`:
 
 ---
 
-## Conclusão
+## 13. Backlog e Pendências Operacionais
+
+Embora o MVP (`H00` a `H18`) e os ciclos `ADR-020` a `ADR-022` estejam integralmente implementados no código e cobertos
+por testes unitários, de contrato e de arquitetura, o serviço mantém o seguinte backlog operacional de validação e
+homologação:
+
+1. **Reexecução Única da Suíte Gradle:** Execução formal de `gradlew clean build --warning-mode=fail` ao final do ciclo,
+   mediante solicitação humana explícita, para confirmação dos testes após as últimas otimizações e correções.
+2. **Ensaio Operacional de Persistência (ADR-021, P13):** Execução do ensaio com infraestrutura dedicada
+   (`docker compose up -d` com réplicas do MongoDB e cluster Redis) conforme diretrizes
+   da [Seção 8.2](#82-modo-persistente-opt-in-mongodb-83-e-cache-redis-adr-021) e ADR-021. Até a homologação desse
+   ensaio, o serviço opera formalmente em modo de memória local (instância única).
+3. **Baseline HTTP em Hardware Dedicado:** Medição formal de throughput e latência P99 do cenário `compose-hit-p99` com
+   cliente e servidor em máquinas distintas.
+4. **Homologação com Clientes Móveis (ADR-020):** Validação dos novos contratos comerciais e transacionais
+   (`product_collection@1`, `catalog_navigation@1`, `transaction_summary@1`) e fornecimento da fixture canônica
+   definitiva pela equipe Android.
+5. **Evolução Futura — Linguagem de UI do Backend:** Especificação arquitetural de temas por segmento, componente
+   primitivo `block@1`, campanhas dinâmicas e autenticação JWT (ADR-023 a ADR-026), documentada no plano técnico em [
+   `docs/tasks/plano-tokens-semanticos.md`](tasks/plano-tokens-semanticos.md).
+
+---
+
+## 14. Conclusão
 
 A arquitetura do **ms-sdui-composer** estabelece uma fronteira de engenharia pragmática e determinística:
 
@@ -695,7 +718,7 @@ A arquitetura do **ms-sdui-composer** estabelece uma fronteira de engenharia pra
 
 ---
 
-## Referências
+## 15. Referências
 
 - [Spring Boot 4.1 Release Notes](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.1-Release-Notes)
 - [Spring Boot 4.0 Migration Guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide)
