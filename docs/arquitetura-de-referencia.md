@@ -668,6 +668,17 @@ código de produção e validadas por suíte de testes com **Quality Gate APROVA
 | **H17**  | Governança Android                | Publicação, aprovação e rollback de ponteiros dedicados para plataforma Android    | `sdui-app`                  | `AndroidGovernanceTest`                                |
 | **H18**  | Canary e Promoção Android         | Estratégia de Canary com builds Android e promoção atômica para Stable             | `sdui-app`                  | `AndroidCanaryPromotionTest`                           |
 
+### Matriz Consolidada de Entregas Pós-MVP (ADR-020 a ADR-022)
+
+Todas as entregas de evolução pós-MVP foram **concluídas com sucesso**, implementadas no código de produção e validadas
+por suítes de testes com status `ACEITO`:
+
+| Decisão / Entregável | Domínio / Título                        | Escopo Entregue no Código                                                                                                                                                                                                                 | Módulo Principal                         | Testes / Cobertura                                                                                                                    |
+|:--------------------:|:----------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------|
+|     **ADR-020**      | Múltiplas Surfaces e Novos Contratos    | Allowlist finita (`home`/`catalog`), novos componentes (`product_collection@1`, `catalog_navigation@1`, `transaction_summary@1`), 4 composições de exemplo (`docs/examples/screens/`), demo loader e `SurfaceController`                  | `sdui-core`, `sdui-contract`, `sdui-app` | `SurfaceWebTest`, `ComponentContractsTest`, `SurfaceRulesTest`, `SurfaceIsolationAndSingleflightTest`, `SelectSurfaceAndPropWalkTest` |
+|     **ADR-021**      | Persistência MongoDB 8.3+ e Cache Redis | Adapters duráveis MongoDB em replica set (`rs0`) com transações multi-documento ACID, outbox transacional, relay assíncrono, cache Redis com chaves anti-PII, last good com lápide versionada e health indicators Actuator                | `sdui-app`, `sdui-bootstrap`             | `MongoPersistenceIT`, `RedisCachesIT`, `DurableModeBootIT`, `RedisUrlSecretTest`                                                      |
+|     **ADR-022**      | Integridade da Governança e Limites     | CAS atômico de ponteiro e rascunho, autoridade `InMemoryGovernance` transacional, filtro `AdminRequestLimitFilter` (teto 1MB e 8 requisições simultâneas com `Retry-After`), idempotência em duas fases com reserva atômica e fingerprint | `sdui-app`                               | `AdminRequestLimitFilterTest`, `AdminIdempotencyTest`, `AdminGovernanceWebTest`, `HttpJsonLimitsTest`                                 |
+
 ---
 
 ## Conclusão
