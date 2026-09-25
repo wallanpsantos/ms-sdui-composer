@@ -1,6 +1,8 @@
 package br.com.empresa.sdui.core.limit
 
+import java.time.Duration
 import java.util.concurrent.Semaphore
+import java.util.concurrent.TimeUnit
 
 /**
  * Resultado discriminado da tentativa de admissão e execução de uma operação sob um [Bulkhead].
@@ -74,7 +76,7 @@ sealed interface BulkheadOutcome<out T> {
  * de entrada (*thread pool shedding*), todas as requisições poderiam invadir simultaneamente uma dependência lenta,
  * provocando sobrecarga severa de CPU, exaustão de descritores de sockets e indisponibilidade generalizada.
  * O bulkhead restabelece limites locais explícitos por plano operacional: o plano de composição de telas da Home
- * possui seu próprio bulkhead isolado do plano de administração (`/admin/v1/**`), garantindo que uma publicação
+ * possui seu próprio bulkhead isolado do plano de administração (rotas `/admin/v1/...`), garantindo que uma publicação
  * de especificação ou rollback administrativo lento não consuma a capacidade de atendimento dos clientes móveis.
  *
  * ### 3. Como funciona
@@ -85,62 +87,62 @@ sealed interface BulkheadOutcome<out T> {
  * [BulkheadOutcome.Rejected], protegendo a dependência contra formação de filas ocultas.
  *
  * @param permits Quantidade máxima de execuções concorrentes simultâneas autorizadas para este compartimento.
-*/
+ */
 class Bulkhead(permits: Int) {
-private val semaphore = Semaphore(permits)
+    private val semaphore = Semaphore(permits)
 
-/**
- * Consulta a quantidade de permissões atualmente disponíveis no compartimento.
- *
- * ### 1. O que faz
- * Retorna o número instantâneo de slots de concorrência livres para aquisição imediata no [Bulkhead].
- *
- * ### 2. Para que serve
- * Atende a requisitos de observabilidade, métricas de capacidade em tempo real (Micrometer) e asserções
- * determinísticas em suítes de testes automatizados de saturação de concorrência.
- *
- * ### 3. Como funciona
- * Interroga diretamente o método [Semaphore.availablePermits] do semáforo interno. Trata-se de uma leitura
- * não-bloqueante de precisão instantânea refletindo o estado concorrente no momento da consulta.
- *
- * @return Número de permissões livres neste instante (entre 0 e o teto configurado).
-*/
-fun availablePermits(): Int = semaphore.availablePermits()
+    /**
+     * Consulta a quantidade de permissões atualmente disponíveis no compartimento.
+     *
+     * ### 1. O que faz
+     * Retorna o número instantâneo de slots de concorrência livres para aquisição imediata no [Bulkhead].
+     *
+     * ### 2. Para que serve
+     * Atende a requisitos de observabilidade, métricas de capacidade em tempo real (Micrometer) e asserções
+     * determinísticas em suítes de testes automatizados de saturação de concorrência.
+     *
+     * ### 3. Como funciona
+     * Interroga diretamente o método [Semaphore.availablePermits] do semáforo interno. Trata-se de uma leitura
+     * não-bloqueante de precisão instantânea refletindo o estado concorrente no momento da consulta.
+     *
+     * @return Número de permissões livres neste instante (entre 0 e o teto configurado).
+     */
+    fun availablePermits(): Int = semaphore.availablePermits()
 
-/**
- * Executa um bloco de trabalho segurando temporariamente uma permissão de concorrência do [Bulkhead].
- *
- * ### 1. O que faz
- * Tenta adquirir uma permissão do semáforo dentro do tempo limite [timeout] e, se concedida, executa a
- * computação [work], devolvendo o resultado em [BulkheadOutcome.Executed]. Caso contrário, devolve
- * [BulkheadOutcome.Rejected].
- *
- * ### 2. Para que serve
- * Protege operações críticas (leituras de stores, hidratação de seções, orquestração) contra sobrecarga,
- * garantindo tempo de espera delimitado e devolução incondicional da permissão adquirida mesmo em casos
- * de falha ou lançamento de exceções.
- *
- * ### 3. Como funciona
- * 1. Converte o [timeout] fornecido em milissegundos, assegurando valor não-negativo através de [Long.coerceAtLeast].
- * 2. Invoca [Semaphore.tryAcquire] com o tempo calculado. Se a aquisição falhar por esgotamento de tempo,
- *    aborta imediatamente e retorna [BulkheadOutcome.Rejected].
- * 3. Se a permissão for obtida com sucesso, executa o bloco [work] envolto por uma estrutura `try-finally`.
- * 4. O bloco `finally` executa [Semaphore.release] obrigatoriamente, garantindo que nenhum vazamento de
- *    permissões ocorra caso [work] lance uma exceção em tempo de execução.
- * 5. Retorna o resultado envelopado em [BulkheadOutcome.Executed].
- *
- * @param T Tipo do retorno gerado pelo bloco de código executado.
- * @param timeout Tempo limite máximo que a thread aceita aguardar para obter uma permissão livre.
- * @param work Expressão lambda contendo o processamento a ser executado sob proteção de concorrência.
- * @return [BulkheadOutcome.Executed] com o valor produzido ou [BulkheadOutcome.Rejected] em caso de saturação.
-*/
-fun <T> withPermit(timeout: Duration, work: () -> T): BulkheadOutcome<T> {
-val waitMs = timeout.toMillis().coerceAtLeast(0L)
-if (!semaphore.tryAcquire(waitMs, TimeUnit.MILLISECONDS)) return BulkheadOutcome.Rejected
-return try {
-BulkheadOutcome.Executed(work())
-} finally {
-semaphore.release()
-}
-}
+    /**
+     * Executa um bloco de trabalho segurando temporariamente uma permissão de concorrência do [Bulkhead].
+     *
+     * ### 1. O que faz
+     * Tenta adquirir uma permissão do semáforo dentro do tempo limite [timeout] e, se concedida, executa a
+     * computação [work], devolvendo o resultado em [BulkheadOutcome.Executed]. Caso contrário, devolve
+     * [BulkheadOutcome.Rejected].
+     *
+     * ### 2. Para que serve
+     * Protege operações críticas (leituras de stores, hidratação de seções, orquestração) contra sobrecarga,
+     * garantindo tempo de espera delimitado e devolução incondicional da permissão adquirida mesmo em casos
+     * de falha ou lançamento de exceções.
+     *
+     * ### 3. Como funciona
+     * 1. Converte o [timeout] fornecido em milissegundos, assegurando valor não-negativo através de [Long.coerceAtLeast].
+     * 2. Invoca [Semaphore.tryAcquire] com o tempo calculado. Se a aquisição falhar por esgotamento de tempo,
+     *    aborta imediatamente e retorna [BulkheadOutcome.Rejected].
+     * 3. Se a permissão for obtida com sucesso, executa o bloco [work] envolto por uma estrutura `try-finally`.
+     * 4. O bloco `finally` executa [Semaphore.release] obrigatoriamente, garantindo que nenhum vazamento de
+     *    permissões ocorra caso [work] lance uma exceção em tempo de execução.
+     * 5. Retorna o resultado envelopado em [BulkheadOutcome.Executed].
+     *
+     * @param T Tipo do retorno gerado pelo bloco de código executado.
+     * @param timeout Tempo limite máximo que a thread aceita aguardar para obter uma permissão livre.
+     * @param work Expressão lambda contendo o processamento a ser executado sob proteção de concorrência.
+     * @return [BulkheadOutcome.Executed] com o valor produzido ou [BulkheadOutcome.Rejected] em caso de saturação.
+     */
+    fun <T> withPermit(timeout: Duration, work: () -> T): BulkheadOutcome<T> {
+        val waitMs = timeout.toMillis().coerceAtLeast(0L)
+        if (!semaphore.tryAcquire(waitMs, TimeUnit.MILLISECONDS)) return BulkheadOutcome.Rejected
+        return try {
+            BulkheadOutcome.Executed(work())
+        } finally {
+            semaphore.release()
+        }
+    }
 }
