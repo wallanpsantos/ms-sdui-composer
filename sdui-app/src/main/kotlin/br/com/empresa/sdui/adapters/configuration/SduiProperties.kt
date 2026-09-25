@@ -3,10 +3,46 @@ package br.com.empresa.sdui.adapters.configuration
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 /**
- * Parametros operacionais, ajustaveis sem recompilar sob o prefixo `sdui`.
+ * Parametros operacionais do BFF Server-Driven UI vinculados ao prefixo `sdui`.
  *
- * Reune o que se mexe em producao: prazos, limites de concorrencia, tetos de memoria, allowlists
- * de canary e o modo de persistencia. Os defaults aqui valem quando nada e configurado.
+ * ### 1. O que faz
+ * Centraliza e tipa todas as variaveis de configuracao do servico injetadas a partir de arquivos
+ * de configuracao (`application.yaml`) ou variaveis de ambiente, mapeando-as para tipos imutaveis.
+ *
+ * ### 2. Para que serve
+ * Permite calibrar dinamicamente os prazos (timeouts), limites de concorrencia (bulkheads), politicas
+ * de degradacao e fallback (`ADR-007`), limitacao de taxa (rate limiting), canais de experimentacao
+ * (canary iOS e Android) e a infraestrutura de persistencia ativa (`memory`, `mongo`, `redis` via `ADR-021`),
+ * sem necessidade de recompilacao do artefato.
+ *
+ * ### 3. Como funciona
+ * O Spring Boot instancia esta data class durante a inicializacao atraves de `@EnableConfigurationProperties`.
+ * Se nenhuma propriedade externa for declarada, aplica valores padrao seguros (safe defaults)
+ * dimensionados para execucao em memoria e baixa latencia.
+ *
+ * @property canaryIosBuilds Lista de identificadores de builds iOS autorizados a receber specs canary.
+ * @property canaryAndroidBuilds Lista de builds Android autorizados a receber specs canary.
+ * @property rateLimitCapacity Capacidade maxima de tokens por bucket no limitador de taxa (token bucket).
+ * @property rateLimitRefillPerSecond Taxa de reabastecimento de tokens por segundo em cada bucket.
+ * @property rateLimitMaxKeys Teto maximo de chaves e buckets residentes em memoria para evitar estouro de heap.
+ * @property treeTtlSeconds Tempo de vida (TTL) em segundos para as arvores de tela hidratadas em cache.
+ * @property treeCacheMaxEntries Limite maximo de arvores completas mantidas simultaneamente no cache.
+ * @property hydrationTimeoutMs Prazo maximo em milissegundos para o fan-out assincrono de hidratacao de secoes.
+ * @property hydrationFanout Quantidade maxima de workers simultaneos permitidos no fan-out de hidratacao.
+ * @property retryAfterSeconds Tempo base em segundos retornado no cabecalho `Retry-After` em respostas HTTP 503.
+ * @property rateLimitRetryAfterSeconds Tempo base em segundos no cabecalho `Retry-After` para HTTP 429.
+ * @property requestBudgetMs Orcamento total de tempo da requisicao de composicao para limitar esperas do pipeline.
+ * @property singleflightTimeoutMs Tempo maximo que requisicoes concorrentes aguardam o lider no singleflight.
+ * @property readBulkheadPermits Quantidade de permissoes simultaneas no bulkhead de leitura de surfaces.
+ * @property readBulkheadWaitMs Tempo maximo de espera por uma permissao do bulkhead antes de degradar o fluxo.
+ * @property maxFallbackAgeSeconds Idade maxima de uma arvore de last good para ser aceita como fallback valido.
+ * @property idempotencyTtlSeconds Janela de retencao do registro de idempotencia apos sua conclusao com sucesso.
+ * @property idempotencyReservationTimeoutSeconds Prazo maximo de expiracao de uma reserva em andamento abandonada.
+ * @property idempotencyMaxKeys Teto maximo de registros de idempotencia residentes no armazenamento em memoria.
+ * @property metricsMaxTagValues Limite maximo de valores cardinais distintos por tag nas metricas Micrometer.
+ * @property seedIos Flag que indica se a carga inicial da surface home iOS deve ser executada no startup.
+ * @property demoEnabled Flag que habilita a carga demonstrativa automatica de telas de exemplo na inicializacao.
+ * @property persistence Configuracoes de persistencia e cache de governanca (memoria, MongoDB ou Redis).
  */
 @ConfigurationProperties(prefix = "sdui")
 data class SduiProperties(
@@ -58,7 +94,27 @@ data class SduiProperties(
     val persistence: PersistenceProperties = PersistenceProperties(),
 )
 
-/** Onde vive a governanca e onde vivem os caches (ADR-021). Valor invalido falha a subida. */
+/**
+ * Propriedades de configuracao da camada de persistencia e cache de governanca (`ADR-021`).
+ *
+ * ### 1. O que faz
+ * Declara os seletores de backend de dados (`store` e `cache`), o intervalo de relay para
+ * invalidacao assincrona e os blocos de configuracao especificos para MongoDB e Redis.
+ *
+ * ### 2. Para que serve
+ * Permite alternar entre execucao totalmente efemera em heap ([StoreMode.MEMORY], [CacheMode.MEMORY])
+ * e execucao duravel distribuida ([StoreMode.MONGO], [CacheMode.REDIS]) em clusters produtivos.
+ *
+ * ### 3. Como funciona
+ * Avaliada condicionalmente pelas classes de configuracao do Spring para registrar os beans de persistencia
+ * adequados. A selecao e estrita: valores invalidos interrompem o bootstrap da aplicacao.
+ *
+ * @property store Modo de persistencia para os dados da governanca (`MEMORY` ou `MONGO`).
+ * @property cache Modo de cache para arvores hidratadas e specs (`MEMORY` ou `REDIS`).
+ * @property invalidationRelayIntervalMs Intervalo em milissegundos do relay que processa invalidacoes pendentes.
+ * @property mongo Parametros de conexao e timeouts especificos para o cliente MongoDB.
+ * @property redis Parametros de conexao e timeouts especificos para o cliente Redis via Lettuce.
+ */
 data class PersistenceProperties(
     val store: StoreMode = StoreMode.MEMORY,
     val cache: CacheMode = CacheMode.MEMORY,
@@ -68,14 +124,70 @@ data class PersistenceProperties(
     val redis: SduiRedisProperties = SduiRedisProperties(),
 )
 
-enum class StoreMode { MEMORY, MONGO }
+/**
+ * Modos de armazenamento suportados para a autoridade de governanca do SDUI.
+ *
+ * ### 1. O que faz
+ * Define as opcoes de backend de persistencia permanente para specs, skeletons, catalogos e auditoria.
+ *
+ * ### 2. Para que serve
+ * Discrimina entre o modo em memoria (padrao, voltado a testes e desenvolvimento) e MongoDB (cluster duravel).
+ *
+ * ### 3. Como funciona
+ * Utilizado na propriedade `sdui.persistence.store` para ativar condicionalmente os beans de governanca.
+ */
+enum class StoreMode {
+    /** Armazenamento efemero em memoria RAM utilizando estruturas thread-safe. */
+    MEMORY,
 
-enum class CacheMode { MEMORY, REDIS }
+    /** Armazenamento persistente distribuido no MongoDB em replica set (`ADR-021`). */
+    MONGO
+}
 
 /**
- * Conexao com o MongoDB. A URI carrega credencial e vem sempre de configuracao externa
- * (`SDUI_PERSISTENCE_MONGO_URI`), nunca do repositorio. Os prazos sao do driver: e ele quem
- * interrompe uma chamada em andamento, o que o orcamento da requisicao nao faz.
+ * Modos de armazenamento suportados para o cache de telas e specs.
+ *
+ * ### 1. O que faz
+ * Enumera os mecanismos de cache disponiveis no servico para aceleracao de leitura.
+ *
+ * ### 2. Para que serve
+ * Permite selecionar entre cache local em heap do processo ou cache distribuido compartilhado no Redis.
+ *
+ * ### 3. Como funciona
+ * Inspecionado condicionalmente via `@ConditionalOnProperty` nas classes de configuracao de cache.
+ */
+enum class CacheMode {
+    /** Cache local em heap do processo atraves de estruturas em memoria. */
+    MEMORY,
+
+    /** Cache distribuido em cluster Redis atraves de templates de chave/valor (`ADR-021`). */
+    REDIS
+}
+
+/**
+ * Parametros de conexao, pool e timeouts do driver MongoDB (`ADR-021`).
+ *
+ * ### 1. O que faz
+ * Define as propriedades de conectividade direta com o replica set do MongoDB, limites do pool
+ * de conexoes e prazos explicitos do driver (CSOT - Client-Side Operation Timers).
+ *
+ * ### 2. Para que serve
+ * Isola as politicas de resiliencia e timeouts no nivel do driver Mongo, impedindo que chamadas
+ * lentas travem threads virtuais indefinidamente ou sobrecarreguem o banco de dados.
+ *
+ * ### 3. Como funciona
+ * Os valores sao lidos nas configuracoes de persistencia duravel para instanciar manualmente o cliente oficial
+ * do MongoDB (`MongoClient`) sem utilizar as autoconfiguracoes padrao do Spring Boot.
+ *
+ * @property uri String de conexao com credenciais, hosts e replica set do MongoDB.
+ * @property database Nome da base de dados utilizada pelo servico SDUI.
+ * @property connectTimeoutMs Timeout de abertura de socket TCP com o servidor MongoDB.
+ * @property serverSelectionTimeoutMs Timeout para selecao e descoberta de no no cluster MongoDB.
+ * @property operationTimeoutMs Prazo maximo total para conclusao de qualquer operacao no MongoDB.
+ * @property maxPoolSize Quantidade maxima de conexoes abertas no pool por processo.
+ * @property minPoolSize Quantidade minima de conexoes ociosas mantidas no pool.
+ * @property maxWaitTimeMs Tempo maximo que uma thread aguarda para obter conexao do pool.
+ * @property maxDocumentBytes Tamanho maximo permitido para documentos BSON serializados.
  */
 data class SduiMongoProperties(
     val uri: String = "",
@@ -91,7 +203,28 @@ data class SduiMongoProperties(
     val maxDocumentBytes: Int = 1_048_576,
 )
 
-/** Conexao com o Redis. A URL pode carregar senha e tambem vem de configuracao externa. */
+/**
+ * Parametros de conexao e politicas de armazenamento do cliente Redis (`ADR-021`).
+ *
+ * ### 1. O que faz
+ * Define as informacoes de conexao, timeouts de socket e comando do Lettuce, e tempos de vida (TTL)
+ * para chaves de cache e fallback armazenadas no Redis.
+ *
+ * ### 2. Para que serve
+ * Garante que o Redis opere estritamente como acelerador de leitura de baixa latencia, falhando
+ * rapidamente sob instabilidade para acionar a escada de fallback sem degradar o servico.
+ *
+ * ### 3. Como funciona
+ * Utilizado pelas configuracoes de cache duravel para construir a conexao Lettuce configurada
+ * para rejeitar comandos imediatamente quando desconectado (`REJECT_COMMANDS`).
+ *
+ * @property url URL de conexao contendo host, porta, senha e banco do Redis.
+ * @property connectTimeoutMs Timeout de conexao TCP com o Redis.
+ * @property commandTimeoutMs Timeout de execucao de comando individual no Redis.
+ * @property maxEntryBytes Limite em bytes para gravacao de uma entrada; entradas maiores sao ignoradas.
+ * @property specTtlSeconds Tempo de vida em segundos para specs cacheadas no Redis.
+ * @property lastGoodTtlSeconds Tempo de vida em segundos para telas no degrau de fallback last good.
+ */
 data class SduiRedisProperties(
     val url: String = "",
     val connectTimeoutMs: Long = 1_000,

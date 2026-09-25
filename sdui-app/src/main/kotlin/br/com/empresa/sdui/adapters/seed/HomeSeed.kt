@@ -27,19 +27,20 @@ import tools.jackson.databind.json.JsonMapper
 import java.time.Instant
 
 /**
- * Carrega o catalogo, o skeleton e os specs da home a partir da fixture canonica do contrato.
+ * Carga inicial (seed) do catálogo, skeletons e especificações da superfície Home (`ADR-021`).
  *
- * Em memoria, e o seed que deixa o servico utilizavel ao subir. Partir da mesma fixture que os
- * testes de contrato usam garante que o que sobe e o que foi acordado com as equipes moveis, em
- * vez de uma copia que envelhece em paralelo.
+ * ### 1. O que faz
+ * Popula os repositórios de governança no bootstrap a partir da fixture JSON canônica de contrato.
  *
- * Alem da revisao corrente, semeia uma legacy e uma seguinte, para exercitar a selecao por faixa
- * de versao e o canary sem depender de dado montado a mao.
+ * ### 2. Para que serve
+ * Inicializar a aplicação em estado funcional garantindo que o catálogo de componentes, os esqueletos
+ * de layout e as especificações ativas reflitam fielmente o contrato acordado com os clientes móveis.
  *
- * **Idempotente (ADR-021).** Cada item so e gravado se ainda nao existir: com persistencia real, o
- * segundo boot — ou um segundo pod subindo junto — encontra catalogo, skeletons, specs e pointers
- * no banco e nao sobrescreve nada que a governanca publicou ou moveu depois. Uma gravacao que
- * perde a corrida para outro pod e aceita se o item passou a existir.
+ * ### 3. Como funciona
+ * Executa de forma estritamente idempotente ([savePublishedSkeleton], [saveSpecIfAbsent], [savePointerIfAbsent]).
+ * Semeia o catálogo [MvpCatalog.TYPES], os skeletons `home.default` e `home.cards_first`, desserializa
+ * a fixture para a spec corrente do iOS e gera as specs legada e seguinte. Finalmente, inicializa os
+ * ponteiros de publicação para iOS e Android em todos os canais sem sobrescrever dados pré-existentes.
  */
 class HomeSeed(
     private val catalogStore: CatalogStore,
@@ -48,6 +49,19 @@ class HomeSeed(
     private val pointerStore: PointerStore,
     private val mapper: JsonMapper = JsonMapper.builder().build(),
 ) {
+    /**
+     * Executa a carga completa do ambiente inicial a partir do JSON da fixture canônica.
+     *
+     * ### 1. O que faz
+     * Coordena o processo sequencial de inicialização de catálogo, skeletons, specs e ponteiros.
+     *
+     * ### 2. Para que serve
+     * Deixar o serviço pronto para compor respostas imediatamente após a inicialização.
+     *
+     * ### 3. Como funciona
+     * Dispara [seedCatalog], [seedSkeleton], [seedCardsFirstSkeleton], faz o parse da árvore JSON
+     * com [mapper] e orquestra a persistência idempotente das entidades de domínio.
+     */
     fun seedFromCanonicalFixture(fixtureJson: String) {
         seedCatalog()
         val skeleton = seedSkeleton()
@@ -59,6 +73,19 @@ class HomeSeed(
         seedPointers()
     }
 
+    /**
+     * Semeia os tipos de componentes do MVP no catálogo se estiver vazio.
+     *
+     * ### 1. O que faz
+     * Insere os 7 componentes aprovados do catálogo MVP no [catalogStore].
+     *
+     * ### 2. Para que serve
+     * Registrar as capabilities conhecidas que os clientes móveis declaram suportar.
+     *
+     * ### 3. Como funciona
+     * Confere se [catalogStore.current] já contém componentes; caso não possua, salva a lista
+     * de [MvpCatalog.TYPES] com status ativo.
+     */
     fun seedCatalog() {
         if (catalogStore.current().components.isNotEmpty()) return
         catalogStore.save(
@@ -76,6 +103,18 @@ class HomeSeed(
         )
     }
 
+    /**
+     * Semeia e retorna o skeleton padrão publicado `home.default`.
+     *
+     * ### 1. O que faz
+     * Salva o skeleton padrão com os 7 slots ordenados contratuais.
+     *
+     * ### 2. Para que serve
+     * Definir a estrutura principal da tela com prateleira de atalhos (`shortcuts` em shelf).
+     *
+     * ### 3. Como funciona
+     * Aciona [savePublishedSkeleton] com [MvpCatalog.SKELETON_HOME_DEFAULT] e a lista de slots.
+     */
     fun seedSkeleton(): Skeleton = savePublishedSkeleton(
         MvpCatalog.SKELETON_HOME_DEFAULT,
         listOf(
@@ -89,6 +128,18 @@ class HomeSeed(
         ),
     )
 
+    /**
+     * Semeia e retorna o skeleton alternativo publicado `home.cards_first`.
+     *
+     * ### 1. O que faz
+     * Salva o skeleton com cartões antes de atalhos e atalhos em formato de grade (`grid`).
+     *
+     * ### 2. Para que serve
+     * Viabilizar testes de variações estruturais de tela e targeting diferenciado.
+     *
+     * ### 3. Como funciona
+     * Aciona [savePublishedSkeleton] com [MvpCatalog.SKELETON_HOME_CARDS_FIRST] e slots reordenados.
+     */
     fun seedCardsFirstSkeleton(): Skeleton = savePublishedSkeleton(
         MvpCatalog.SKELETON_HOME_CARDS_FIRST,
         listOf(
@@ -240,8 +291,17 @@ class HomeSeed(
         checkNotNull(specStore.findBySpecIdAndRevision(IOS_CURRENT_SPEC_ID, 1)) { "spec corrente do seed ausente" }
 
     /**
-     * Pointers iniciais, so onde ainda nao ha pointer: nunca desfaz uma publicacao ou rollback. O
-     * iOS aponta para a revisao corrente semeada, qualquer que seja o specRevisionId da fixture.
+     * Inicializa os ponteiros de publicação para todos os canais e plataformas caso ainda não existam.
+     *
+     * ### 1. O que faz
+     * Cria os registros de ponteiro inicial para [ClientPlatform.IOS] e [ClientPlatform.ANDROID] em todos os [Channel.entries].
+     *
+     * ### 2. Para que serve
+     * Habilitar o direcionamento imediato das chamadas de composição sem desfazer publicações ou rollbacks já existentes.
+     *
+     * ### 3. Como funciona
+     * Para cada canal, se o ponteiro ainda não existir no [pointerStore], cria o ponteiro versão 1
+     * apontando para a spec corrente no iOS e nulo no Android de forma atômica via `compareAndSet(null, pointer)`.
      */
     fun seedPointers() {
         val iosCurrent = specStore.findBySpecIdAndRevision(IOS_CURRENT_SPEC_ID, 1)

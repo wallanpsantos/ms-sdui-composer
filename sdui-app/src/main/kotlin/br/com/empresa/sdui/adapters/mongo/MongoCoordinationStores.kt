@@ -18,17 +18,21 @@ import java.time.Instant
 import java.util.*
 
 /**
- * Registro de idempotencia no MongoDB (P06, ADR-021).
+ * Registro durável de idempotência de operações no MongoDB (`P06`, `ADR-021`).
  *
- * A reserva e um `insertOne` sobre o `_id` = chave: o indice primario garante que so uma chamada
- * vence, entre instancias e entre restarts. Quem perde le o registro existente e decide entre
- * replay e recusa. Nao ha teto de entradas — a colecao nao disputa o heap — e nada vivo sai por
- * pressao: o indice TTL em `expiresAt` remove so reserva abandonada (depois do prazo de reserva) e
- * resultado fora da janela de deduplicacao.
+ * ### 1. O que faz
+ * Implementa a interface [IdempotencyStore] persistindo reservas em voo e resultados de operações.
  *
- * [complete] grava na sessao da transacao corrente: o fecho da chave commita junto com o efeito.
- * [reserve] e [release] rodam fora dela, porque a reserva precisa valer para as outras chamadas
- * antes do commit e o release acontece depois de a transacao ja ter sido abortada.
+ * ### 2. Para que serve
+ * Assegurar semântica exactly-once e prevenir duplicidade na execução de comandos administrativos
+ * mutantes (abrir, aprovar, rejeitar ou fazer rollback) entre instâncias concorrentes.
+ *
+ * ### 3. Como funciona
+ * A reserva tenta um `insertOne` no MongoDB chaveado pelo [MongoFields.ID] com estado `IN_FLIGHT`.
+ * Se colidir, lê o registro: se concluído dentro da janela de validade, devolve o resultado prévio
+ * para replay; se vencido, tenta reaproveitar a chave via CAS. Na conclusão ([complete]), atualiza o
+ * estado para `COMPLETED` com o TTL configurado dentro da transação do comando; em caso de falha antes
+ * do commit, a reserva é liberada ([release]). Registros abandonados expiram via índice TTL nativo.
  */
 class MongoIdempotencyStore(
     database: MongoDatabase,
@@ -39,11 +43,37 @@ class MongoIdempotencyStore(
 ) : IdempotencyStore {
     private val records = database.getCollection(MongoSchema.IDEMPOTENCY)
 
+    /**
+     * Localiza um registro de idempotência se ainda estiver dentro do prazo de validade.
+     *
+     * ### 1. O que faz
+     * Consulta um registro de idempotência previamente concluído pela chave informada.
+     *
+     * ### 2. Para que serve
+     * Permitir a repetição (replay) segura da resposta de comandos já executados com a mesma chave.
+     *
+     * ### 3. Como funciona
+     * Busca por [MongoFields.ID] e filtra registros cujo campo `expiresAt` seja posterior ao instante atual.
+     */
     override fun find(key: String): IdempotencyRecord? =
         records.firstMatch(sessions, Filters.eq(MongoFields.ID, key))
             ?.takeIf { it.expiresAt().isAfter(clock.instant()) }
             ?.toRecord()
 
+    /**
+     * Tenta reservar exclusivamente uma chave de idempotência para uma operação.
+     *
+     * ### 1. O que faz
+     * Adquire a reserva da [key] criando um registro em voo associado a um token único.
+     *
+     * ### 2. Para que serve
+     * Bloquear execuções simultâneas concorrentes do mesmo comando administrativo.
+     *
+     * ### 3. Como funciona
+     * Gera um token UUID e tenta inserir o documento com estado `IN_FLIGHT`. Em caso de chave existente,
+     * avalia expiração: se expirado, tenta substituição atômica via CAS; caso contrário, retorna
+     * [IdempotencyReservation.Existing] para tratamento de concorrência ou replay.
+     */
     override fun reserve(key: String, operation: String, fingerprint: String): IdempotencyReservation {
         val now = clock.instant()
         val token = UUID.randomUUID().toString()
@@ -71,6 +101,19 @@ class MongoIdempotencyStore(
         return if (replaced.matchedCount == 1L) IdempotencyReservation.Reserved(token) else readExisting(key)
     }
 
+    /**
+     * Conclui a reserva de idempotência gravando o resultado final da operação.
+     *
+     * ### 1. O que faz
+     * Transiciona o registro de `IN_FLIGHT` para `COMPLETED` associando o resultado e novo prazo TTL.
+     *
+     * ### 2. Para que serve
+     * Consolidar o efeito da operação mutante junto à confirmação transacional do MongoDB.
+     *
+     * ### 3. Como funciona
+     * Executa `replaceOne` condicionado à posse do [token], estado `IN_FLIGHT`, operação e fingerprint
+     * idênticos. Se nenhum registro for alterado, lança [StoreConflict].
+     */
     override fun complete(record: IdempotencyRecord, token: String) {
         val now = clock.instant()
         val result = records.replace(
@@ -89,6 +132,18 @@ class MongoIdempotencyStore(
         if (result.matchedCount == 0L) throw StoreConflict("reserva de idempotencia perdida ou vencida")
     }
 
+    /**
+     * Libera antecipadamente uma reserva em voo após falha sem efeitos colaterais.
+     *
+     * ### 1. O que faz
+     * Remove o documento de reserva `IN_FLIGHT` vinculado ao token informado.
+     *
+     * ### 2. Para que serve
+     * Permitir nova tentativa imediata do operador caso a transação tenha falhado antes do commit.
+     *
+     * ### 3. Como funciona
+     * Executa `deleteOne` com filtro de [key], [token] e estado `IN_FLIGHT`.
+     */
     override fun release(key: String, token: String) {
         records.deleteOne(
             Filters.and(
@@ -144,11 +199,19 @@ class MongoIdempotencyStore(
 }
 
 /**
- * Outbox de invalidacao de cache no MongoDB (P10, ADR-021).
+ * Caixa de saída (outbox) de invalidações de cache no MongoDB (`P10`, `ADR-021`).
  *
- * [record] grava na mesma transacao que move o pointer. Um registro so sai quando a invalidacao
- * foi aplicada; se o processo cair entre o commit e a invalidacao, o relay de qualquer instancia
- * encontra o registro e o aplica — a aplicacao e idempotente.
+ * ### 1. O que faz
+ * Implementa a interface [CacheInvalidationOutbox] armazenando intenções de invalidação de cache.
+ *
+ * ### 2. Para que serve
+ * Garantir entrega garantida (at-least-once) de invalidações de cache distribuído em caso de falha de rede
+ * ou término anormal de processos entre a gravação do ponteiro e a invalidação do Redis.
+ *
+ * ### 3. Como funciona
+ * O método [record] grava o evento na mesma transação multi-documento que comita a movimentação do
+ * ponteiro. O relay em segundo plano consulta eventos pendentes com [pending] e remove via [markApplied]
+ * somente após confirmar a execução bem-sucedida da invalidação nos caches.
  */
 class MongoCacheInvalidationOutbox(
     database: MongoDatabase,
@@ -156,6 +219,18 @@ class MongoCacheInvalidationOutbox(
 ) : CacheInvalidationOutbox {
     private val invalidations = database.getCollection(MongoSchema.CACHE_INVALIDATIONS)
 
+    /**
+     * Registra uma intenção de invalidação de cache na outbox.
+     *
+     * ### 1. O que faz
+     * Insere o documento de invalidação na coleção do MongoDB utilizando a sessão corrente.
+     *
+     * ### 2. Para que serve
+     * Vincular atomicamente a intenção de limpar o cache ao commit da publicação ou rollback.
+     *
+     * ### 3. Como funciona
+     * Serializa a entidade [CacheInvalidation] em JSON e insere na coleção `cache_invalidations`.
+     */
     override fun record(invalidation: CacheInvalidation) {
         invalidations.insert(
             sessions,
@@ -166,6 +241,19 @@ class MongoCacheInvalidationOutbox(
         )
     }
 
+    /**
+     * Recupera a lista de invalidações pendentes até o limite informado.
+     *
+     * ### 1. O que faz
+     * Consulta as intenções de invalidação pendentes ordenadas crescentemente por data de criação.
+     *
+     * ### 2. Para que serve
+     * Fornecer ao relay assíncrono o lote de tarefas de limpeza de cache a processar.
+     *
+     * ### 3. Como funciona
+     * Exige `limit >= 0`. Se zero, devolve lista vazia. Caso contrário, busca na coleção ordenando
+     * por `createdAtMillis` ascendente até atingir [limit].
+     */
     override fun pending(limit: Int): List<CacheInvalidation> {
         // No driver, limit 0 quer dizer sem limite. Aqui quer dizer nenhum, como no adapter em memoria.
         require(limit >= 0) { "limit deve ser >= 0" }
@@ -174,6 +262,18 @@ class MongoCacheInvalidationOutbox(
             .map { DomainJson.read(it.getString(MongoFields.JSON), CacheInvalidation::class.java) }
     }
 
+    /**
+     * Marca uma invalidação de cache como concluída, removendo-a da outbox.
+     *
+     * ### 1. O que faz
+     * Remove o documento da outbox pelo seu identificador único [id].
+     *
+     * ### 2. Para que serve
+     * Evitar reprocessamento de invalidações que já foram aplicadas aos caches com sucesso.
+     *
+     * ### 3. Como funciona
+     * Aciona `deleteOne` filtrando por [MongoFields.ID].
+     */
     override fun markApplied(id: String) {
         invalidations.remove(sessions, Filters.eq(MongoFields.ID, id))
     }
