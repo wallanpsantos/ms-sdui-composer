@@ -6,18 +6,55 @@ import br.com.empresa.sdui.core.model.ComponentType
 import br.com.empresa.sdui.core.model.MvpCatalog
 
 /**
- * Garante que o catalogo so contem contratos aprovados e preserva os sete types da Home.
+ * Validador de integridade e conformidade do catálogo de componentes de UI.
  *
- * O conjunto fechado mudou de "exatamente os sete do MVP" para "contido em
- * [ComponentContracts.APPROVED]" (ADR-020): um componente novo entra no catalogo depois de ter
- * contrato aprovado, e nunca por um nome arbitrario. A regra vale para qualquer status — um
- * componente inativo de nome livre tambem abriria uma serie de metrica por nome enviado. Os sete
- * types legados continuam obrigatoriamente ACTIVE, porque a Home publicada depende deles.
+ * ### 1. O que faz
+ * Audita a lista de componentes declarados em um catálogo ([Catalog]) submetido à governança,
+ * garantindo conformidade com contratos homologados, ausência de primitivas genéricas e manutenção
+ * dos tipos portantes da aplicação.
  *
- * Recusa tambem qualquer primitiva generica, como row ou container: o catalogo e de componentes
- * de negocio.
+ * ### 2. Para que serve
+ * Garante que o catálogo oficial do servidor permaneça em estrita sincronia com os recursos que os
+ * clientes móveis (iOS e Android) são capazes de renderizar com segurança (ADR-020):
+ * - **Rejeição de Primitivas Genéricas:** Bloqueia nomes abstratos de layout como `row`, `column`, `container`
+ *   ou `card` genérico ([MvpCatalog.GENERIC_TYPE_NAMES]), preservando o Server-Driven UI orientado a
+ *   componentes de negócio semânticos;
+ * - **Contratos Homologados:** Garante que todo componente novo pertença ao conjunto fechado de contratos
+ *   aprovados ([ComponentContracts.isApproved]), prevenindo nomes livres e arbitrários que inflariam a
+ *   cardinalidade de séries temporais de métricas de telemetria;
+ * - **Unicidade de Contratos:** Veda componentes repetidos na mesma versão (`type@typeVersion`);
+ * - **Garantia da Surface Home:** Exige a presença ativa dos sete componentes basilares do MVP
+ *   ([ComponentContracts.LEGACY_HOME]), impedindo que uma atualização de catálogo quebre a tela principal.
+ *
+ * ### 3. Como funciona
+ * Itera sobre os componentes de [Catalog.components] aplicando verificações sequenciais de nome e aprovação
+ * contratual. Utiliza agrupamento por chave wire (`type@typeVersion`) para identificar colisões e cruza o
+ * conjunto de componentes ativos contra a lista essencial de [ComponentContracts.LEGACY_HOME], retornando
+ * a lista acumulada de violações identificadas.
  */
 object CatalogValidator {
+    /**
+     * Executa a validação abrangente das definições do catálogo de componentes.
+     *
+     * ### 1. O que faz
+     * Valida cada componente contra regras de tipos genéricos, homologação formal de contratos, duplicidade
+     * cadastral e cobertura dos componentes ativos obrigatórios da Home.
+     *
+     * ### 2. Para que serve
+     * Atua como barreira de validação no fluxo de governança administrativa (maker-checker), impedindo
+     * que propostas de alteração de catálogo inconsistentes sejam criadas ou aprovadas para publicação.
+     *
+     * ### 3. Como funciona
+     * 1. Itera por cada componente, verificando se seu tipo está em [MvpCatalog.GENERIC_TYPE_NAMES] e se
+     *    possui contrato aprovado em [ComponentContracts.isApproved];
+     * 2. Agrupa os componentes pela representação wire (`type@typeVersion`) identificando chaves com mais de uma ocorrência;
+     * 3. Filtra componentes com status [ComponentType.STATUS_ACTIVE] e verifica se todos os contratos
+     *    obrigatórios de [ComponentContracts.LEGACY_HOME] estão presentes no conjunto ativo;
+     * 4. Retorna a lista com todas as mensagens de erro acumuladas (vazia se o catálogo estiver 100% regular).
+     *
+     * @param catalog Instância de [Catalog] a ser validada.
+     * @return Lista contendo as descrições de todas as inconsistências encontradas.
+     */
     fun validate(catalog: Catalog): List<String> {
         val errors = mutableListOf<String>()
         for (component in catalog.components) {

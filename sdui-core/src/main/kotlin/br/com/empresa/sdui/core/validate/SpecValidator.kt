@@ -14,24 +14,63 @@ import br.com.empresa.sdui.core.model.SurfaceDefinition
 import br.com.empresa.sdui.core.model.Surfaces
 
 /**
- * Valida um spec antes de ele poder ser publicado.
+ * Validador holístico e certificador de integridade de especificações visuais ([Spec]).
  *
- * Reune as regras que nao devem chegar a producao: surface conhecida e coerente com o skeleton,
- * placement coerente com o skeleton, tipo dentro do catalogo, da surface e nao generico, props
- * dos contratos novos conforme [ComponentPropsValidator], ausencia de aparencia e de PII nas
- * props, profundidade limitada, actions integras e section autocontida. Alem disso simula as
- * pontas da faixa de targeting e recusa o spec se algum slot portante puder ficar vazio para uma
- * delas — e mais barato falhar aqui do que servir uma tela sem o bloco que a sustenta.
+ * ### 1. O que faz
+ * Executa a auditoria completa de uma especificação de tela antes de sua aprovação e publicação,
+ * unificando verificações de integridade criptográfica, coerência de layout, conformidade de catálogo,
+ * barreiras de segurança arquitetural e garantia preditiva de slots portantes.
  *
- * Devolve a lista de erros em vez de lancar, para o chamador reportar tudo de uma vez.
+ * ### 2. Para que serve
+ * Atua como o gatekeeper supremo da governança administrativa do Server-Driven UI (maker-checker):
+ * - **Identidade e Criptografia:** Garante identificadores de revisão válidos ([RevisionIds.isValid])
+ *   e formato canônico estrito de checksum SHA-256 (`sha256:<hex>`), permitindo que o compose do hot path
+ *   utilize o checksum diretamente como `skeletonHash` sem valores fictícios ou de reserva;
+ * - **Coerência Estrutural:** Assegura alinhamento bidirecional estrito entre a especificação, o esqueleto
+ *   ([Skeleton]) referenciado e a definição da superfície ([SurfaceDefinition]);
+ * - **Regras de Seção e Posicionamento:** Garante unicidade de IDs de seções, respeita a lotação máxima de
+ *   instâncias por slot (`maxInstances`) e restringe tipos ao vocabulário homologado da superfície e catálogo;
+ * - **Barreiras de Segurança:** Submete todas as propriedades a [VisualGuard] (anti-CSS), [PiiGuard] (privacidade/PCI),
+ *   [ActionGuard] (ações e CTAs), [ComponentPropsValidator] (contratos ADR-020) e [PropWalk.MAX_PROPS_DEPTH] (anti-DoS);
+ * - **Independência de Seções:** Garante que seções sejam autocontidas e não façam referências a seções irmãs;
+ * - **Garantia Preditiva de Slots Portantes:** Simula o pipeline de capabilities contra os extremos da faixa
+ *   de versões de clientes atendida ([CapabilityMatrix.versionSamples]), garantindo que slots obrigatórios
+ *   nunca fiquem vazios para nenhuma versão de aplicativo válida.
+ *
+ * ### 3. Como funciona
+ * Encapsula a lógica de verificação em blocos modulares: [identityErrors], [sectionErrors] e [requiredSlotErrors].
+ * Não interrompe a execução no primeiro erro: acumula todas as irregularidades em uma lista abrangente, permitindo
+ * ao operador administrativo corrigir todas as divergências em uma única iteração.
  */
 object SpecValidator {
     /**
-     * O envelope publica este valor como `skeletonHash`. Exigir o formato na governanca e o que
-     * permite ao compose usar o checksum direto, sem valor de reserva no hot path.
+     * Expressão regular que valida o formato canônico exigido para o checksum SHA-256 da especificação.
+     * O formato obrigatório é `sha256:<64_hex_digits>`, garantindo integridade criptográfica.
      */
     private val CHECKSUM = Regex("""^sha256:[0-9a-f]+$""")
 
+    /**
+     * Valida integralmente uma proposta ou rascunho de especificação ([Spec]).
+     *
+     * ### 1. O que faz
+     * Dispara todas as etapas de auditoria estrutural, de posicionamento, de guardas de segurança e
+     * simulação de compatibilidade de clientes.
+     *
+     * ### 2. Para que serve
+     * Valida rascunhos na governança administrativa antes que possam ser submetidos ao checker para
+     * transição de status para canary ou produção.
+     *
+     * ### 3. Como funciona
+     * Concatena os resultados de [identityErrors] (identidade e integridade), [sectionErrors] (posicionamento,
+     * profundidade, guardas de props e actions) e [requiredSlotErrors] (simulação preditiva de slots portantes),
+     * retornando a lista final de violações.
+     *
+     * @param spec Especificação de tela a ser validada.
+     * @param skeleton Esqueleto associado que define a estrutura de slots da tela.
+     * @param catalog Catálogo oficial de componentes aprovados.
+     * @param matrix Matriz de capabilities de versões de aplicativos clientes.
+     * @return Lista contendo todas as mensagens de erro encontradas (vazia se a especificação estiver em conformidade).
+     */
     fun validateDraft(
         spec: Spec,
         skeleton: Skeleton,
@@ -44,6 +83,29 @@ object SpecValidator {
                 requiredSlotErrors(spec, skeleton, matrix)
     }
 
+    /**
+     * Valida se os slots portantes obrigatórios da tela possuem cobertura para todas as versões de clientes.
+     *
+     * ### 1. O que faz
+     * Simula o comportamento do filtro de capacidades ([CapabilityMatrix]) sobre cada combinação de versão
+     * atendida pelo targeting do [spec], confirmando que slots obrigatórios (`required = true`) não fiquem vazios.
+     *
+     * ### 2. Para que serve
+     * Previne falhas catastróficas em produção: caso um cliente receba uma tela sem um slot portante obrigatório
+     * (como `header` ou `accounts` na Home), a guarda do compose rejeitaria a montagem, ativando fallback ou HTTP 503.
+     * Detectar essa condição no momento do cadastro garante que o spec seja adaptado antes do deploy.
+     *
+     * ### 3. Como funciona
+     * Identifica os slots marcados como [SlotDefinition.required] no [skeleton]. Para cada coorte gerada por
+     * [targetingCombos], verifica se existe pelo menos uma seção no spec atribuída ao slot cuja capacidade
+     * esteja presente no conjunto de capabilities da coorte. Se algum slot obrigatório ficar desprovido de
+     * seções compatíveis, emite um erro detalhando a versão afetada.
+     *
+     * @param spec Especificação visual sob teste.
+     * @param skeleton Esqueleto de tela com as definições de slots obrigatórios.
+     * @param matrix Matriz de capabilities por plataforma e versão.
+     * @return Lista de violações de cobertura de slots portantes.
+     */
     fun requiredSlotErrors(
         spec: Spec,
         skeleton: Skeleton,
@@ -64,7 +126,9 @@ object SpecValidator {
         return errors
     }
 
-    /** Identidade do spec e coerencia dele com o skeleton que referencia e com a surface. */
+    /**
+     * Valida a identidade da especificação, revisões numéricas, compatibilidade com o skeleton e checksum.
+     */
     private fun identityErrors(spec: Spec, skeleton: Skeleton, surface: SurfaceDefinition?): List<String> =
         buildList {
             if (!RevisionIds.isValid(spec.specRevisionId)) add("specRevisionId invalido para cache e ETag")
@@ -84,8 +148,7 @@ object SpecValidator {
         }
 
     /**
-     * Ids unicos e, section a section, placement e conteudo. O conteudo so e varrido dentro do
-     * teto de profundidade: as guardas descem recursivamente pelas props.
+     * Valida a integridade das seções: unicidade de IDs, posicionamento em slots e conformidade de conteúdo.
      */
     private fun sectionErrors(
         spec: Spec,
@@ -116,7 +179,9 @@ object SpecValidator {
         }
     }
 
-    /** O type cabe no slot, na surface e no catalogo, e o slot nao passa do teto de instancias. */
+    /**
+     * Valida as restrições de posicionamento da seção: tipo aceito no slot, tipos da superfície e contagem máxima.
+     */
     private fun placementErrors(
         section: Section,
         slot: SlotDefinition,
@@ -135,7 +200,9 @@ object SpecValidator {
         if (section.type.lowercase() in MvpCatalog.GENERIC_TYPE_NAMES) add("type generico recusado: ${section.type}")
     }
 
-    /** Props, actions e layout da section, e que ela nao referencia nenhuma outra. */
+    /**
+     * Executa as baterias de guardas de conteúdo sobre as propriedades, ações e layout da seção.
+     */
     private fun contentErrors(section: Section, sectionIds: Set<String>): List<String> = buildList {
         addAll(VisualGuard.violations(section.props))
         addAll(PiiGuard.violations(section.props))
@@ -149,15 +216,26 @@ object SpecValidator {
         }
     }
 
+    /**
+     * Representação de uma coorte de teste com rótulo identificador e capacidades efetivas calculadas.
+     */
     private data class Combo(val label: String, val caps: Set<Capability>)
 
     /**
-     * As pontas da faixa de app que o spec atende, com as capabilities que um cliente ali tem.
+     * Gera as coortes de teste para simulação de compatibilidade de targeting.
      *
-     * Um cliente so recebe este spec se tiver todas as `requiredCapabilities` do targeting — Select
-     * descarta o spec para quem nao as tem. Por isso elas somam ao conjunto do servidor na
-     * simulacao: e o que permite a uma surface nova exigir um componente que a matriz nao concede
-     * a nenhuma faixa de app, sem que a validacao aponte um vazio que nunca vai acontecer.
+     * ### 1. O que faz
+     * Amostra versões do aplicativo cliente na faixa de targeting do spec e constrói o conjunto de
+     * capacidades ativas para cada uma.
+     *
+     * ### 2. Para que serve
+     * Permite testar os extremos da faixa (versão mínima, versão canônica e versão máxima) sem precisar
+     * iterar exaustivamente sobre todas as versões possíveis.
+     *
+     * ### 3. Como funciona
+     * Utiliza [CapabilityMatrix.versionSamples] para extrair os pontos extremos de versão. Para cada versão,
+     * agrega as capacidades concedidas pelo servidor às capacidades obrigatórias declaradas no targeting
+     * do spec (`spec.targeting.requiredCapabilities`), produzindo uma lista de instâncias de [Combo].
      */
     private fun targetingCombos(spec: Spec, matrix: CapabilityMatrix): List<Combo> {
         val required = spec.targeting.requiredCapabilities.toSet()
