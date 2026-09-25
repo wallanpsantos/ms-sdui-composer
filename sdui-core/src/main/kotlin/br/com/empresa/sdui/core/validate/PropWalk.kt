@@ -1,5 +1,8 @@
 package br.com.empresa.sdui.core.validate
 
+import br.com.empresa.sdui.core.validate.PropWalk.FOREIGN_REF_KEYS
+
+
 /**
  * Utilitário de travessia e inspeção recursiva de propriedades de componentes Server-Driven UI.
  *

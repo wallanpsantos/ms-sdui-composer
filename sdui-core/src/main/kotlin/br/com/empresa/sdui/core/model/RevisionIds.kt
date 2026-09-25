@@ -1,5 +1,8 @@
 package br.com.empresa.sdui.core.model
 
+import br.com.empresa.sdui.core.model.RevisionIds.FORMAT
+
+
 /**
  * Validador e garantidor de segurança para identificadores de revisão de especificações e skeletons.
  *

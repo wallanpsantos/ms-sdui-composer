@@ -1,5 +1,6 @@
 package br.com.empresa.sdui.core.model
 
+import br.com.empresa.sdui.core.model.ETagFactory.CAPS_PREFIX_LENGTH
 import java.time.Instant
 
 /**

@@ -55,18 +55,18 @@ import br.com.empresa.sdui.orchestrator.port.outbound.PageRequest
  * @property rollback Caso de uso para movimentacao e reversao atomica de ponteiros de publicacao.
  * @property auditQuery Caso de uso para inspecao da trilha de auditoria append-only.
  * @property metrics Gravador de metricas operacionais Micrometer.
- */
+*/
 @RestController
 @RequestMapping("/admin/v1")
 class AdminController(
-    private val catalogQuery: CatalogQueryUseCase,
-    private val drafts: DraftUseCase,
-    private val publish: PublishUseCase,
-    private val rollback: RollbackPointerUseCase,
-    private val auditQuery: AuditQueryUseCase,
-    private val metrics: MetricsRecorder,
+private val catalogQuery: CatalogQueryUseCase,
+private val drafts: DraftUseCase,
+private val publish: PublishUseCase,
+private val rollback: RollbackPointerUseCase,
+private val auditQuery: AuditQueryUseCase,
+private val metrics: MetricsRecorder,
 ) {
-    private val logger = LoggerFactory.getLogger(AdminController::class.java)
+private val logger = LoggerFactory.getLogger(AdminController::class.java)
 
 /**
  * Consulta os componentes cadastrados no catalogo global.
@@ -83,11 +83,11 @@ class AdminController(
  * @param headers Cabecalhos HTTP contendo a identificacao do ator (`Actor-Id` e `Actor-Role`).
  * @return Instancia de [Catalog] com a lista de componentes aprovados.
 */
-    @GetMapping("/catalog/components")
-    fun catalog(@RequestHeader headers: HttpHeaders): Catalog {
-        actor(headers)
-        return catalogQuery.catalog()
-    }
+@GetMapping("/catalog/components")
+fun catalog(@RequestHeader headers: HttpHeaders): Catalog {
+actor(headers)
+return catalogQuery.catalog()
+}
 
 /**
  * Cadastra ou atualiza a definicao de um componente no catalogo.
@@ -109,25 +109,25 @@ class AdminController(
  * @param headers Cabecalhos HTTP com a identidade do operador.
  * @return O [Catalog] consolidado apos a gravacao.
 */
-    @PutMapping("/catalog/components/{type}/{ver}")
-    fun putComponent(
-        @PathVariable type: String,
-        @PathVariable ver: Int,
-        @RequestBody component: ComponentType,
-        @RequestHeader headers: HttpHeaders,
-    ): Catalog {
-        val currentActor = actor(headers)
-        val catalog = drafts.upsertComponent(
-            DraftCatalogCommand(
-                currentActor,
-                component.copy(type = type, typeVersion = ver),
-            ),
-        )
-        // O validador de catalogo so aceita contratos aprovados: `type` aqui e de vocabulario fechado.
-        metrics.increment(MetricNames.ADMIN_CATALOG_UPSERT, mapOf("type" to type))
-        logger.info("catalog component upserted: type={}, version={}, actor={}", type, ver, currentActor.id)
-        return catalog
-    }
+@PutMapping("/catalog/components/{type}/{ver}")
+fun putComponent(
+@PathVariable type: String,
+@PathVariable ver: Int,
+@RequestBody component: ComponentType,
+@RequestHeader headers: HttpHeaders,
+): Catalog {
+val currentActor = actor(headers)
+val catalog = drafts.upsertComponent(
+DraftCatalogCommand(
+currentActor,
+component.copy(type = type, typeVersion = ver),
+),
+)
+// O validador de catalogo so aceita contratos aprovados: `type` aqui e de vocabulario fechado.
+metrics.increment(MetricNames.ADMIN_CATALOG_UPSERT, mapOf("type" to type))
+logger.info("catalog component upserted: type={}, version={}, actor={}", type, ver, currentActor.id)
+return catalog
+}
 
 /**
  * Consulta a definicao estrutural de um skeleton pelo seu identificador.
@@ -146,11 +146,11 @@ class AdminController(
  * @return O [Skeleton] correspondente ao identificador.
  * @throws AdminNotFound Se o skeleton nao for encontrado no repositorio.
 */
-    @GetMapping("/skeletons/{id}")
-    fun skeleton(@PathVariable id: String, @RequestHeader headers: HttpHeaders): Skeleton {
-        actor(headers)
-        return catalogQuery.skeleton(id) ?: throw AdminNotFound(id)
-    }
+@GetMapping("/skeletons/{id}")
+fun skeleton(@PathVariable id: String, @RequestHeader headers: HttpHeaders): Skeleton {
+actor(headers)
+return catalogQuery.skeleton(id) ?: throw AdminNotFound(id)
+}
 
 /**
  * Cria ou atualiza a definicao de um skeleton de tela.
@@ -170,18 +170,18 @@ class AdminController(
  * @param headers Cabecalhos HTTP com a identidade do operador.
  * @return O [Skeleton] persistido.
 */
-    @PutMapping("/skeletons/{id}")
-    fun putSkeleton(
-        @PathVariable id: String,
-        @RequestBody skeleton: Skeleton,
-        @RequestHeader headers: HttpHeaders,
-    ): Skeleton {
-        val currentActor = actor(headers)
-        val saved = drafts.createSkeletonDraft(DraftSkeletonCommand(currentActor, skeleton.copy(skeletonId = id)))
-        metrics.increment(MetricNames.ADMIN_SKELETON_UPSERT)
-        logger.info("skeleton draft upserted: skeletonId={}, actor={}", id, currentActor.id)
-        return saved
-    }
+@PutMapping("/skeletons/{id}")
+fun putSkeleton(
+@PathVariable id: String,
+@RequestBody skeleton: Skeleton,
+@RequestHeader headers: HttpHeaders,
+): Skeleton {
+val currentActor = actor(headers)
+val saved = drafts.createSkeletonDraft(DraftSkeletonCommand(currentActor, skeleton.copy(skeletonId = id)))
+metrics.increment(MetricNames.ADMIN_SKELETON_UPSERT)
+logger.info("skeleton draft upserted: skeletonId={}, actor={}", id, currentActor.id)
+return saved
+}
 
 /**
  * Lista specs cadastrados com suporte a filtros por plataforma, canal e paginacao.
@@ -204,21 +204,21 @@ class AdminController(
  * @param headers Cabecalhos HTTP com a identidade do operador.
  * @return Lista paginada de [Spec].
 */
-    @GetMapping("/specs")
-    fun specs(
-        @RequestParam(required = false) platform: String?,
-        @RequestParam(required = false) channel: String?,
-        @RequestParam(required = false) offset: Int?,
-        @RequestParam(required = false) limit: Int?,
-        @RequestHeader headers: HttpHeaders,
-    ): List<Spec> {
-        actor(headers)
-        return catalogQuery.specs(
-            platform?.let { ClientPlatform.parse(it) ?: throw unknown("platform") },
-            channel?.let { Channel.parseOrNull(it) ?: throw unknown("channel") },
-            page(offset, limit),
-        )
-    }
+@GetMapping("/specs")
+fun specs(
+@RequestParam(required = false) platform: String?,
+@RequestParam(required = false) channel: String?,
+@RequestParam(required = false) offset: Int?,
+@RequestParam(required = false) limit: Int?,
+@RequestHeader headers: HttpHeaders,
+): List<Spec> {
+actor(headers)
+return catalogQuery.specs(
+platform?.let { ClientPlatform.parse(it) ?: throw unknown("platform") },
+channel?.let { Channel.parseOrNull(it) ?: throw unknown("channel") },
+page(offset, limit),
+)
+}
 
 /**
  * Cria um novo rascunho de especificacao de tela (Spec).
@@ -238,30 +238,30 @@ class AdminController(
  * @param headers Cabecalhos HTTP com a identidade do operador.
  * @return A instancia de [Spec] gravada com sua revisao oficial atribuida.
 */
-    @PostMapping("/specs")
-    fun createSpec(
-        @RequestBody spec: Spec,
-        @RequestHeader headers: HttpHeaders,
-    ): Spec {
-        val currentActor = actor(headers)
-        val created = drafts.createSpecDraft(DraftSpecCommand(currentActor, spec))
-        // Tags do rascunho gravado: a surface ja passou pela allowlist do validador.
-        metrics.increment(
-            MetricNames.ADMIN_SPEC_DRAFT,
-            mapOf("surface" to created.surface, "platform" to created.platform.wire()),
-        )
-        // Valores do rascunho gravado: sem revisao existente, o servico atribui a proxima, e o
-        // corpo traria outra.
-        logger.info(
-            "spec draft created: specId={}, revision={}, surface={}, platform={}, actor={}",
-            created.specId,
-            created.revision,
-            created.surface,
-            created.platform.wire(),
-            currentActor.id,
-        )
-        return created
-    }
+@PostMapping("/specs")
+fun createSpec(
+@RequestBody spec: Spec,
+@RequestHeader headers: HttpHeaders,
+): Spec {
+val currentActor = actor(headers)
+val created = drafts.createSpecDraft(DraftSpecCommand(currentActor, spec))
+// Tags do rascunho gravado: a surface ja passou pela allowlist do validador.
+metrics.increment(
+MetricNames.ADMIN_SPEC_DRAFT,
+mapOf("surface" to created.surface, "platform" to created.platform.wire()),
+)
+// Valores do rascunho gravado: sem revisao existente, o servico atribui a proxima, e o
+// corpo traria outra.
+logger.info(
+"spec draft created: specId={}, revision={}, surface={}, platform={}, actor={}",
+created.specId,
+created.revision,
+created.surface,
+created.platform.wire(),
+currentActor.id,
+)
+return created
+}
 
 /**
  * Lista o historico de revisoes de uma especificacao de tela.
@@ -281,16 +281,16 @@ class AdminController(
  * @param headers Cabecalhos HTTP com a identidade do operador.
  * @return Lista de [Spec] contendo o historico de revisoes.
 */
-    @GetMapping("/specs/{id}/revisions")
-    fun revisions(
-        @PathVariable id: String,
-        @RequestParam(required = false) offset: Int?,
-        @RequestParam(required = false) limit: Int?,
-        @RequestHeader headers: HttpHeaders,
-    ): List<Spec> {
-        actor(headers)
-        return catalogQuery.revisions(id, page(offset, limit))
-    }
+@GetMapping("/specs/{id}/revisions")
+fun revisions(
+@PathVariable id: String,
+@RequestParam(required = false) offset: Int?,
+@RequestParam(required = false) limit: Int?,
+@RequestHeader headers: HttpHeaders,
+): List<Spec> {
+actor(headers)
+return catalogQuery.revisions(id, page(offset, limit))
+}
 
 /**
  * Compara duas revisoes distintas de uma especificacao de tela (Diff).
@@ -312,16 +312,16 @@ class AdminController(
  * @return Objeto [SpecDiff] detalhando as diferencas identificadas.
  * @throws AdminNotFound Se o diff nao puder ser calculado por ausencia de uma das revisoes.
 */
-    @GetMapping("/specs/{id}/revisions/{from}..{to}/diff")
-    fun diff(
-        @PathVariable id: String,
-        @PathVariable from: Int,
-        @PathVariable to: Int,
-        @RequestHeader headers: HttpHeaders,
-    ): SpecDiff {
-        actor(headers)
-        return catalogQuery.diff(id, from, to) ?: throw AdminNotFound("diff")
-    }
+@GetMapping("/specs/{id}/revisions/{from}..{to}/diff")
+fun diff(
+@PathVariable id: String,
+@PathVariable from: Int,
+@PathVariable to: Int,
+@RequestHeader headers: HttpHeaders,
+): SpecDiff {
+actor(headers)
+return catalogQuery.diff(id, from, to) ?: throw AdminNotFound("diff")
+}
 
 /**
  * Abre um novo pedido formal de publicacao para uma revisao de spec.
@@ -344,35 +344,35 @@ class AdminController(
  * @param idempotencyKey Chave unica de idempotencia da operacao.
  * @return O [PublishRequest] aberto com status inicial (pendente ou publicado, se auto-aprovado em draft).
 */
-    @PostMapping("/publish-requests")
-    fun openPublish(
-        @RequestBody body: OpenPublishBody,
-        @RequestHeader headers: HttpHeaders,
-        @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
-    ): PublishRequest {
-        val currentActor = actor(headers)
-        val created = publish.open(
-            OpenPublishCommand(
-                actor = currentActor,
-                specId = body.specId,
-                revision = body.revision,
-                channel = Channel.parseOrNull(body.channel) ?: throw unknown("channel"),
-                idempotencyKey = idempotencyKey,
-            ),
-        )
-        // Tag e log vem do pedido persistido, e nao do corpo: o texto cru varia em caixa e espaco,
-        // e cada grafia abriria uma serie de metrica.
-        metrics.increment(MetricNames.ADMIN_PUBLISH_OPEN, mapOf("channel" to created.channel.wire()))
-        logger.info(
-            "publish request opened: id={}, specId={}, revision={}, channel={}, actor={}",
-            created.requestId,
-            created.specId,
-            created.revision,
-            created.channel.wire(),
-            currentActor.id,
-        )
-        return created
-    }
+@PostMapping("/publish-requests")
+fun openPublish(
+@RequestBody body: OpenPublishBody,
+@RequestHeader headers: HttpHeaders,
+@RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
+): PublishRequest {
+val currentActor = actor(headers)
+val created = publish.open(
+OpenPublishCommand(
+actor = currentActor,
+specId = body.specId,
+revision = body.revision,
+channel = Channel.parseOrNull(body.channel) ?: throw unknown("channel"),
+idempotencyKey = idempotencyKey,
+),
+)
+// Tag e log vem do pedido persistido, e nao do corpo: o texto cru varia em caixa e espaco,
+// e cada grafia abriria uma serie de metrica.
+metrics.increment(MetricNames.ADMIN_PUBLISH_OPEN, mapOf("channel" to created.channel.wire()))
+logger.info(
+"publish request opened: id={}, specId={}, revision={}, channel={}, actor={}",
+created.requestId,
+created.specId,
+created.revision,
+created.channel.wire(),
+currentActor.id,
+)
+return created
+}
 
 /**
  * Aprova e efetiva um pedido de publicacao pendente.
@@ -395,24 +395,24 @@ class AdminController(
  * @param idempotencyKey Chave unica de idempotencia da operacao.
  * @return O [PublishRequest] atualizado com status de aprovado.
 */
-    @PostMapping("/publish-requests/{id}/approve")
-    fun approve(
-        @PathVariable id: String,
-        @RequestHeader headers: HttpHeaders,
-        @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
-    ): PublishRequest {
-        val currentActor = actor(headers)
-        val approved = publish.approve(DecidePublishCommand(currentActor, id, idempotencyKey))
-        metrics.increment(MetricNames.ADMIN_PUBLISH_APPROVED, mapOf("channel" to approved.channel.wire()))
-        logger.info(
-            "publish request approved: id={}, actor={}, role={}, targetSpecRevisionId={}",
-            id,
-            currentActor.id,
-            currentActor.role,
-            approved.specRevisionId,
-        )
-        return approved
-    }
+@PostMapping("/publish-requests/{id}/approve")
+fun approve(
+@PathVariable id: String,
+@RequestHeader headers: HttpHeaders,
+@RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
+): PublishRequest {
+val currentActor = actor(headers)
+val approved = publish.approve(DecidePublishCommand(currentActor, id, idempotencyKey))
+metrics.increment(MetricNames.ADMIN_PUBLISH_APPROVED, mapOf("channel" to approved.channel.wire()))
+logger.info(
+"publish request approved: id={}, actor={}, role={}, targetSpecRevisionId={}",
+id,
+currentActor.id,
+currentActor.role,
+approved.specRevisionId,
+)
+return approved
+}
 
 /**
  * Rejeita um pedido de publicacao pendente.
@@ -433,25 +433,25 @@ class AdminController(
  * @param idempotencyKey Chave unica de idempotencia da operacao.
  * @return O [PublishRequest] marcado como rejeitado.
 */
-    @PostMapping("/publish-requests/{id}/reject")
-    fun reject(
-        @PathVariable id: String,
-        @RequestBody body: RejectBody,
-        @RequestHeader headers: HttpHeaders,
-        @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
-    ): PublishRequest {
-        val currentActor = actor(headers)
-        val rejected = publish.reject(DecidePublishCommand(currentActor, id, idempotencyKey), body.reason)
-        metrics.increment(MetricNames.ADMIN_PUBLISH_REJECTED, mapOf("channel" to rejected.channel.wire()))
-        logger.warn(
-            "publish request rejected: id={}, actor={}, role={}, reason={}",
-            id,
-            currentActor.id,
-            currentActor.role,
-            body.reason,
-        )
-        return rejected
-    }
+@PostMapping("/publish-requests/{id}/reject")
+fun reject(
+@PathVariable id: String,
+@RequestBody body: RejectBody,
+@RequestHeader headers: HttpHeaders,
+@RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
+): PublishRequest {
+val currentActor = actor(headers)
+val rejected = publish.reject(DecidePublishCommand(currentActor, id, idempotencyKey), body.reason)
+metrics.increment(MetricNames.ADMIN_PUBLISH_REJECTED, mapOf("channel" to rejected.channel.wire()))
+logger.warn(
+"publish request rejected: id={}, actor={}, role={}, reason={}",
+id,
+currentActor.id,
+currentActor.role,
+body.reason,
+)
+return rejected
+}
 
 /**
  * Executa o rollback atomico do ponteiro de publicacao de uma surface.
@@ -480,48 +480,48 @@ class AdminController(
  * @param idempotencyKey Chave unica de idempotencia da operacao.
  * @return O [Pointer] resultante apos a conclusao do rollback.
 */
-    @PostMapping("/pointers/{surface}/{platform}/{channel}:rollback")
-    fun rollbackPointer(
-        @PathVariable surface: String,
-        @PathVariable platform: String,
-        @PathVariable channel: String,
-        @RequestBody(required = false) body: RollbackBody?,
-        @RequestHeader headers: HttpHeaders,
-        @RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
-    ): Pointer {
-        val currentActor = actor(headers)
-        // O path identifica o pointer: segmento desconhecido e pointer inexistente.
-        val knownSurface = Surfaces.find(surface) ?: throw AdminNotFound("surface desconhecida")
-        val knownPlatform = ClientPlatform.parse(platform) ?: throw AdminNotFound("plataforma desconhecida")
-        val knownChannel = Channel.parseOrNull(channel) ?: throw AdminNotFound("canal desconhecido")
-        val moved = rollback.rollback(
-            RollbackCommand(
-                actor = currentActor,
-                surface = knownSurface.id,
-                platform = knownPlatform,
-                channel = knownChannel,
-                targetSpecRevisionId = body?.targetSpecRevisionId,
-                idempotencyKey = idempotencyKey,
-                reason = body?.reason ?: "rollback",
-            ),
-        )
-        // Tags e log do pointer movido, e nao do path: plataforma e canal chegam como texto livre e
-        // so o valor normalizado mantem a cardinalidade fechada.
-        metrics.increment(
-            MetricNames.ADMIN_ROLLBACK,
-            mapOf("surface" to moved.surface, "platform" to moved.platform.wire(), "channel" to moved.channel.wire()),
-        )
-        logger.warn(
-            "pointer rollback executed: surface={}, platform={}, channel={}, actor={}, targetSpecRevisionId={}, reason={}",
-            moved.surface,
-            moved.platform.wire(),
-            moved.channel.wire(),
-            currentActor.id,
-            body?.targetSpecRevisionId,
-            body?.reason,
-        )
-        return moved
-    }
+@PostMapping("/pointers/{surface}/{platform}/{channel}:rollback")
+fun rollbackPointer(
+@PathVariable surface: String,
+@PathVariable platform: String,
+@PathVariable channel: String,
+@RequestBody(required = false) body: RollbackBody?,
+@RequestHeader headers: HttpHeaders,
+@RequestHeader(name = "Idempotency-Key") idempotencyKey: String,
+): Pointer {
+val currentActor = actor(headers)
+// O path identifica o pointer: segmento desconhecido e pointer inexistente.
+val knownSurface = Surfaces.find(surface) ?: throw AdminNotFound("surface desconhecida")
+val knownPlatform = ClientPlatform.parse(platform) ?: throw AdminNotFound("plataforma desconhecida")
+val knownChannel = Channel.parseOrNull(channel) ?: throw AdminNotFound("canal desconhecido")
+val moved = rollback.rollback(
+RollbackCommand(
+actor = currentActor,
+surface = knownSurface.id,
+platform = knownPlatform,
+channel = knownChannel,
+targetSpecRevisionId = body?.targetSpecRevisionId,
+idempotencyKey = idempotencyKey,
+reason = body?.reason ?: "rollback",
+),
+)
+// Tags e log do pointer movido, e nao do path: plataforma e canal chegam como texto livre e
+// so o valor normalizado mantem a cardinalidade fechada.
+metrics.increment(
+MetricNames.ADMIN_ROLLBACK,
+mapOf("surface" to moved.surface, "platform" to moved.platform.wire(), "channel" to moved.channel.wire()),
+)
+logger.warn(
+"pointer rollback executed: surface={}, platform={}, channel={}, actor={}, targetSpecRevisionId={}, reason={}",
+moved.surface,
+moved.platform.wire(),
+moved.channel.wire(),
+currentActor.id,
+body?.targetSpecRevisionId,
+body?.reason,
+)
+return moved
+}
 
 /**
  * Consulta os eventos mais recentes da trilha de auditoria append-only.
@@ -540,15 +540,15 @@ class AdminController(
  * @param headers Cabecalhos HTTP com a identidade do operador.
  * @return Lista dos eventos de auditoria registrados.
 */
-    @GetMapping("/audit")
-    fun audit(
-        @RequestParam(required = false) limit: Int?,
-        @RequestHeader headers: HttpHeaders,
-    ): List<AuditEvent> {
-        val events = auditQuery.recent(actor(headers), page(0, limit).limit)
-        metrics.increment(MetricNames.ADMIN_AUDIT_LIST)
-        return events
-    }
+@GetMapping("/audit")
+fun audit(
+@RequestParam(required = false) limit: Int?,
+@RequestHeader headers: HttpHeaders,
+): List<AuditEvent> {
+val events = auditQuery.recent(actor(headers), page(0, limit).limit)
+metrics.increment(MetricNames.ADMIN_AUDIT_LIST)
+return events
+}
 
 /**
  * Normaliza e valida os parâmetros de paginacao da requisicao.
@@ -568,14 +568,14 @@ class AdminController(
  * @return Instancia validada de [PageRequest].
  * @throws AdminValidation Se os parâmetros estiverem fora dos limites permitidos.
 */
-    private fun page(offset: Int?, limit: Int?): PageRequest {
-        val resolvedOffset = offset ?: 0
-        val resolvedLimit = limit ?: PageRequest.DEFAULT_LIMIT
-        if (resolvedOffset < 0 || resolvedLimit !in 1..PageRequest.MAX_LIMIT) {
-            throw AdminValidation(listOf("offset >= 0 e limit entre 1 e ${PageRequest.MAX_LIMIT}"))
-        }
-        return PageRequest(resolvedOffset, resolvedLimit)
-    }
+private fun page(offset: Int?, limit: Int?): PageRequest {
+val resolvedOffset = offset ?: 0
+val resolvedLimit = limit ?: PageRequest.DEFAULT_LIMIT
+if (resolvedOffset < 0 || resolvedLimit !in 1..PageRequest.MAX_LIMIT) {
+throw AdminValidation(listOf("offset >= 0 e limit entre 1 e ${PageRequest.MAX_LIMIT}"))
+}
+return PageRequest(resolvedOffset, resolvedLimit)
+}
 
 /**
  * Fabrica uma excecao de validacao administrativa para campos com valores fora do vocabulario.
@@ -592,7 +592,7 @@ class AdminController(
  * @param field Nome do campo com valor invalido.
  * @return Excecao [AdminValidation] pronta para ser disparada.
 */
-    private fun unknown(field: String): AdminValidation = AdminValidation(listOf("$field desconhecido"))
+private fun unknown(field: String): AdminValidation = AdminValidation(listOf("$field desconhecido"))
 
 /**
  * Extrai e valida a identidade e papel do operador a partir dos cabecalhos HTTP da requisicao.
@@ -611,11 +611,11 @@ class AdminController(
  * @return Entidade [Actor] representando o operador autenticado.
  * @throws AdminDenied Se a identificacao do operador for incompleta ou invalida.
 */
-    private fun actor(headers: HttpHeaders): Actor {
-        val id = headers.getFirst("Actor-Id") ?: throw AdminDenied("Actor-Id ausente")
-        val role = ActorRole.parse(headers.getFirst("Actor-Role")) ?: throw AdminDenied("Actor-Role ausente")
-        return Actor(id, role)
-    }
+private fun actor(headers: HttpHeaders): Actor {
+val id = headers.getFirst("Actor-Id") ?: throw AdminDenied("Actor-Id ausente")
+val role = ActorRole.parse(headers.getFirst("Actor-Role")) ?: throw AdminDenied("Actor-Role ausente")
+return Actor(id, role)
+}
 }
 
 /**
@@ -635,9 +635,9 @@ class AdminController(
  * @property channel Nome textual do canal alvo (ex: `draft`, `canary`, `stable`).
 */
 data class OpenPublishBody(
-    val specId: String,
-    val revision: Int,
-    val channel: String = "stable",
+val specId: String,
+val revision: Int,
+val channel: String = "stable",
 )
 
 /**
@@ -673,6 +673,6 @@ data class RejectBody(val reason: String)
  * @property reason Justificativa opcional da operacao de rollback.
 */
 data class RollbackBody(
-    val targetSpecRevisionId: String? = null,
-    val reason: String? = null,
+val targetSpecRevisionId: String? = null,
+val reason: String? = null,
 )

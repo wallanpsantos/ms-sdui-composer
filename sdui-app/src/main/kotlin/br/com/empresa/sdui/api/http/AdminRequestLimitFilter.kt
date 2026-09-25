@@ -38,16 +38,16 @@ import java.util.concurrent.ThreadLocalRandom
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 class AdminRequestLimitFilter(
-    @Value("\${sdui.admin-max-body-bytes:1048576}") private val maxBodyBytes: Int,
-    @Value("\${sdui.admin-max-concurrent-requests:8}") maxConcurrentRequests: Int,
-    private val metrics: MetricsRecorder,
+@Value("\${sdui.admin-max-body-bytes:1048576}") private val maxBodyBytes: Int,
+@Value("\${sdui.admin-max-concurrent-requests:8}") maxConcurrentRequests: Int,
+private val metrics: MetricsRecorder,
 ) : OncePerRequestFilter() {
-    private val permits = Semaphore(maxConcurrentRequests)
+private val permits = Semaphore(maxConcurrentRequests)
 
-    init {
-        require(maxBodyBytes in 1 until Int.MAX_VALUE)
-        require(maxConcurrentRequests > 0)
-    }
+init {
+require(maxBodyBytes in 1 until Int.MAX_VALUE)
+require(maxConcurrentRequests > 0)
+}
 
 /**
  * Determina se o filtro deve ignorar a requisicao corrente.
@@ -65,11 +65,11 @@ class AdminRequestLimitFilter(
  * @param request A requisicao HTTP recebida.
  * @return `true` se o filtro deve ser ignorado, `false` se deve ser executado.
 */
-    override fun shouldNotFilter(request: HttpServletRequest): Boolean {
-        val path = request.servletPath.ifEmpty { request.requestURI.removePrefix(request.contextPath) }
-        // Inclui parametros de matriz (/admin;param=.../v1), removidos pelo roteamento MVC.
-        return !path.startsWith("/admin")
-    }
+override fun shouldNotFilter(request: HttpServletRequest): Boolean {
+val path = request.servletPath.ifEmpty { request.requestURI.removePrefix(request.contextPath) }
+// Inclui parametros de matriz (/admin;param=.../v1), removidos pelo roteamento MVC.
+return !path.startsWith("/admin")
+}
 
 /**
  * Executa a logica de interceptacao, validacao e controle de taxa da requisicao.
@@ -91,36 +91,36 @@ class AdminRequestLimitFilter(
  * @param response Resposta HTTP a ser devolvida.
  * @param filterChain Cadeia de filtros de processamento HTTP do Servlet container.
 */
-    override fun doFilterInternal(
-        request: HttpServletRequest,
-        response: HttpServletResponse,
+override fun doFilterInternal(
+request: HttpServletRequest,
+response: HttpServletResponse,
 filterChain: FilterChain,
-    ) {
-        if (request.getHeader("Actor-Id").isNullOrBlank() || ActorRole.parse(request.getHeader("Actor-Role")) == null) {
-            reject(response, 403, "FORBIDDEN", "ator ausente ou invalido", "denied")
-            return
-        }
-        if (request.contentLengthLong > maxBodyBytes) {
-            reject(response, 413, "REQUEST_TOO_LARGE", "corpo acima do limite", "body_too_large")
-            return
-        }
-        if (!permits.tryAcquire()) {
-            response.setHeader("Retry-After", adminRetryAfterSeconds())
-            reject(response, 503, "ADMIN_UNAVAILABLE", "limite de requisicoes administrativas", "unavailable")
-            return
-        }
-        try {
-            // Nao confiar em Content-Length: chunked e comprimento falso tambem tem teto.
-            val bytes = request.inputStream.readNBytes(maxBodyBytes + 1)
-            if (bytes.size > maxBodyBytes) {
-                reject(response, 413, "REQUEST_TOO_LARGE", "corpo acima do limite", "body_too_large")
-                return
-            }
-            filterChain.doFilter(BufferedAdminRequest(request, bytes), response)
-        } finally {
-            permits.release()
-        }
-    }
+) {
+if (request.getHeader("Actor-Id").isNullOrBlank() || ActorRole.parse(request.getHeader("Actor-Role")) == null) {
+reject(response, 403, "FORBIDDEN", "ator ausente ou invalido", "denied")
+return
+}
+if (request.contentLengthLong > maxBodyBytes) {
+reject(response, 413, "REQUEST_TOO_LARGE", "corpo acima do limite", "body_too_large")
+return
+}
+if (!permits.tryAcquire()) {
+response.setHeader("Retry-After", adminRetryAfterSeconds())
+reject(response, 503, "ADMIN_UNAVAILABLE", "limite de requisicoes administrativas", "unavailable")
+return
+}
+try {
+// Nao confiar em Content-Length: chunked e comprimento falso tambem tem teto.
+val bytes = request.inputStream.readNBytes(maxBodyBytes + 1)
+if (bytes.size > maxBodyBytes) {
+reject(response, 413, "REQUEST_TOO_LARGE", "corpo acima do limite", "body_too_large")
+return
+}
+filterChain.doFilter(BufferedAdminRequest(request, bytes), response)
+} finally {
+permits.release()
+}
+}
 
 /**
  * Emite uma resposta HTTP de rejeicao estruturada em JSON sem depender do Spring MVC.
@@ -141,14 +141,14 @@ filterChain: FilterChain,
  * @param message Mensagem explicativa estatica.
  * @param error Rotulo para identificacao na tag da metrica.
 */
-    private fun reject(response: HttpServletResponse, status: Int, code: String, message: String, error: String) {
-        runCatching { metrics.increment(MetricNames.ADMIN_ERROR, mapOf("error" to error)) }
-        response.status = status
-        response.contentType = "application/json"
-        response.characterEncoding = "UTF-8"
-        // Apenas constantes internas: nenhum texto do chamador e interpolado no JSON.
-        response.writer.write("{\"code\":\"$code\",\"message\":\"$message\",\"details\":[]}")
-    }
+private fun reject(response: HttpServletResponse, status: Int, code: String, message: String, error: String) {
+runCatching { metrics.increment(MetricNames.ADMIN_ERROR, mapOf("error" to error)) }
+response.status = status
+response.contentType = "application/json"
+response.characterEncoding = "UTF-8"
+// Apenas constantes internas: nenhum texto do chamador e interpolado no JSON.
+response.writer.write("{\"code\":\"$code\",\"message\":\"$message\",\"details\":[]}")
+}
 }
 
 /**
@@ -164,7 +164,7 @@ filterChain: FilterChain,
  * Utiliza [ThreadLocalRandom.current] para sortear um valor no intervalo [15, 30] segundos e converte para string.
  *
  * @return String contendo o valor do intervalo em segundos para o cabecalho `Retry-After`.
- */
+*/
 internal fun adminRetryAfterSeconds(): String = ThreadLocalRandom.current().nextLong(15, 31).toString()
 
 /**
@@ -189,42 +189,42 @@ request: HttpServletRequest,
 private val bytes: ByteArray,
 ) : HttpServletRequestWrapper(request) {
 
-    private val stream = object : ServletInputStream() {
-        private val delegate = ByteArrayInputStream(bytes)
-        override fun read(): Int = delegate.read()
-        override fun read(buffer: ByteArray, offset: Int, length: Int): Int = delegate.read(buffer, offset, length)
-        override fun isFinished(): Boolean = delegate.available() == 0
-        override fun isReady(): Boolean = true
-        override fun setReadListener(listener: ReadListener) {
-            throw IllegalStateException("plano administrativo usa Servlet bloqueante")
-        }
-    }
+private val stream = object : ServletInputStream() {
+private val delegate = ByteArrayInputStream(bytes)
+override fun read(): Int = delegate.read()
+override fun read(buffer: ByteArray, offset: Int, length: Int): Int = delegate.read(buffer, offset, length)
+override fun isFinished(): Boolean = delegate.available() == 0
+override fun isReady(): Boolean = true
+override fun setReadListener(listener: ReadListener) {
+throw IllegalStateException("plano administrativo usa Servlet bloqueante")
+}
+}
 
 /**
  * Retorna o fluxo de entrada servlet baseado no buffer em memoria.
  *
  * @return Instancia de [ServletInputStream] apontando para os bytes bufferizados.
 */
-    override fun getInputStream(): ServletInputStream = stream
+override fun getInputStream(): ServletInputStream = stream
 
 /**
  * Retorna um leitor de caracteres baseado no buffer de entrada em memoria.
  *
  * @return Instancia de [BufferedReader] configurada com a codificacao da requisicao.
 */
-    override fun getReader(): BufferedReader = BufferedReader(InputStreamReader(stream, characterEncoding ?: "UTF-8"))
+override fun getReader(): BufferedReader = BufferedReader(InputStreamReader(stream, characterEncoding ?: "UTF-8"))
 
 /**
  * Retorna o tamanho exato do corpo em bytes.
  *
  * @return Quantidade de bytes contidos no buffer.
 */
-    override fun getContentLength(): Int = bytes.size
+override fun getContentLength(): Int = bytes.size
 
 /**
  * Retorna o tamanho exato do corpo em formato Long.
  *
  * @return Quantidade de bytes contidos no buffer como Long.
 */
-    override fun getContentLengthLong(): Long = bytes.size.toLong()
+override fun getContentLengthLong(): Long = bytes.size.toLong()
 }

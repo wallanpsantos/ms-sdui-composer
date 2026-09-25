@@ -1,5 +1,10 @@
 package br.com.empresa.sdui.core.model
 
+import br.com.empresa.sdui.core.model.ActorRole.Companion.BY_NAME
+import br.com.empresa.sdui.core.model.Channel.Companion.BY_WIRE
+import br.com.empresa.sdui.core.model.SlotLayout.Companion.BY_WIRE
+
+
 /**
  * Plataforma operacional móvel do aplicativo cliente.
  *

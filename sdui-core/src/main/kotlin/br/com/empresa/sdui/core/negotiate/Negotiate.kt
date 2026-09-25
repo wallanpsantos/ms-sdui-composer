@@ -9,6 +9,9 @@ import br.com.empresa.sdui.core.model.ContextViolation
 import br.com.empresa.sdui.core.model.MvpCatalog
 import br.com.empresa.sdui.core.model.NegotiateHeaders
 import br.com.empresa.sdui.core.model.SemVer
+import br.com.empresa.sdui.core.negotiate.Negotiate.BUILD
+import br.com.empresa.sdui.core.negotiate.Negotiate.LOCALE
+import br.com.empresa.sdui.core.negotiate.Negotiate.primaryLocale
 
 /**
  * Primeiro passo do pipeline de composição Server-Driven UI: negociação e validação de contexto.

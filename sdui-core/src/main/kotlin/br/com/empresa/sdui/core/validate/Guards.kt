@@ -2,6 +2,11 @@ package br.com.empresa.sdui.core.validate
 
 import br.com.empresa.sdui.core.model.Action
 import br.com.empresa.sdui.core.model.MvpCatalog
+import br.com.empresa.sdui.core.validate.ActionGuard.CTA_ACTIONS
+import br.com.empresa.sdui.core.validate.PiiGuard.CPF
+import br.com.empresa.sdui.core.validate.PiiGuard.LOWER_PII_KEYS
+import br.com.empresa.sdui.core.validate.PiiGuard.PAN
+import br.com.empresa.sdui.core.validate.VisualGuard.LOWER_VISUAL_KEYS
 
 /**
  * Barreira de proteção arquitetural anti-CSS para propriedades de componentes Server-Driven UI.

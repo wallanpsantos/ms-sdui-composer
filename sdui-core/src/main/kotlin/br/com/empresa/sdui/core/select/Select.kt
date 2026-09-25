@@ -6,6 +6,7 @@ import br.com.empresa.sdui.core.model.ClientContext
 import br.com.empresa.sdui.core.model.Pointer
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SpecStatus
+import br.com.empresa.sdui.core.select.Select.isEligible
 import java.time.Instant
 
 /**

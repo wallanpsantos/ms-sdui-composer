@@ -12,6 +12,9 @@ import br.com.empresa.sdui.core.model.SlotLayout
 import br.com.empresa.sdui.core.model.Spec
 import br.com.empresa.sdui.core.model.SurfaceDefinition
 import br.com.empresa.sdui.core.model.Surfaces
+import br.com.empresa.sdui.core.validate.SpecValidator.identityErrors
+import br.com.empresa.sdui.core.validate.SpecValidator.sectionErrors
+import br.com.empresa.sdui.core.validate.SpecValidator.targetingCombos
 
 /**
  * Validador holístico e certificador de integridade de especificações visuais ([Spec]).

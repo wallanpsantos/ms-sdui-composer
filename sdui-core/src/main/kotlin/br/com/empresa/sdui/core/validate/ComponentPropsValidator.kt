@@ -2,6 +2,10 @@ package br.com.empresa.sdui.core.validate
 
 import br.com.empresa.sdui.core.model.ComponentContracts
 import br.com.empresa.sdui.core.model.Section
+import br.com.empresa.sdui.core.validate.ComponentPropsValidator.COMMERCE_OPERATION_KEYS
+import br.com.empresa.sdui.core.validate.ComponentPropsValidator.catalogNavigation
+import br.com.empresa.sdui.core.validate.ComponentPropsValidator.productCollection
+import br.com.empresa.sdui.core.validate.ComponentPropsValidator.transactionSummary
 
 /**
  * Validador estrito de propriedades (`props`) para os novos contratos de componentes (ADR-020).
