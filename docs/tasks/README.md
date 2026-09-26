@@ -11,6 +11,7 @@ evolução técnica do `ms-sdui-composer`.
 |:-----------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:----------:|
 | [`todo.md`](todo.md)                                       | **Backlog Operacional Pendente:** Acompanhamento de validações finais (execução Gradle, ensaio operacional de banco real P13, baseline HTTP em máquina dedicada e homologação de contratos móveis). |  `ATIVO`   |
 | [`plano-tokens-semanticos.md`](plano-tokens-semanticos.md) | **Linguagem de UI do Backend:** Especificação arquitetural para temas por segmento, blocos primitivos (`block@1`), campanhas dinâmicas e autenticação JWT de operadores (ADR-023 a ADR-026).        | `PROPOSTO` |
+| [`plano-evolucao-agents.md`](plano-evolucao-agents.md)     | **Evolução do `.agents/`:** Papéis do modo pós-MVP, skills procedurais, adaptadores do Claude Code, bloqueio de `git add/commit/push` por configuração e teste contra deriva das instruções.        |  `ATIVO`   |
 
 ---
 

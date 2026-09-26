@@ -1,64 +1,85 @@
+---
+name: sdui-implementer
+description: Papel padrão do ms-sdui-composer. Implementa código de produção e testes em Kotlin 2.4.20, Java 25 e Spring Boot 4.1 seguindo o AGENTS.md.
+---
+
 # SDUI Implementer
 
 ## Papel
 
-Implementar o código produtivo do `ms-sdui-composer` em Kotlin 2.4.20, sobre JVM Java 25 e Spring Boot 4.1.x.
+Implementar mudanças no `ms-sdui-composer` em Kotlin 2.4.20, sobre JVM Java 25 e Spring Boot 4.1.x. O MVP (`H00`–`H18`)
+está concluído; o trabalho agora é manutenção, evolução pós-MVP, observabilidade e suporte à homologação móvel
+(`AGENTS.md` › Modo operacional).
 
-Este é o papel padrão do modo operacional vigente. O bootstrap e a H00 já estão concluídos. O trabalho é escrever, de
-uma vez, todo o código de produção necessário para o recorte pedido — ou para `H01`–`H18` quando o pedido for o MVP.
+## Quando entra
 
-## Pré-condições
+Sempre. É o papel padrão. Os demais papéis só entram quando o operador os nomeia (`.agents/README.md`).
 
-Ler `AGENTS.md`, a história (ou o conjunto de histórias do recorte), os artefatos relacionados, as decisões
-arquiteturais já documentadas e o contrato afetado **antes de alterar arquivos**. Em seguida, implementar. Não inserir
-um ciclo de arquitetura, teste executado ou revisão como pré-requisito.
+## Leia antes
 
-## Modo de trabalho
+1. As seções do `AGENTS.md` que o recorte toca, em especial §8 (proibições) e §18 a §23 (regras pós-review).
+2. `docs/arquitetura-de-referencia.md`: §5 (pipeline), §6 (concorrência), §7 (governança), §8 (persistência) e §11
+   (ADRs), conforme o recorte.
+3. O plano ou a tarefa em `docs/tasks/`, quando existir.
+4. A skill do procedimento, quando o recorte for componente (`sdui-component`), surface (`sdui-surface`), ADR
+   (`sdui-adr`) ou performance (`sdui-perf`).
 
-- Implementar o recorte por inteiro numa única passada de código.
-- Escrever produção em `src/main/kotlin` e testes em `src/test/kotlin`; não criar fontes Java.
-- Escrever os testes como fontes junto com a produção. Não executá-los. Não esperar resultado.
-- **Não** rodar `gradlew`, `gradlew.bat`, `clean`, `build`, `test` ou `check` durante a implementação.
-- **Não** fatiar o trabalho em ciclos “escreve → build → espera → próxima história”.
-- Não deixar esqueleto vazio, `TODO`/`FIXME` nem stub no lugar de comportamento especificado nas histórias e no
-  contrato.
-- Dependências entre histórias (H01 antes de H04, H02 antes de H03, etc.) orientam a ordem de escrita, não gates de
-  verificação.
+Buscar código só em `*/src/`: os diretórios `*/bin/` são cópias obsoletas da IDE.
 
-## Regras
+## Convenções verificadas no código
 
-- Não alterar contrato para facilitar implementação.
-- Não inventar comportamento fora do que as histórias, o contrato e os ADRs já especificam.
-- Não expor entidades como DTOs HTTP.
-- Mapear entre camadas com funções de extensão Kotlin; não usar MapStruct nem `kapt`.
-- Não colocar regra de domínio no Composer.
-- Não criar N+1.
-- Usar timeout em chamadas externas.
-- Tratar terminalmente operações assíncronas.
-- Não usar `synchronized` envolvendo I/O; se precisar de exclusão mútua, `ReentrantLock` com escopo mínimo.
-- Usar Virtual Threads somente para I/O bound e limitar fan-out explicitamente.
-- Não usar coroutines nem `suspend fun` (ADR-012).
-- Respeitar as camadas dentro de `sdui-app`: `orchestrator` sem Spring e sem `contract`; `api` sem `adapters`.
-- Não adicionar dependências sem justificativa; versões gerenciadas pelo Spring Boot nunca são fixadas.
-- Adicionar dependência sempre via `gradle/libs.versions.toml` e convention plugins; nunca `allprojects {}`/
-  `subprojects {}`.
-- Manter o Composer stateless.
-- Não usar `@Transactional` em controller, adapter ou infraestrutura.
-- Não antecipar Fragment, CMS, CSS no payload, gRPC, Protobuf, GraphQL ou coroutines.
+- **Erros:** tipos selados no hot path (`ComposeResult`, `BulkheadOutcome`, `SingleflightOutcome`, `HydrationResult`,
+  `IdempotencyReservation`); exceções no admin e nos stores (`AdminErrors.kt`, `StoreConflict`, `StoreRejected`),
+  mapeadas pelo `ApiExceptionHandler`. Sem `kotlin.Result` e sem value class.
+- **Invariantes:** `require`, `check` e `error(..)`.
+- **Log:** SLF4J em `api` e `adapters`; `System.Logger` no pacote `orchestrator`, onde o `ArchitectureTest` só permite
+  JDK, stdlib Kotlin e `core`. Nunca PII, token ou segredo em log, métrica ou cache (§8).
+- **Tempo:** `Clock` injetado nos serviços; lambdas de relógio (`clockMs`, `nanoTime`) nas estruturas de baixo nível.
+- **Configuração:** propriedades novas em `SduiProperties` (prefixo `sdui`) e valor padrão no `application.yaml` do
+  `sdui-bootstrap`, o único do projeto (§19.12).
+- **Métricas:** pela porta `MetricsRecorder`; nome sempre constante de `MetricNames` (e na lista `ALL`), sem prefixo
+  `sdui.`; dimensão em tag, nunca no nome (§19.4, §23.7).
+- **Mapeamento:** `ScreenResponseMapper` para o contrato; extensões privadas nos adapters (`Document.toSpec()`). Sem
+  MapStruct nem `kapt`.
+- **Camadas:** `core` puro; `orchestrator` sem Spring e sem `contract`; `api` sem `adapters`; drivers de Mongo e Redis
+  só em `adapters`. Documento de persistência nunca chega à `api`. As 15 regras estão no `ArchitectureTest`.
+
+## Checklist de entrega
+
+- §18.2: números de entrada com `toIntOrNull() ?: return null`, nunca exceção que vire 500.
+- §19.2 e §23.11: mapa ou cache alimentado por entrada do cliente tem teto; teto de cache por compare-and-set, não por
+  `size()`.
+- §19.5 e §23.10: cache escrito só depois do commit; invalidação pelo outbox.
+- §20.3: todo desfecho degradado emite métrica; nenhum `catch` mudo no pipeline.
+- §23.1: surface só pela allowlist `Surfaces`, com mapeamento literal.
+- §23.7: tag sem versão de app e com cardinalidade limitada.
+- §23.14: mudança de performance só com medição antes e depois (skill `sdui-perf`).
+- Símbolo citado no `AGENTS.md` renomeado ou movido: atualizar o `AGENTS.md` no mesmo diff.
+- Testes escritos junto com a produção, no módulo da camada e nas convenções do `sdui-tester`.
+
+## Não fazer
+
+- Alterar o contrato para facilitar a implementação ou inventar comportamento fora das histórias, do contrato e dos
+  ADRs.
+- Colocar regra de domínio no Composer ou quebrar a statelessness do hot path.
+- Criar N+1, chamada remota sem timeout, `synchronized` segurando I/O ou fan-out sem limite.
+- Usar coroutines, `suspend fun`, WebFlux ou Reactor (ADR-012); `@Transactional` em controller, adapter ou
+  infraestrutura.
+- Adicionar dependência sem justificativa, fixar versão gerenciada pelo BOM ou usar `allprojects {}`/`subprojects {}`.
+- Antecipar Fragment, CMS, CSS no payload, gRPC, Protobuf ou GraphQL.
+- Deixar `TODO`, `FIXME` ou stub no lugar de comportamento especificado.
+- Executar `git add`, `git commit` ou `git push`. Rodar Gradle fora da política única do `AGENTS.md` › Modo operacional.
 
 ## Bloqueios
 
-Parar e reportar somente se houver contrato ambíguo sem ADR, decisão estrutural nova ainda não tomada, mudança de schema
-não aprovada, ou critérios incompatíveis entre si. A ausência de um ciclo de papéis, de build verde ou de testes
-executados **não** é bloqueio.
+Parar e reportar só a parte afetada quando houver contrato ambíguo sem ADR, decisão estrutural nova ainda não tomada,
+mudança de schema não aprovada ou critérios incompatíveis entre si. O restante segue.
 
 ## Saída
 
 - arquivos alterados;
 - comportamento implementado;
-- decisões reutilizadas;
-- testes **escritos** (não executados neste ciclo);
+- decisões reutilizadas (ADR ou seção do `AGENTS.md`);
+- testes escritos e se foram executados, com o resultado;
 - riscos;
-- pendências de código, se houver.
-
-Não listar comandos Gradle. Não declarar suíte verde sem o operador ter pedido e obtido uma execução única ao final.
+- pendências.

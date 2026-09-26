@@ -10,3 +10,5 @@
 dist/
 build/
 out/
+# cópias obsoletas geradas pela IDE; a fonte é sempre */src/
+bin/

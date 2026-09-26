@@ -14,70 +14,31 @@ homologação com clientes móveis.
 
 **Ciclo de 2026-09-23 (Seção 23):** surface `catalog` e contratos novos (ADR-020), adapters MongoDB/Redis opt-in
 (ADR-021) e integridade da governança com limites de entrada (ADR-022) implementados no código e fontes de teste.
-ADR-020, ADR-021 e ADR-022 estão `PROPOSTO` (aguardando homologação móvel para 020, ensaio operacional de persistência
-para 021 e validação em build para 022). O PASS histórico acima não cobre este ciclo; a evidência dele está em
-`tasks/todo.md`.
+ADR-020, ADR-021 e ADR-022 estão `ACEITO` (Seção 11 de `docs/arquitetura-de-referencia.md`). Seguem pendentes a
+homologação móvel (020), o ensaio operacional de persistência (021) e a validação em build (022), acompanhados em
+`docs/tasks/todo.md`. O PASS histórico acima não cobre este ciclo.
 
 Regras deste modo:
 
-- **Governança de Git (Operador Humano):** Não executar nenhum comando de git commit ou git push, nem diretamente nem
-  através de subagentes. Todas as implementações, refatorações, documentações e alterações de código são feitas
-  diretamente no workspace, deixando os arquivos prontos e modificados para o operador Humano inspecionar via
+- **Governança de Git (Operador Humano):** Não executar nenhum comando `git add`, `git commit` ou `git push`, nem
+  diretamente nem através de subagentes. Todas as implementações, refatorações, documentações e alterações de código
+  são feitas diretamente no workspace, deixando os arquivos prontos e modificados para o operador Humano inspecionar via
   `git diff` / `git status`, revisar tecnicamente com calma e realizar os seus próprios commits e pushes manualmente
-  conforme sua preferência de governança e controle.
-- **Padrão de Commit e Proibição de Auto-Atribuição:** Quando o operador pedir para commitar ou gerar mensagem de
-  commit:
-    - **Você não deve adicionar você**: Proibido adicionar a si mesmo, co-autoria (`Co-authored-by`), menção à IA,
-      créditos ao modelo/ferramenta, ou executar `git add`/`commit`.
-    - **Idioma**: Responda sempre em pt-BR.
-    - **Origem dos dados**: Analise exclusivamente as alterações atuais do `git diff` e gere uma única mensagem de
-      commit pronta para uso.
-    - **Formato obrigatório:**
-      `<emoji> <tipo>(<escopo opcional>): <descrição no imperativo>`
-      `- <Descrições curtas em listas até 10 tópicos>`
-    - **Regras:**
-        - Retorne somente a mensagem do commit, sem explicações, aspas, Markdown ou bloco de código.
-        - Use uma única linha no cabeçalho/primeira linha, com no máximo 72 caracteres quando possível.
-        - A descrição deve ser objetiva, iniciar com verbo no imperativo e explicar a mudança principal.
-        - Não invente alterações, escopos, tickets ou detalhes que não estejam no diff.
-        - Use escopo apenas se estiver claramente identificável, por exemplo: `auth`, `api`, `checkout`, `database`,
-          `docker` ou `docs`.
-        - Prefira commits atômicos. Se o diff contiver mudanças independentes, escolha a alteração mais relevante e
-          abrangente.
-        - Não use ponto final.
-    - **Tipos e emojis permitidos:**
-        - ✨ `feat`: adiciona uma nova funcionalidade
-        - 🐛 `fix`: corrige um bug
-        - 📚 `docs`: altera documentação
-        - 🧪 `test`: adiciona, altera ou remove testes
-        - 📦 `build`: altera dependências, build ou empacotament
-        - ⚡ `perf`: melhora desempenho
-        - 🎨 `style`: altera formatação, lint ou aparência sem m
-        - ♻️ `refactor`: reorganiza código sem alterar comportamento funcional
-        - 🔧 `chore`: altera configurações, manutenção ou tarefa
-        - 👷 `ci`: altera pipelines ou integração contínua
-        - 🗃️ `raw`: altera dados, parâmetros ou arquivos de conf
-        - 🧹 `cleanup`: remove código morto, comentado ou desnecessário
-        - 🗑️ `remove`: remove arquivos, diretórios ou funcionali
-        - 🔒️ `security`: corrige ou reforça segurança
-        - ⏪ `revert`: reverte uma alteração anterior
-    - **Exemplos:**
-      ✨ feat (auth): adiciona autenticação por refresh token
-        - Adicionado JWT com refresh token
-          🐛 fix (api): corrige validação de CPF no cadastro
-          🧪 test (order): adiciona testes para cálculo de fret
-          ♻️ refactor (cache): simplifica política de expiração
-          📦 build: atualiza dependência do Spring Boot
-          👷 ci: adiciona validação do Maven no pipeline
-          📚 docs: documenta fluxo de criação de pedidos
+  conforme sua preferência de governança e controle. No Claude Code, `.claude/settings.json` nega esses comandos.
+- **Mensagem de commit:** somente quando o operador pedir, no formato de `.agents/rules/git-commit-standards.md`
+  (fonte única, importada ao fim desta seção; procedimento na skill `sdui-commit-message`). Proibida qualquer
+  auto-atribuição, co-autoria ou menção à IA.
 - Qualquer alteração pontual deve manter estritamente a conformidade com as regras de pureza do `sdui-core`, o
-  isolamento
-  de camadas do ArchUnit e a ausência de warnings (`allWarningsAsErrors = true`).
-- **Não** interromper a escrita para esperar compilação ou resultado de testes.
-- Após todas implementação roda a suite de testes e verificar build.
+  isolamento de camadas do ArchUnit e a ausência de warnings (`allWarningsAsErrors = true`).
 - Papel padrão: `sdui-implementer`. Os demais papéis só entram quando o operador pedir explicitamente.
-- Gradle, `clean build` ou suíte de testes só correm se o operador humano pedir OU se for correção de erros e falhas, e
-  nesse caso **uma única vez, no final**, sem repetir o ciclo.
+- **Execução de Gradle (política única):** não interromper a escrita para esperar compilação ou resultado de testes.
+  Gradle roda uma única vez, no fim do recorte e nunca entre tarefas: `.\gradlew.bat clean build --warning-mode=fail`.
+  Se falhar, corrigir e rodar mais uma vez; persistindo a falha, reportar a saída e parar. `perfHarness` e `loadTest`
+  só a pedido do operador (§23.14). Qualquer outra execução só a pedido do operador.
+
+Formato da mensagem de commit (importado):
+
+@.agents/rules/git-commit-standards.md
 
 Os comandos da seção 16 são registro histórico do bootstrap. Não reexecutá-los como rotina de implementação.
 
@@ -198,7 +159,10 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
   canônico e nos testes de `sdui-contract`.
 - Ausente: `contrato-sdui-home-android-proposto.json` (H14 pendente de fornecimento pela equipe mobile).
 - Skill `sdui-backend`: não disponível; marcador em `.agents/skills/sdui-backend/README.md`. A skill ausente não
-  bloqueia o que já está especificado nas histórias, no plano, na pré-arquitetura, nos ADRs e no contrato.
+  bloqueia o que já está especificado nas histórias, nos ADRs, nos guias e no contrato. As skills procedurais do
+  projeto (§15) derivam só de documentos canônicos e não substituem o marcador.
+- Presente: `.agents/README.md` (índice dos papéis, regras e skills) e os adaptadores do Claude Code em `.claude/`
+  (`agents/`, `skills/` e `settings.json`, que nega `git add`, `git commit` e `git push`).
 - Presente: catálogo das histórias concluídas do MVP (`H00`–`H18`) consolidado na Seção 12 de
   `docs/arquitetura-de-referencia.md`.
 - Presente: ADRs 020 a 022 consolidados na Seção 11 de `docs/arquitetura-de-referencia.md`; `docs/contratos/` com os
@@ -218,22 +182,43 @@ sdui-integration-test --> testImplementation de todos os módulos acima + ArchUn
 
 ## 14. Regra para ADRs
 
-Novas decisões estruturais exigem ADR em `docs/adr/ADR-XXX-<slug>.md` seguindo o padrão consolidado na Seção 11 de
-`docs/arquitetura-de-referencia.md`.
+Novas decisões estruturais exigem ADR registrado na Seção 11 de `docs/arquitetura-de-referencia.md` (não existe
+diretório `docs/adr/`): uma linha na matriz de decisões (colunas ADR, Título, Status, Escopo Principal) e uma entrada
+`#### ADR-NNN — <Título>` com Status, Contexto, Decisão e Consequências, no molde do ADR-001; quando houver, também
+Alternativas descartadas e Verificação. ADR-023 a ADR-026 estão reservados em `docs/tasks/plano-tokens-semanticos.md`.
+Procedimento na skill `sdui-adr`.
 
-## 15. Papéis especializados
+## 15. Papéis especializados e skills
 
-Os papéis estão em `.agents/agents/`. São instruções de desenvolvimento, não componentes do runtime.
+Os papéis estão em `.agents/agents/` e o índice em `.agents/README.md`. São instruções de desenvolvimento, não
+componentes do runtime.
 
-Papel padrão deste modo: **implementação** (`.agents/agents/sdui-implementer.md`). Carregar `AGENTS.md` e o implementer
-e escrever o código. Não carregar os demais papéis nem esperar o fluxo completo antes de implementar.
+Papel padrão deste modo: **implementação** (`.agents/agents/sdui-implementer.md`), importado abaixo para que toda
+sessão o carregue junto com este arquivo. Escrever o código sem esperar o fluxo completo de papéis.
+
+@.agents/agents/sdui-implementer.md
 
 Os outros papéis só são carregados quando o operador os pedir nominalmente:
 
 - Arquitetura: `.agents/agents/sdui-architect.md`
-- Testes (autoria de fontes de teste, sem execução Gradle no ciclo): `.agents/agents/sdui-tester.md`
+- Testes (autoria de fontes de teste): `.agents/agents/sdui-tester.md`
 - Guarda de Contrato: `.agents/agents/sdui-contract-guard.md`
 - Revisão: `.agents/agents/sdui-reviewer.md`
+
+No Claude Code, esses quatro papéis também existem como subagentes em `.claude/agents/`, adaptadores que só apontam
+para o arquivo canônico e restringem ferramentas (revisor e guarda de contrato sem escrita).
+
+Skills (formato Agent Skills, em `.agents/skills/<nome>/SKILL.md`, com adaptadores em `.claude/skills/`):
+
+- `sdui-component`: criar e depreciar componente (`type@typeVersion`).
+- `sdui-surface`: surface nova.
+- `sdui-adr`: registrar ADR na Seção 11 da arquitetura.
+- `sdui-perf`: medir antes de otimizar (§23.14).
+- `sdui-commit-message`: mensagem de commit, só a pedido do operador.
+
+`AgentInstructionsIntegrityTest` (`sdui-integration-test`) falha quando uma instrução deste arquivo, do `.agents/` ou
+do `.claude/` aponta caminho ou arquivo `.kt` inexistente, quando uma skill não tem frontmatter válido ou quando um
+adaptador não aponta para o canônico. Quem renomeia ou move um símbolo citado aqui atualiza este arquivo no mesmo diff.
 
 ## 16. Comandos executados no bootstrap (histórico)
 
@@ -275,22 +260,24 @@ operacional" depois do ensaio registrado; build verde, mocks ou containers saud�
 Regras inegociáveis resultantes do ciclo de auditoria técnica (`code-review-and-quality` e `performance-optimization`):
 
 1. **Singleflight Concorrente:** Waiters que sofrem timeout local no `ComposeSingleflight` **nunca** executam
-   `existing.cancel(true)`. Devem retornar `WaitTimeout()` deixando o líder concluir a computação normalmente.
+   `existing.cancel(true)`. Devem retornar `SingleflightOutcome.WaitTimeout` (`data object`) deixando o líder concluir
+   a computação normalmente (implementação em `InMemoryComposeSingleflight`).
 2. **Parsing SemVer Seguro:** Todo parsing de números em SemVer (`SemVer.kt`) deve utilizar
    `.toIntOrNull() ?: return null`.
    Proibido lançar `NumberFormatException` que possa vazar como HTTP 500 no `Negotiate`.
-3. **Serialização de Passo Único no Hot Path:** O `SurfaceController` deve retornar o `byte[]` pré-serializado
-   diretamente
-   com `MediaType.APPLICATION_JSON`. Nunca repassar instâncias de objeto de resposta para o Spring re-serializar.
+3. **Serialização de Passo Único no Hot Path:** No 200, o `SurfaceController` deve retornar o `ByteArray`
+   pré-serializado diretamente (`ResponseEntity<ByteArray>`) com `MediaType.APPLICATION_JSON`. Nunca repassar
+   instâncias de objeto de resposta para o Spring re-serializar. As respostas de erro (400, 429, 503) devolvem
+   `ApiErrorResponse` serializado pelo Spring; a regra vale para o caminho de sucesso.
 4. **Constantes Pré-calculadas em Validações:** Em classes de guardas (`Guards.kt`), sets de chaves restritas
    (`LOWER_VISUAL_KEYS`, `LOWER_PII_KEYS`) devem ser `private val` pré-calculados, evitando alocações no loop recursivo.
-5. **Estabilidade de Ordenação em Filter:** A ordenação de seções em `Filter.kt` deve utilizar `sortedBy` sobre a ordem
-   de
-   slots do skeleton. Não introduzir comparadores secundários com busca linear O (N) (`indexOf`), aproveitando a
-   estabilidade
-   do TimSort.
-6. **Limpeza de Chaves Redis:** Assinaturas de métodos geradores de chaves (`RedisKeys.kt`) devem conter apenas
-   parâmetros efetivamente interpolados na chave, e garantir `!RedisKeys.containsUserId(key)`.
+   Os conjuntos de origem são `MvpCatalog.VISUAL_KEYS` e `MvpCatalog.PII_KEYS` (`sdui-core`, `model/Capability.kt`).
+5. **Estabilidade de Ordenação em Filter:** A ordenação de seções em `Filter.kt` deve utilizar `sortBy` (estável, sobre
+   a lista mutável) pela ordem de slots do skeleton. Não introduzir comparadores secundários com busca linear O (N)
+   (`indexOf`), aproveitando a estabilidade do TimSort.
+6. **Limpeza de Chaves Redis:** Assinaturas de métodos geradores de chaves (`object RedisKeys`, em `sdui-core`,
+   `model/Screen.kt`) devem conter apenas parâmetros efetivamente interpolados na chave, e garantir
+   `!RedisKeys.containsUserId(key)`.
 7. **Fechamento de Recursos:** Qualquer leitura de stream de arquivo ou classpath (`ClassPathResource`) deve ser
    envolvida
    por `.use { }` para garantir encerramento do recurso e evitar vazamentos de file descriptors.
@@ -356,8 +343,9 @@ Regras inegociáveis do ciclo de resiliência de integração, consolidadas na S
    favor do `503`. Indisponibilidade visível é preferível a incorreção silenciosa.
 6. **Publicação e Rollback Invalidam o Last Good:** junto com o cache de árvore e sempre depois do
    commit. Sem isso o fallback reintroduz a revisão que o operador acabou de retirar.
-7. **Idempotência é Reserva, Não Gravação no Fim:** `reserve` toma a chave antes do efeito e o retorno
-   do `putIfAbsent` é conferido; `complete` fecha no mesmo commit do efeito; `release` devolve a chave
+7. **Idempotência é Reserva, Não Gravação no Fim:** `reserve` toma a chave antes do efeito, de forma atômica (em memória
+   sob o lock de escrita da governança; no Mongo por `insertOne` com chave única), e o resultado da
+   reserva é conferido; `complete` fecha no mesmo commit do efeito; `release` devolve a chave
    quando a operação falha sem efeito. `find`-depois-`put` deixa dois retries concorrentes executarem.
 8. **Bulkhead Explícito no Plano de Leitura:** Virtual Threads removeram o pool limitado que fazia
    shedding. O teto de leituras simultâneas é declarado e separado do plano administrativo.
@@ -380,8 +368,10 @@ Regras inegociáveis consolidadas no ciclo de auditoria de concorrência e otimi
 3. **Poda e Retenção em Stores em Memória:**
     - `InMemoryProjectionStore` varre projeções vencidas no máximo uma vez por `sweepIntervalMs` (padrão 60 s),
       disparado por leitura ou escrita, e poda para metade no teto `maxEntries = 10_000`.
-    - `InMemoryAuditLogStore` é uma lista FIFO com teto de retenção (`maxEvents = 2_000`); o deslocamento no teto
-      custa ~250 ns por append (medido em 2026-09-23) e não justifica anel.
+   - `InMemoryAuditLogStore` é uma lista FIFO com teto de retenção (`maxEvents = 2_000`). A medição de ~250 ns por
+     append (2026-09-23) perdeu o registro de origem e o `append` copia a lista a cada chamada sob o lock global;
+     remedir com `:sdui-app:perfHarness -Pscenarios=audit` antes de decidir sobre anel (§23.14,
+     `docs/tasks/todo.md`).
 4. **Propriedades Imutáveis Pré-calculadas no Domínio:**
     - `Section` pré-calcula `val capability: Capability = Capability(type, typeVersion)` no construtor.
       Proibido instanciar novos objetos `Capability` a cada section no hot path do `Filter.filter`.
@@ -391,15 +381,18 @@ Regras inegociáveis consolidadas no ciclo de auditoria de concorrência e otimi
     - `SlotLayout.parse` e `ActorRole.parse` devem utilizar mapas indexados estáticos pré-computados (`BY_WIRE` e
       `BY_NAME`), eliminando alocações repetidas de strings e varreduras lineares $O (N)$.
 6. **Constantes Estáticas e Limite de Recursão:**
-    - `ScreenResponseMapper` e `JsonMaps` mantêm `BRASIL_OFFSET = ZoneOffset.of("-03:00")` e teto de
-      profundidade `depth > 32` em `toNode()`, blindando a JVM contra `StackOverflowError` sob payloads profundos.
+    - `ScreenResponseMapper` mantém `BRASIL_OFFSET = ZoneOffset.of("-03:00")` e teto de profundidade em `toNode()`
+      (acima de `MAX_RECURSION_DEPTH = 32` o nó vira `"[truncated]"`); `JsonMaps.toValue` tem o mesmo teto
+      (`MAX_DEPTH = 32`), mas recusa com `require`. Ambos blindam a JVM contra `StackOverflowError` sob payloads
+      profundos.
 7. **Limites Rígidos em Entradas:**
     - Expressões regulares de `BUILD` e `SCHEMA` em `Negotiate.kt` devem delimitar `^\d{1,10}$`.
     - `Capability.parseList` aplica `.take(MAX_HEADER_CAPABILITIES * 2)` logo na sequência para blindar o
       processamento contra cabeçalhos com milhares de itens duplicados.
 8. **Interrupção Antecipada em Validações:**
-    - `PropWalk.referencesForeignSection` deve interromper a busca (`found = true`) imediatamente ao detectar
-      a primeira violação, poupando travessias profundas desnecessárias em specs inválidos.
+    - `PropWalk.referencesForeignSection` deve interromper a busca imediatamente ao detectar a primeira violação
+      (curto-circuito de `any` em `anyString` e `anyKey`), poupando travessias profundas desnecessárias em specs
+      inválidos.
 
 ## 22. Diretrizes de Observabilidade e Instrumentação
 
@@ -419,7 +412,7 @@ Regras consolidadas no ciclo de observabilidade e instrumentação:
    garantindo indexação imediata de campos de MDC e rastreamento ponta a ponta em plataformas de telemetria.
 6. **Propagação de MDC no Fan-out (`MdcPropagatingExecutor`):** Virtual threads assíncronas de hidratação recebem o
    contexto MDC herdado da thread principal através de executor decorador em `adapters`, garantindo continuidade de
-   rastreabilidade sem violar a pureza do `sdui-orchestrator`.
+   rastreabilidade sem violar a pureza do pacote `orchestrator` do `sdui-app`.
 7. **Ponto de Entrada Carimbado (`entryPoint` no MDC):** Requisições e processos carimbam `entryPoint` (`home`,
    `catalog`, `surface`, `admin`, `actuator`, `http`, `seed`, `demo`, `invalidation_relay`) no MDC, eliminando
    diagnósticos por eliminação em sinks de logs compartilhados.
