@@ -10,6 +10,10 @@ homologadas e contexto dinâmico do cliente móvel.
 ## 📋 Sumário
 
 - [Visão Geral e Arquitetura](#-visão-geral-e-arquitetura)
+- [Fluxos de Sequência e Responsabilidades das Classes](#-fluxos-de-sequência-e-responsabilidades-das-classes)
+  - [1. Fluxo Completo de Composição no Hot Path (Runtime)](#1-fluxo-completo-de-composição-no-hot-path-runtime)
+  - [2. Fluxo de Criação e Publicação de Telas (Governança Maker-Checker)](#2-fluxo-de-criação-e-publicação-de-telas-governança-maker-checker)
+  - [3. Fluxo de Criação e Homologação de Novos Componentes](#3-fluxo-de-criação-e-homologação-de-novos-componentes)
 - [Escopo do Serviço e Superfícies Elegíveis](#-escopo-do-serviço-e-superfícies-elegíveis)
 - [Montagens Variáveis e Skeletons Suportados](#-montagens-variáveis-e-skeletons-suportados)
 - [Design System Nativo e Ausência de Atributos Visuais](#-design-system-nativo-e-ausência-de-atributos-visuais)
@@ -64,6 +68,289 @@ diretamente, não retém sessões de usuário e não persiste árvores hidratada
                   ▼
          6. COMPOSE   ── Serialização direta em ByteArray, geração de ETag e resposta HTTP.
 ```
+
+---
+
+## 🔄 Fluxos de Sequência e Responsabilidades das Classes
+
+Esta seção apresenta os diagramas de sequência detalhados para os três ciclos vitais do `ms-sdui-composer`,
+identificando com precisão a classe que inicia cada fluxo e a responsabilidade de cada classe participante.
+
+### 1. Fluxo Completo de Composição no Hot Path (Runtime)
+
+Representa o ciclo de vida completo de uma requisição de leitura disparada por um cliente móvel nativo (iOS ou Android)
+ao solicitar a árvore de componentes de uma surface (ex.: `GET /v1/surfaces/home` ou `GET /v1/surfaces/catalog`).
+
+#### Quem Inicia o Fluxo
+
+> **Classe Inicial:** [`SurfaceController`](sdui-app/src/main/kotlin/br/com/empresa/sdui/api/http/SurfaceController.kt)
+> É a porta de entrada REST HTTP de leitura. Recebe a chamada do app móvel com os cabeçalhos de negociação, valida
+> condicionalmente a ETag e delega a orquestração para o pipeline interno de composição.
+
+#### Diagrama de Sequência Mermaid (Hot Path)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor App as App Móvel (iOS/Android)
+  participant Ctrl as SurfaceController
+  participant Neg as Negotiate
+  participant Rate as TokenBucketRateLimiter
+  participant Svc as ComposeScreenService
+  participant Bulk as Bulkhead
+  participant Ptr as PointerStore
+  participant Sel as Select
+  participant Cache as HydratedScreenCache
+  participant Sflight as ComposeSingleflight
+  participant Filt as Filter
+  participant Hyd as HydrationCoordinator
+  participant Grd as Guards (Visual & Pii)
+  participant Fall as FallbackCoordinator
+  participant Last as LastGoodScreenStore
+  participant Json as DomainJson
+  App ->> Ctrl: GET /v1/surfaces/home (Headers de Negociação)
+  Ctrl ->> Svc: compose(surface, headers, ifNoneMatch)
+  Svc ->> Neg: parseHeaders(headers)
+  alt Headers Inválidos ou SemVer malformado
+    Neg -->> Svc: InvalidHeaders
+    Svc -->> Ctrl: ComposeResult.InvalidHeaders
+    Ctrl -->> App: HTTP 400 Bad Request
+  end
+  Svc ->> Rate: tryAcquire(clientKey)
+  alt Limite de taxa excedido
+    Rate -->> Svc: RateLimited
+    Svc -->> Ctrl: ComposeResult.RateLimited
+    Ctrl -->> App: HTTP 429 Too Many Requests (Retry-After com jitter)
+  end
+  Svc ->> Bulk: acquire()
+  Svc ->> Ptr: find(surface, platform, channel)
+  Ptr -->> Svc: Pointer ativo (specRevisionId)
+  Svc ->> Sel: selectSpec(specs, clientContext)
+  Sel -->> Svc: Spec compatível
+  Svc ->> Svc: ETagFactory.of(spec, capsHash)
+  alt If-None-Match == ETag
+    Svc -->> Ctrl: ComposeResult.NotModified
+    Ctrl -->> App: HTTP 304 Not Modified
+  end
+  Svc ->> Cache: get(specRevisionId, capsHash)
+  alt Cache Hit
+    Cache -->> Svc: ComposedScreen em cache
+    Svc ->> Svc: withRequester(client, locale, generatedAt)
+    Svc -->> Ctrl: ComposeResult.Success (fromCache = true)
+    Ctrl ->> Json: toByteArray(envelope)
+    Json -->> Ctrl: ByteArray
+    Ctrl -->> App: HTTP 200 OK (ByteArray pré-serializado)
+  else Cache Miss
+    Svc ->> Sflight: execute(key) { montagem fresca }
+    activate Sflight
+    Sflight ->> Filt: filterSections(spec.sections, skeleton, capabilities)
+    Filt -->> Sflight: Seções filtradas e ordenadas (TimSort)
+    Sflight ->> Hyd: hydrate(sections, context)
+    Hyd -->> Sflight: Seções hidratadas
+    Sflight ->> Grd: validate(sections) (VisualGuard & PiiGuard)
+    alt Falha em Slot Portante (header/accounts ausente) ou Falha Remota
+      Grd -->> Sflight: Falha estrutural
+      Sflight ->> Fall: escalate(surface, platform, channel)
+      Fall ->> Last: find(surface, platform, channel)
+      alt LastGood Disponível e Válido (< 24h)
+        Last -->> Fall: Tela LastGood
+        Fall -->> Svc: ComposeResult.Success (fallback = true)
+        Ctrl -->> App: HTTP 200 OK (Degradada / fallback: true)
+      else LastGood Inexistente ou Expirado
+        Fall -->> Svc: ComposeResult.Unavailable
+        Ctrl -->> App: HTTP 503 Service Unavailable (Retry-After com jitter)
+      end
+    else Composição Íntegra
+      Grd -->> Sflight: Árvore Aprovada
+      Sflight ->> Cache: put(specRevisionId, capsHash, screen)
+      Sflight ->> Last: put(surface, platform, channel, screen)
+      Sflight -->> Svc: ComposeResult.Success
+      deactivate Sflight
+      Svc -->> Ctrl: ComposeResult.Success
+      Ctrl ->> Json: toByteArray(envelope)
+      Json -->> Ctrl: ByteArray
+      Ctrl -->> App: HTTP 200 OK (ByteArray pré-serializado + ETag)
+    end
+  end
+```
+
+#### Para que Serve Cada Classe do Fluxo Hot Path
+
+| Classe / Componente                                                                                                   | Onde Fica (Pacote / Arquivo)                     | Para que Serve (Responsabilidade no Fluxo)                                                                                                                                                                                                               |
+|-----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`SurfaceController`](sdui-app/src/main/kotlin/br/com/empresa/sdui/api/http/SurfaceController.kt)                     | `br.com.empresa.sdui.api.http`                   | **Ponto de entrada HTTP**. Recebe requisições REST nas rotas `/v1/surfaces/home` e `/v1/surfaces/catalog`, encaminha cabeçalhos e devolve a resposta como `ByteArray` direto (passo único de serialização) para evitar double-serialization no hot path. |
+| [`CorrelationIdFilter`](sdui-app/src/main/kotlin/br/com/empresa/sdui/api/http/CorrelationIdFilter.kt)                 | `br.com.empresa.sdui.api.http`                   | **Filtro de Rastreabilidade**. Captura ou gera o identificador de correlação (`x-correlation-id`) e popula o MDC dos logs em cada requisição.                                                                                                            |
+| [`Negotiate`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/negotiate/Negotiate.kt)                              | `br.com.empresa.sdui.core.negotiate`             | **Validador de Contrato HTTP**. Faz o parsing defensivo dos 6 cabeçalhos obrigatórios do cliente móvel e converte a versão SemVer ordinal com segurança contra *integer overflow*.                                                                       |
+| [`TokenBucketRateLimiter`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/limit/TokenBucket.kt)                   | `br.com.empresa.sdui.core.limit`                 | **Proteção contra Sobrecarga**. Avalia a taxa de requisições por coorte (`plataforma:build`) utilizando o algoritmo Token Bucket com atomicidade por chave (`compute`) sem travas globais.                                                               |
+| [`ComposeScreenService`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/compose/ComposeScreenService.kt)   | `br.com.empresa.sdui.orchestrator.compose`       | **Orquestrador Central**. Conduz o pipeline completo de composição, gerenciando o orçamento temporal (`TimeBudget`), isolamento de concorrência, consulta de caches e acionamento de fallback.                                                           |
+| [`Bulkhead`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/limit/Bulkhead.kt)                                    | `br.com.empresa.sdui.core.limit`                 | **Isolamento de Recursos**. Semáforo de contenção de concorrência de leitura que protege o serviço contra exaustão de conexões e colapso sob alta concorrência.                                                                                          |
+| [`PointerStore`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/port/outbound/Stores.kt)                   | `br.com.empresa.sdui.orchestrator.port.outbound` | **Resolução de Versão Ativa**. Fornece o ponteiro (`Pointer`) que define qual identificador de revisão (`specRevisionId`) está em produção para a surface, plataforma e canal solicitados.                                                               |
+| [`Select`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/select/Select.kt)                                       | `br.com.empresa.sdui.core.select`                | **Motor de Targeting**. Seleciona de forma determinística a especificação de tela mais adequada para o aplicativo com base na versão do app, versão do sistema operacional e canal.                                                                      |
+| [`HydratedScreenCache`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/port/outbound/Stores.kt)            | `br.com.empresa.sdui.orchestrator.port.outbound` | **Cache de Árvore Pronta**. Armazena árvores já compostas e filtradas, chaveadas por revisão e hash de capacidades (`capsHash`). No acerto (`hit`), reidrata apenas campos voláteis do cliente (`withRequester`).                                        |
+| [`ComposeSingleflight`](sdui-app/src/main/kotlin/br/com/empresa/sdui/adapters/memory/InMemoryStores.kt)               | `br.com.empresa.sdui.adapters.memory`            | **Deduplicação de Requisições Concorrentes**. Agrupa requisições simultâneas idênticas em torno de um único líder de computação. Se um waiter sofrer timeout local, ele degrada isoladamente sem interromper o líder compartilhado.                      |
+| [`Filter`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/filter/Filter.kt)                                       | `br.com.empresa.sdui.core.filter`                | **Filtragem e Ordenação Estável**. Remove graciosamente seções cujos componentes não sejam suportados pelas capabilities do cliente móvel e reordena as seções pelo layout do skeleton via TimSort estável $O(N \log N)$.                                |
+| [`HydrationCoordinator`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/hydration/HydrationCoordinator.kt) | `br.com.empresa.sdui.orchestrator.hydration`     | **Coordenador de Hidratação Dinâmica**. Dispara o enriquecimento de dados em tempo de execução via pass-through local ou fan-out assíncrono delimitado por semáforo em Virtual Threads Java 25.                                                          |
+| [`Guards`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/Guards.kt)                                     | `br.com.empresa.sdui.core.validate`              | **Guardiões Estruturais e de Segurança**. `VisualGuard` impede qualquer propriedade de estilo CSS/visual nas props e `PiiGuard` veta termos regulados ou dados sensíveis (CPF, senhas, tokens). Também valida slots portantes obrigatórios.              |
+| [`FallbackCoordinator`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/compose/FallbackCoordinator.kt)     | `br.com.empresa.sdui.orchestrator.compose`       | **Escada de Degradação (ADR-007)**. Intercepta falhas graves de dependências ou esvaziamento de slots portantes (`header` e `accounts`), servindo a última tela válida ou emitindo HTTP 503 com `Retry-After` com jitter.                                |
+| [`LastGoodScreenStore`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/port/outbound/Stores.kt)            | `br.com.empresa.sdui.orchestrator.port.outbound` | **Armazém de Emergência**. Retém a última composição bem-sucedida da surface (com validade de até 24h) para evitar telas em branco para os usuários.                                                                                                     |
+| [`DomainJson`](sdui-app/src/main/kotlin/br/com/empresa/sdui/adapters/json/DomainJson.kt)                              | `br.com.empresa.sdui.adapters.json`              | **Serializador Jackson 3 Otimizado**. Serializa o envelope montado diretamente em bytes UTF-8 (`ByteArray`), eliminando reflexão e sobrecarga no retorno HTTP.                                                                                           |
+
+---
+
+### 2. Fluxo de Criação e Publicação de Telas (Governança Maker-Checker)
+
+Descreve como uma nova tela ou revisão de layout é criada por um autor (`MAKER`), validada contra as regras estruturais
+e aprovada por um conferente independente (`CHECKER`).
+
+#### Quem Inicia o Fluxo
+
+> **Classe Inicial:** [`AdminController`](sdui-app/src/main/kotlin/br/com/empresa/sdui/api/admin/AdminController.kt)
+> É a porta de entrada da API administrativa (`/admin/v1`). Recebe os comandos do autor e do conferente autenticados
+> pelos cabeçalhos `Actor-Id` e `Actor-Role`, impondo limites de admissão e garantindo idempotência em mutações.
+
+#### Diagrama de Sequência Mermaid (Governança)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Maker as Maker (Autor de Telas)
+  actor Checker as Checker (Conferente Técnico)
+  participant Admin as AdminController
+  participant Draft as DraftService
+  participant SkelVal as SkeletonValidator
+  participant SpecVal as SpecValidator
+  participant PubSvc as PublishService
+  participant Idemp as IdempotencyStore
+  participant Diff as SpecDiffFactory
+  participant Ptr as PointerStore
+  participant Inval as CacheInvalidator
+  participant Audit as AuditLogStore
+  Note over Maker, Admin: Fase 1: Criação e Validação do Rascunho (Draft)
+  Maker ->> Admin: PUT /admin/v1/skeletons/{id} (Skeleton JSON)
+  Admin ->> Draft: createSkeletonDraft(command)
+  Draft ->> SkelVal: validate(skeleton)
+  SkelVal -->> Draft: Válido (slots e layouts homologados)
+  Draft -->> Admin: Skeleton DRAFT salvo
+  Admin -->> Maker: HTTP 200 OK (Skeleton)
+  Maker ->> Admin: POST /admin/v1/specs (Spec JSON)
+  Admin ->> Draft: createSpecDraft(command)
+  Draft ->> SpecVal: validateDraft(spec, skeleton, catalog)
+  SpecVal -->> Draft: Válido (checksum sha256, props e actions conformes)
+  Draft -->> Admin: Spec DRAFT salva
+  Admin -->> Maker: HTTP 201 Created (Spec DRAFT)
+  Note over Maker, Admin: Fase 2: Abertura da Solicitação de Publicação
+  Maker ->> Admin: POST /admin/v1/publish-requests (Idempotency-Key)
+  Admin ->> PubSvc: open(command)
+  PubSvc ->> Idemp: reserve(idempotencyKey)
+  PubSvc ->> Diff: computeDiff(currentPublished, draft)
+  Diff -->> PubSvc: SpecDiff gerado
+  PubSvc -->> Admin: PublishRequest OPEN criado
+  Admin -->> Maker: HTTP 201 Created (pr_12345)
+  Note over Checker, Admin: Fase 3: Julgamento e Publicação Atômica
+  Checker ->> Admin: POST /admin/v1/publish-requests/pr_12345/approve (Idempotency-Key)
+  Admin ->> PubSvc: approve(command)
+  PubSvc ->> PubSvc: Validar Segregação Maker != Checker
+  PubSvc ->> SpecVal: Revalidar Spec contra Catálogo Vigente
+  PubSvc ->> Ptr: compareAndSet(currentVersion, newPointer)
+  Ptr -->> PubSvc: Ponteiro movido com sucesso (versão incrementada)
+  PubSvc ->> Inval: recordInvalidation(pointer, oldRevision)
+  Inval -->> PubSvc: Invalidação registrada na outbox
+  PubSvc ->> Audit: append(AuditEvent: APPROVE)
+  PubSvc ->> Idemp: complete(idempotencyKey, result)
+  PubSvc -->> Admin: PublishOutcome (PUBLISHED)
+  Admin -->> Checker: HTTP 200 OK (Publicado em Produção)
+```
+
+#### Para que Serve Cada Classe do Fluxo de Criação de Telas
+
+| Classe / Componente                                                                                           | Onde Fica (Pacote / Arquivo)                     | Para que Serve (Responsabilidade no Fluxo)                                                                                                                                                               |
+|---------------------------------------------------------------------------------------------------------------|--------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`AdminController`](sdui-app/src/main/kotlin/br/com/empresa/sdui/api/admin/AdminController.kt)                | `br.com.empresa.sdui.api.admin`                  | **Porta de Entrada Administrativa**. Expõe endpoints `/admin/v1/**` para manutenção de skeletons, specs, catálogo, pedidos de publicação, rollback e auditoria.                                          |
+| [`AdminRequestLimitFilter`](sdui-app/src/main/kotlin/br/com/empresa/sdui/api/http/AdminRequestLimitFilter.kt) | `br.com.empresa.sdui.api.http`                   | **Proteção de Admissão**. Impõe teto estrito de tamanho de corpo (1MB, ADR-022) antes da desserialização e limita mutações concorrentes para preservar o banco.                                          |
+| [`DraftService`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/admin/AdminServices.kt)            | `br.com.empresa.sdui.orchestrator.admin`         | **Gestão de Rascunhos**. Cria e atualiza skeletons e specs em estado `DRAFT`, impedindo a alteração in-place de versões já publicadas (imutabilidade estrita).                                           |
+| [`SkeletonValidator`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/SkeletonValidator.kt)       | `br.com.empresa.sdui.core.validate`              | **Validador de Esqueleto**. Garante que a ordem dos slots seja válida, que os slots portantes obrigatórios (`header` e `accounts`) estejam presentes e que os layouts dos slots sejam homologados.       |
+| [`SpecValidator`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/SpecValidator.kt)               | `br.com.empresa.sdui.core.validate`              | **Validador de Especificação**. Certifica que o `checksum` siga o formato `sha256:<hex>`, valida tipos contra o catálogo ativo, verifica required capabilities e confere integridade de actions e props. |
+| [`PublishService`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/admin/AdminServices.kt)          | `br.com.empresa.sdui.orchestrator.admin`         | **Motor de Governança Maker-Checker**. Orquestra abertura, aprovação e rejeição de pedidos, exigindo conferente independente e executando a transição de estado da spec.                                 |
+| [`SpecDiffFactory`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/diff/SpecDiffFactory.kt)               | `br.com.empresa.sdui.core.diff`                  | **Calculador de Diferenças Estruturais**. Computa o delta semântico entre duas revisões de uma spec (seções adicionadas, modificadas ou removidas) para apoiar a revisão do checker.                     |
+| [`IdempotencyStore`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/port/outbound/Stores.kt)       | `br.com.empresa.sdui.orchestrator.port.outbound` | **Garantia de Não-Duplicação**. Reserva a chave de idempotência (`Idempotency-Key`), armazena o hash da requisição e reproduz o resultado anterior em caso de retries de rede.                           |
+| [`PointerStore`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/port/outbound/Stores.kt)           | `br.com.empresa.sdui.orchestrator.port.outbound` | **Atualizador Atômico de Ponteiro**. Executa a troca de versão do ponteiro em produção através de compare-and-set atômico, impedindo conflitos concorrentes de publicação.                               |
+| [`CacheInvalidator`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/admin/CacheInvalidator.kt)     | `br.com.empresa.sdui.orchestrator.admin`         | **Invalidação Transacional**. Publica eventos de invalidação para limpar o cache de árvore pré-composta e colocar lápide (*tombstone*) no last good da revisão substituída.                              |
+| [`AuditLogStore`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/port/outbound/Stores.kt)          | `br.com.empresa.sdui.orchestrator.port.outbound` | **Trilha de Auditoria Append-Only**. Registra de forma indelével todos os eventos de governança com carimbo de tempo, identificador do operador, ação e IDs de revisão.                                  |
+| [`RollbackService`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/admin/AdminServices.kt)         | `br.com.empresa.sdui.orchestrator.admin`         | **Reversão Emergencial Atômica**. Permite ao checker reverter o ponteiro da surface para uma revisão estável anterior instantaneamente em resposta a incidentes de produção.                             |
+
+---
+
+### 3. Fluxo de Criação e Homologação de Novos Componentes
+
+Detalha a jornada completa para conceber, registrar e disponibilizar um novo componente visual Server-Driven UI
+(`type@typeVersion`), desde a homologação de contrato até sua entrega aos aplicativos móveis.
+
+#### Quem Inicia o Fluxo
+
+> **No Código / Contrato:** Inicia nas definições centrais de contrato em `sdui-core` ([
+`ComponentContracts`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/model/Surface.kt), [
+`Surfaces`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/model/Surface.kt), [
+`ComponentPropsValidator`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/ComponentPropsValidator.kt)).
+> **Na Operação de Catálogo:** Inicia no [
+`AdminController.upsertComponent`](sdui-app/src/main/kotlin/br/com/empresa/sdui/api/admin/AdminController.kt) executado
+> por um operador `MAKER` via `PUT /admin/v1/catalog/components/{type}/{version}`.
+
+#### Diagrama de Sequência Mermaid (Componentes)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor DS as Engenharia / Design System
+  participant Core as sdui-core (ComponentContracts & PropsValidator)
+  actor Maker as Maker Administrativo
+  participant Admin as AdminController
+  participant Draft as DraftService
+  participant CatVal as CatalogValidator
+  participant CatStore as CatalogStore
+  actor App as Apps Móveis (iOS / Android)
+  participant HotPath as Pipeline Hot Path (Filter)
+  Note over DS, Core: Etapa 1: Definição de Contrato e Regras no Core
+  DS ->> Core: 1. Escrever contrato em docs/contratos/<component>-v<N>.md
+  DS ->> Core: 2. Adicionar type@typeVersion em ComponentContracts.APPROVED
+  DS ->> Core: 3. Associar tipo aos slots permitidos em Surfaces.kt
+  DS ->> Core: 4. Implementar regras de props em ComponentPropsValidator.kt
+  Note over Maker, CatStore: Etapa 2: Cadastro no Catálogo do Servidor
+  Maker ->> Admin: PUT /admin/v1/catalog/components/{type}/{v} (status: ACTIVE)
+  Admin ->> Draft: upsertComponent(command)
+  Draft ->> CatVal: validate(newCatalog)
+  CatVal ->> Core: ComponentContracts.isApproved(type, v)?
+  Core -->> CatVal: Sim (Aprovado na allowlist)
+  CatVal -->> Draft: Catálogo Válido
+  Draft ->> CatStore: save(catalog)
+  CatStore -->> Draft: Catálogo Atualizado
+  Draft -->> Admin: Componente Ativo Registrado
+  Admin -->> Maker: HTTP 200 OK (Catálogo Atualizado)
+  Note over App, HotPath: Etapa 3: Homologação no App e Entrega por Capability
+  App ->> App: Implementa o Composable / View nativo do componente
+  App ->> HotPath: GET /v1/surfaces/home (Component-Capabilities: type@version)
+  HotPath ->> HotPath: Filter.filterSections(sections, capabilities)
+  alt App declara a Capability do componente
+    HotPath -->> App: HTTP 200 OK com a nova seção renderizável
+  else App legado sem a Capability (Slot Opcional)
+    HotPath -->> App: HTTP 200 OK com omissão graciosa da seção
+  else App legado sem a Capability (Slot Portante)
+    HotPath -->> App: Escada de Fallback (Cache -> LastGood -> 503)
+  end
+```
+
+#### Para que Serve Cada Classe do Fluxo de Criação de Componentes
+
+| Classe / Componente                                                                                                 | Onde Fica (Pacote / Arquivo)                     | Para que Serve (Responsabilidade no Fluxo)                                                                                                                                                                                         |
+|---------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`ComponentContracts`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/model/Surface.kt)                         | `br.com.empresa.sdui.core.model`                 | **Allowlist Imutável de Componentes**. Registra formalmente todos os componentes aprovados (`APPROVED`). Impede que nomes livres ou componentes não homologados sejam inseridos no catálogo.                                       |
+| [`Surfaces`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/model/Surface.kt)                                   | `br.com.empresa.sdui.core.model`                 | **Vocabulário de Superfícies e Slots**. Mapeia quais tipos de componentes são autorizados em cada slot e surface (ex.: `account_card` no slot `accounts`), evitando montagens estruturalmente incompatíveis.                       |
+| [`ComponentPropsValidator`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/ComponentPropsValidator.kt) | `br.com.empresa.sdui.core.validate`              | **Validador de Propriedades do Componente**. Valida as propriedades (`props`) de cada seção antes da publicação (campos obrigatórios, limites de texto, ausência de CSS e ações permitidas).                                       |
+| [`AdminController`](sdui-app/src/main/kotlin/br/com/empresa/sdui/api/admin/AdminController.kt)                      | `br.com.empresa.sdui.api.admin`                  | **Borda REST de Catálogo**. Recebe a requisição `PUT /admin/v1/catalog/components/{type}/{version}` para ativar ou descontinuar o componente no ecossistema.                                                                       |
+| [`DraftService`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/admin/AdminServices.kt)                  | `br.com.empresa.sdui.orchestrator.admin`         | **Serviço de Atualização de Catálogo**. Executa o upsert do componente no catálogo corrente e submete a nova estrutura agregada à validação estrita.                                                                               |
+| [`CatalogValidator`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/validate/CatalogValidator.kt)               | `br.com.empresa.sdui.core.validate`              | **Guardião de Catálogo**. Veta qualquer inserção de componente que não possua contrato aprovado em `ComponentContracts.isApproved`, mesmo que em estado inativo.                                                                   |
+| [`CatalogStore`](sdui-app/src/main/kotlin/br/com/empresa/sdui/orchestrator/port/outbound/Stores.kt)                 | `br.com.empresa.sdui.orchestrator.port.outbound` | **Armazenamento de Catálogo**. Persiste a lista oficial de tipos e versões homologadas em memória ou MongoDB para consulta das validações de governança.                                                                           |
+| [`CapabilityMatrix`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/compat/CapabilityMatrix.kt)                 | `br.com.empresa.sdui.core.compat`                | **Matriz de Compatibilidade Móvel**. Gerencia o universo de capabilities conhecidas. Componentes novos **não** são concedidos automaticamente a nenhuma versão de app móvel, exigindo declaração ativa do cliente.                 |
+| [`Filter`](sdui-core/src/main/kotlin/br/com/empresa/sdui/core/filter/Filter.kt)                                     | `br.com.empresa.sdui.core.filter`                | **Garantia de Entrega Segura no App**. No hot path, confronta a section com as capabilities declaradas pelo cliente móvel: se o app suportar, o componente é entregue; caso contrário, é omitido graciosamente sem quebrar a tela. |
 
 ---
 
@@ -227,10 +514,15 @@ Started SduiApplication in 0.852 seconds (process running for 1.15)
 
 Para validar a integridade da aplicação:
 
+<details>
+<summary><b>Visualizar comando cURL de health check</b></summary>
+
 ```powershell
 curl http://localhost:8080/actuator/health
 # {"status":"UP"}
 ```
+
+</details>
 
 ### Subindo via Docker Compose
 
@@ -338,6 +630,9 @@ O BFF Server-Driven UI exige **6 cabeçalhos de negociação obrigatórios** par
 
 #### Exemplo de Chamada com cURL
 
+<details>
+<summary><b>Visualizar comando cURL (GET /v1/surfaces/home)</b></summary>
+
 ```bash
 curl -X GET http://localhost:8080/v1/surfaces/home \
   -H "API-Version: 1" \
@@ -350,6 +645,8 @@ curl -X GET http://localhost:8080/v1/surfaces/home \
   -H "SDUI-Channel: stable" \
   -i
 ```
+
+</details>
 
 #### Exemplo de Resposta: HTTP 200 OK
 
@@ -466,6 +763,9 @@ curl -X GET http://localhost:8080/v1/surfaces/home \
 
 Para obter a tela de catálogo comercial (`catalog`, ADR-020):
 
+<details>
+<summary><b>Visualizar comando cURL (GET /v1/surfaces/catalog)</b></summary>
+
 ```bash
 curl -X GET http://localhost:8080/v1/surfaces/catalog \
   -H "API-Version: 1" \
@@ -478,11 +778,16 @@ curl -X GET http://localhost:8080/v1/surfaces/catalog \
   -i
 ```
 
+</details>
+
 ---
 
 ### 3. Chamada Condicional com ETag (HTTP 304)
 
 Quando o cliente já possui a tela em cache, envia o cabeçalho `If-None-Match`:
+
+<details>
+<summary><b>Visualizar comando cURL condicional com ETag (HTTP 304)</b></summary>
 
 ```bash
 curl -X GET http://localhost:8080/v1/surfaces/home \
@@ -495,6 +800,8 @@ curl -X GET http://localhost:8080/v1/surfaces/home \
   -H "If-None-Match: W/\"rev_01K8HOMEMAIN-ios-3-ad4e3e6a255a\"" \
   -i
 ```
+
+</details>
 
 **Resposta HTTP 304 Not Modified:**
 
@@ -511,12 +818,17 @@ Vary: API-Version, UI-Schema-Version, Client-Platform, Client-Version, Client-Bu
 
 Se qualquer cabeçalho obrigatório faltar ou for inválido:
 
+<details>
+<summary><b>Visualizar comando cURL com headers ausentes (HTTP 400)</b></summary>
+
 ```bash
 curl -X GET http://localhost:8080/v1/surfaces/home \
   -H "API-Version: 1" \
   -H "Client-Platform: ios" \
   -i
 ```
+
+</details>
 
 **Resposta HTTP 400 Bad Request:**
 
@@ -578,6 +890,9 @@ Toda alteração de catálogo, skeleton ou especificação passa por governança
 
 #### 1. Criar Rascunho de Spec (Maker)
 
+<details>
+<summary><b>Visualizar comando cURL para criação de rascunho de spec (POST /admin/v1/specs)</b></summary>
+
 ```bash
 curl -X POST http://localhost:8080/admin/v1/specs \
   -H "Content-Type: application/json" \
@@ -623,7 +938,12 @@ curl -X POST http://localhost:8080/admin/v1/specs \
   }'
 ```
 
+</details>
+
 #### 2. Abrir Solicitação de Publicação (Maker)
+
+<details>
+<summary><b>Visualizar comando cURL de solicitação de publicação (POST /admin/v1/publish-requests)</b></summary>
 
 ```bash
 curl -X POST http://localhost:8080/admin/v1/publish-requests \
@@ -638,7 +958,12 @@ curl -X POST http://localhost:8080/admin/v1/publish-requests \
   }'
 ```
 
+</details>
+
 #### 3. Aprovar Publicação (Checker)
+
+<details>
+<summary><b>Visualizar comando cURL de aprovação de publicação (POST /admin/v1/publish-requests/{id}/approve)</b></summary>
 
 ```bash
 curl -X POST http://localhost:8080/admin/v1/publish-requests/pr_12345/approve \
@@ -647,11 +972,16 @@ curl -X POST http://localhost:8080/admin/v1/publish-requests/pr_12345/approve \
   -H "Idempotency-Key: idemp_app_001"
 ```
 
+</details>
+
 ---
 
 ### Rollback Atômico com Idempotência
 
 Para reverter instantaneamente o ponteiro de uma surface para a revisão estável anterior:
+
+<details>
+<summary><b>Visualizar comando cURL de rollback de ponteiro (POST /admin/v1/pointers/...:rollback)</b></summary>
 
 ```bash
 curl -X POST http://localhost:8080/admin/v1/pointers/home/ios/stable:rollback \
@@ -662,17 +992,24 @@ curl -X POST http://localhost:8080/admin/v1/pointers/home/ios/stable:rollback \
   -d '{ "reason": "Incidente em producao - retorno para revisao estavel anterior" }'
 ```
 
+</details>
+
 ---
 
 ### Consulta de Auditoria
 
 Consulta append-only de todos os eventos de governança:
 
+<details>
+<summary><b>Visualizar comando cURL de consulta de auditoria (GET /admin/v1/audit)</b></summary>
+
 ```bash
 curl -X GET http://localhost:8080/admin/v1/audit \
   -H "Actor-Id: carlos.auditor" \
   -H "Actor-Role: AUDITOR"
 ```
+
+</details>
 
 ---
 
