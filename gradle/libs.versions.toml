@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.4.20"
 spring-boot = "4.1.1"
-archunit = "1.5.0"
+archunit = "1.5.1"
 
 [libraries]
 # Plugins usados por build-logic
