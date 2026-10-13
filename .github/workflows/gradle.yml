@@ -54,7 +54,7 @@ jobs:
       # Relatórios de teste de todos os módulos, só quando algo falha.
       - name: Upload test reports
         if: failure()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: test-reports
           path: '**/build/reports/tests/'
@@ -64,7 +64,7 @@ jobs:
       # Projeto multi-módulo: o único executável é o bootJar do sdui-bootstrap.
       - name: Archive bootJar
         if: success()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: sdui-bootstrap-jar
           path: |
